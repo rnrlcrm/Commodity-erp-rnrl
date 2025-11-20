@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SettlementPosted",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "settlement_id", "contract_id", "net_amount"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["SettlementPosted"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "settlement_id": {"type": "string", "format": "uuid"},
+    "contract_id": {"type": "string", "format": "uuid"},
+    "net_amount": {"type": "number"},
+    "currency": {"type": "string", "default": "INR"},
+    "org_id": {"type": "string", "format": "uuid"}
+  }
+}

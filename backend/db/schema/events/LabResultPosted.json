@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LabResultPosted",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "sample_id", "result_id", "grade"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["LabResultPosted"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "sample_id": {"type": "string", "format": "uuid"},
+    "result_id": {"type": "string", "format": "uuid"},
+    "grade": {"type": "string"},
+    "moisture_pct": {"type": "number"},
+    "trash_pct": {"type": "number"},
+    "org_id": {"type": "string", "format": "uuid"},
+    "location_id": {"type": "string", "format": "uuid"}
+  }
+}

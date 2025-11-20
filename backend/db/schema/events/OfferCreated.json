@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OfferCreated",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "offer_id", "seller_id", "commodity", "quantity", "base_price"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["OfferCreated"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "offer_id": {"type": "string", "format": "uuid"},
+    "seller_id": {"type": "string", "format": "uuid"},
+    "commodity": {"type": "string"},
+    "quantity": {"type": "number"},
+    "uom": {"type": "string", "default": "kg"},
+    "base_price": {"type": "number"},
+    "currency": {"type": "string", "default": "INR"},
+    "org_id": {"type": "string", "format": "uuid"},
+    "location_id": {"type": "string", "format": "uuid"}
+  }
+}

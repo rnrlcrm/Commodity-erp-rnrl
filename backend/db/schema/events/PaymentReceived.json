@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PaymentReceived",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "payment_id", "contract_id", "amount", "currency"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["PaymentReceived"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "payment_id": {"type": "string", "format": "uuid"},
+    "contract_id": {"type": "string", "format": "uuid"},
+    "amount": {"type": "number"},
+    "currency": {"type": "string", "default": "INR"},
+    "method": {"type": "string"},
+    "utr": {"type": "string"},
+    "org_id": {"type": "string", "format": "uuid"}
+  }
+}

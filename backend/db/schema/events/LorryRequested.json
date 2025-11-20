@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LorryRequested",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "request_id", "contract_id", "quantity"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["LorryRequested"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "request_id": {"type": "string", "format": "uuid"},
+    "contract_id": {"type": "string", "format": "uuid"},
+    "quantity": {"type": "number"},
+    "uom": {"type": "string", "default": "kg"},
+    "pickup_location_id": {"type": "string", "format": "uuid"},
+    "drop_location_id": {"type": "string", "format": "uuid"},
+    "org_id": {"type": "string", "format": "uuid"}
+  }
+}
