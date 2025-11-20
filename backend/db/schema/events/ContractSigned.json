@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContractSigned",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "contract_id", "buyer_id", "seller_id", "signature_type"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["ContractSigned"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "contract_id": {"type": "string", "format": "uuid"},
+    "buyer_id": {"type": "string", "format": "uuid"},
+    "seller_id": {"type": "string", "format": "uuid"},
+    "effective_date": {"type": "string", "format": "date"},
+    "signature_type": {"type": "string", "enum": ["digital", "manual"]},
+    "org_id": {"type": "string", "format": "uuid"},
+    "location_id": {"type": "string", "format": "uuid"},
+    "amendment": {"type": "boolean", "default": false}
+  }
+}

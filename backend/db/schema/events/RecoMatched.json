@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RecoMatched",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "reconciliation_id", "payment_id", "invoice_id"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["RecoMatched"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "reconciliation_id": {"type": "string", "format": "uuid"},
+    "payment_id": {"type": "string", "format": "uuid"},
+    "invoice_id": {"type": "string", "format": "uuid"},
+    "match_confidence": {"type": "number"},
+    "org_id": {"type": "string", "format": "uuid"}
+  }
+}

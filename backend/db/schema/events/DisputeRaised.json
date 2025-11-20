@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DisputeRaised",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "dispute_id", "raised_by", "subject"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"type": "string", "enum": ["DisputeRaised"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "dispute_id": {"type": "string", "format": "uuid"},
+    "raised_by": {"type": "string", "format": "uuid"},
+    "subject": {"type": "string"},
+    "contract_id": {"type": "string", "format": "uuid"},
+    "org_id": {"type": "string", "format": "uuid"},
+    "severity": {"type": "string", "enum": ["low", "medium", "high"]}
+  }
+}
