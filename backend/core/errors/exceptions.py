@@ -11,3 +11,9 @@ class ValidationError(DomainError):
 
 class NotFoundError(DomainError):
     code = "not_found"
+
+class BadRequestException(DomainError):
+    code = "bad_request"
+
+class NotFoundException(DomainError):
+    code = "not_found"

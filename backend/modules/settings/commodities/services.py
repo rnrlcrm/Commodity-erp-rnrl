@@ -12,8 +12,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.events.emitter import EventEmitter
-from backend.modules.commodities.ai_helpers import CommodityAIHelper
-from backend.modules.commodities.events import (
+from backend.modules.settings.commodities.ai_helpers import CommodityAIHelper
+from backend.modules.settings.commodities.events import (
     CommodityCreated,
     CommodityDeleted,
     CommodityParameterAdded,
@@ -25,7 +25,7 @@ from backend.modules.commodities.events import (
     TradeTermsCreated,
     TradeTermsUpdated,
 )
-from backend.modules.commodities.models import (
+from backend.modules.settings.commodities.models import (
     BargainType,
     Commodity,
     CommodityParameter,
@@ -38,7 +38,7 @@ from backend.modules.commodities.models import (
     TradeType,
     WeightmentTerm,
 )
-from backend.modules.commodities.repositories import (
+from backend.modules.settings.commodities.repositories import (
     BargainTypeRepository,
     CommodityParameterRepository,
     CommodityRepository,
@@ -51,7 +51,7 @@ from backend.modules.commodities.repositories import (
     TradeTypeRepository,
     WeightmentTermRepository,
 )
-from backend.modules.commodities.schemas import (
+from backend.modules.settings.commodities.schemas import (
     BargainTypeCreate,
     BargainTypeUpdate,
     CommodityCreate,

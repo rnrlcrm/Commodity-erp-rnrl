@@ -152,6 +152,18 @@ class SystemParameterResponse(SystemParameterCreate):
     model_config = {"from_attributes": True}
 
 
+class SystemParameterUpdate(BaseModel):
+    """Update system parameter schema"""
+    commodity_category: Optional[str] = Field(None, min_length=1, max_length=100)
+    parameter_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    parameter_type: Optional[str] = Field(None, pattern="^(NUMERIC|TEXT|RANGE)$")
+    unit: Optional[str] = Field(None, max_length=50)
+    typical_range_min: Optional[Decimal] = None
+    typical_range_max: Optional[Decimal] = None
+    description: Optional[str] = None
+    source: Optional[str] = Field(None, max_length=100)
+
+
 # ==================== Trade Type Schemas ====================
 
 class TradeTypeBase(BaseModel):
@@ -427,3 +439,32 @@ class ParameterSuggestion(BaseModel):
     typical_range: Optional[List[Decimal]]
     mandatory: bool = False
     description: Optional[str] = None
+
+
+class BulkUploadResult(BaseModel):
+    """Result of bulk upload operation"""
+    success_count: int
+    error_count: int
+    errors: List[str]
+
+
+# ==================== Aliases for backward compatibility ====================
+# Router uses longer names, schemas use shorter names
+
+CommodityVarietyCreate = VarietyCreate
+CommodityVarietyUpdate = VarietyUpdate
+CommodityVarietyResponse = VarietyResponse
+
+CommodityParameterCreate = ParameterCreate
+CommodityParameterUpdate = ParameterUpdate
+CommodityParameterResponse = ParameterResponse
+
+SystemCommodityParameterCreate = SystemParameterCreate
+SystemCommodityParameterUpdate = SystemParameterUpdate  
+SystemCommodityParameterResponse = SystemParameterResponse
+
+CommissionStructureCreate = CommissionCreate
+CommissionStructureUpdate = CommissionUpdate
+CommissionStructureResponse = CommissionResponse
+
+BulkOperationResult = BulkUploadResult  # Alias

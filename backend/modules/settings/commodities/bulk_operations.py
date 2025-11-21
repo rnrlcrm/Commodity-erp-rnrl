@@ -14,26 +14,26 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
-from backend.modules.commodities.models import Commodity, CommodityVariety
-from backend.modules.commodities.repositories import (
+from backend.modules.settings.commodities.models import Commodity, CommodityVariety
+from backend.modules.settings.commodities.repositories import (
     CommodityRepository,
     CommodityVarietyRepository,
 )
-from backend.modules.commodities.schemas import CommodityCreate, CommodityVarietyCreate
+from backend.modules.settings.commodities.schemas import CommodityCreate, VarietyCreate
 
 
 class BulkOperationService:
     """Service for bulk import/export operations"""
     
-    def __init__(self, db: AsyncSession, current_user_id: UUID):
+    def __init__(self, db: Session, current_user_id: UUID):
         self.db = db
         self.current_user_id = current_user_id
         self.commodity_repo = CommodityRepository(db)
         self.variety_repo = CommodityVarietyRepository(db)
     
-    async def export_commodities_to_excel(
+    def export_commodities_to_excel(
         self,
         commodities: List[Commodity],
         include_varieties: bool = False,
@@ -127,7 +127,7 @@ class BulkOperationService:
         excel_file.seek(0)
         return excel_file.read()
     
-    async def import_commodities_from_excel(
+    def import_commodities_from_excel(
         self,
         file_content: bytes,
         skip_errors: bool = True,
@@ -171,8 +171,8 @@ class BulkOperationService:
                 )
                 
                 # Create commodity (using repository directly for bulk)
-                commodity = await self.commodity_repo.create(**commodity_data.model_dump())
-                await self.db.flush()
+                commodity = self.commodity_repo.create(**commodity_data.model_dump())
+                self.db.flush()
                 
                 results["success"] += 1
                 results["created_ids"].append(str(commodity.id))
@@ -186,16 +186,16 @@ class BulkOperationService:
                 })
                 
                 if not skip_errors:
-                    await self.db.rollback()
+                    self.db.rollback()
                     raise
         
         # Commit all successful imports
         if results["success"] > 0:
-            await self.db.commit()
+            self.db.commit()
         
         return results
     
-    async def get_excel_template(self) -> bytes:
+    def get_excel_template(self) -> bytes:
         """
         Generate Excel template for commodity import.
         

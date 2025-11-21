@@ -16,7 +16,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from backend.modules.commodities.models import Commodity
+from backend.modules.settings.commodities.models import Commodity
 
 
 class CommodityFilter:

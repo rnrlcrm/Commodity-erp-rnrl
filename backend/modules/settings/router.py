@@ -9,9 +9,11 @@ from backend.modules.settings.schemas.settings_schemas import LoginRequest, Sign
 from backend.modules.settings.services.settings_services import AuthService
 from backend.core.auth.deps import get_current_user
 from backend.modules.settings.organization.router import router as organization_router
+from backend.modules.settings.commodities.router import router as commodities_router
 
 router = APIRouter()
 router.include_router(organization_router)
+router.include_router(commodities_router)
 
 
 @router.get("/health", tags=["health"])  # lightweight placeholder
@@ -60,15 +62,15 @@ def refresh(token: str, db: Session = Depends(get_db)) -> TokenResponse:  # noqa
     return TokenResponse(access_token=access, refresh_token=new_refresh, expires_in=expires_in)
 
 
-@router.post("/auth/logout", status_code=204, tags=["auth"])
-def logout(token: str, db: Session = Depends(get_db)) -> None:
+@router.post("/auth/logout", tags=["auth"])
+def logout(token: str, db: Session = Depends(get_db)) -> dict:
     svc = AuthService(db)
     try:
         svc.logout(token)
     except ValueError:
         pass
     audit_log("user.logout", None, "refresh_token", None, {})
-
+    return {"message": "Logged out successfully"}
 
 @router.get("/auth/me", response_model=UserOut, tags=["auth"])
 def me(user=Depends(get_current_user)) -> UserOut:  # noqa: ANN001

@@ -22,8 +22,8 @@ Base = declarative_base()
 
 def init_db() -> None:
 	"""Create tables for the scaffolding phase (until Alembic migrations are added)."""
+	from backend.modules.settings.organization.models import Organization  # noqa: F401
 	from backend.modules.settings.models.settings_models import (  # noqa: F401
-		Organization,
 		Location,
 		Permission,
 		Role,

@@ -4,7 +4,7 @@ Commodity Master Module
 Manages commodities, varieties, quality parameters, trade terms, and AI-powered intelligence.
 """
 
-from backend.modules.commodities.models import (
+from backend.modules.settings.commodities.models import (
     BargainType,
     Commodity,
     CommodityParameter,
@@ -17,7 +17,7 @@ from backend.modules.commodities.models import (
     TradeType,
     WeightmentTerm,
 )
-from backend.modules.commodities.router import router
+from backend.modules.settings.commodities.router import router
 
 __all__ = [
     "router",

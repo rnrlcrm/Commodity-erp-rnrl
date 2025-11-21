@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cotton-erp-backend"
+version = "0.1.0"
+description = "Cotton ERP Backend API"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools]
+packages = ["backend"]
+package-dir = {"backend" = "."}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

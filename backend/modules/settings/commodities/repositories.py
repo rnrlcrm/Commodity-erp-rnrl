@@ -12,7 +12,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.modules.commodities.models import (
+from backend.modules.settings.commodities.models import (
     BargainType,
     Commodity,
     CommodityParameter,

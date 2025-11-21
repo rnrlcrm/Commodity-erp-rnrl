@@ -31,7 +31,7 @@ class Event(Base):
     timestamp = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"), index=True)
     version = Column(Integer, nullable=False, default=1)
     data = Column(JSONB, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    event_metadata = Column(JSONB, nullable=True)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
 
@@ -71,7 +71,7 @@ class EventStore:
             aggregate_type=aggregate_type,
             user_id=user_id,
             data=data,
-            metadata=metadata,
+            event_metadata=metadata,
             version=version,
         )
         

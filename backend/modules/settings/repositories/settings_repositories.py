@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.modules.settings.organization.models import Organization
 from backend.modules.settings.models.settings_models import (
-	Organization,
 	Location,
 	Permission,
 	Role,

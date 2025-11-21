@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from backend.modules.commodities.schemas import (
+from backend.modules.settings.commodities.schemas import (
     CategorySuggestion,
     HSNSuggestion,
     ParameterSuggestion,
