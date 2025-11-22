@@ -20,15 +20,16 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.auth.deps import get_current_user
 from backend.core.events.emitter import EventEmitter
 from backend.db.session import get_db
-from backend.modules.partners.enums import PartnerStatus, PartnerType, KYCStatus
+from backend.modules.partners.enums import PartnerStatus, PartnerType, KYCStatus, RiskCategory
 from backend.modules.partners.schemas import (
     AmendmentRequest,
     ApprovalDecision,

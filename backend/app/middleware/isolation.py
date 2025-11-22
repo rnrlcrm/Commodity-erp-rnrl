@@ -75,6 +75,8 @@ class DataIsolationMiddleware(BaseHTTPMiddleware):
         '/api/v1/auth/register',
         '/api/v1/auth/forgot-password',
         '/api/v1/auth/reset-password',
+        '/api/v1/auth/send-otp',
+        '/api/v1/auth/verify-otp',
     ]
     
     def __init__(self, app: ASGIApp) -> None:

@@ -8,12 +8,14 @@ Endpoints:
 - GET /auth/me - Get current user details
 """
 
+from typing import AsyncGenerator
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 
 from backend.core.auth.deps import get_current_user
-from backend.db.session import get_db
+from backend.db import get_db
 from backend.modules.user_onboarding.schemas.auth_schemas import (
     AuthTokenResponse,
     CompleteProfileRequest,
@@ -30,22 +32,22 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 # ===== DEPENDENCIES =====
 
-async def get_redis() -> redis.Redis:
+async def get_redis() -> AsyncGenerator[redis.Redis, None]:
     """
     Get Redis client for OTP storage
     
     TODO: Configure Redis connection from settings
     For now using localhost defaults
     """
+    redis_client = redis.from_url(
+        "redis://localhost:6379",
+        encoding="utf-8",
+        decode_responses=False
+    )
     try:
-        redis_client = redis.from_url(
-            "redis://localhost:6379",
-            encoding="utf-8",
-            decode_responses=False
-        )
         yield redis_client
     finally:
-        await redis_client.close()
+        await redis_client.aclose()
 
 
 # ===== ENDPOINTS =====
@@ -82,7 +84,12 @@ async def send_otp(
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """Send OTP to mobile number"""
-    full_mobile = f"{request.country_code}{request.mobile_number}"
+    # Handle mobile number formatting
+    mobile = request.mobile_number.strip()
+    if not mobile.startswith("+"):
+        full_mobile = f"{request.country_code}{mobile}"
+    else:
+        full_mobile = mobile
     
     otp_service = OTPService(redis_client)
     
@@ -147,25 +154,33 @@ async def verify_otp(
     # Get or create user
     user_data = await user_service.get_or_create_user(request.mobile_number)
     
-    # Generate JWT token
-    access_token = user_service.generate_jwt_token(
-        user_id=user_data["user_id"],
-        mobile_number=request.mobile_number
-    )
-    
-    # Determine next step
-    next_step = user_service.determine_next_step(
-        is_new_user=user_data["is_new_user"],
-        profile_complete=user_data["profile_complete"]
-    )
+    # For new users, generate a temporary token with mobile number
+    # For existing users, use user_id
+    if user_data["is_new_user"] and user_data.get("needs_onboarding"):
+        # New user needs onboarding - create token with mobile as subject
+        access_token = user_service.generate_jwt_token(
+            user_id=request.mobile_number,  # Use mobile as temp ID
+            mobile_number=request.mobile_number
+        )
+        next_step = "start_onboarding"
+    else:
+        # Existing user - normal flow
+        access_token = user_service.generate_jwt_token(
+            user_id=str(user_data["user_id"]),
+            mobile_number=request.mobile_number
+        )
+        next_step = user_service.determine_next_step(
+            is_new_user=user_data["is_new_user"],
+            profile_complete=user_data["profile_complete"]
+        )
     
     return AuthTokenResponse(
         access_token=access_token,
         token_type="bearer",
-        user_id=user_data["user_id"],
+        user_id=user_data.get("user_id"),
         mobile_number=request.mobile_number,
         is_new_user=user_data["is_new_user"],
-        profile_complete=user_data["profile_complete"],
+        profile_complete=user_data.get("profile_complete", False),
         next_step=next_step
     )
 

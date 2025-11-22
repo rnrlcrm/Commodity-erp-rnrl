@@ -247,6 +247,22 @@ class RiskAssessment(BaseModel):
     recommendation: str
 
 
+class OnboardingApplicationResponse(BaseModel):
+    """Onboarding application status response"""
+    id: UUID
+    partner_type: PartnerType
+    legal_name: str
+    country: str
+    status: str
+    onboarding_stage: str
+    risk_score: Optional[int] = None
+    risk_category: Optional[RiskCategory] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
 # ============================================
 # BUSINESS PARTNER RESPONSES
 # ============================================
@@ -446,7 +462,7 @@ class BusinessPartnerListResponse(BaseModel):
 
 class ApprovalDecision(BaseModel):
     """Manager approval decision"""
-    decision: str = Field(..., regex="^(approve|reject|request_info)$")
+    decision: str = Field(..., pattern="^(approve|reject|request_info)$")
     notes: Optional[str] = None
     credit_limit: Optional[Decimal] = None  # For buyers
     payment_terms_days: Optional[int] = None

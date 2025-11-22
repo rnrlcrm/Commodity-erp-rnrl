@@ -55,28 +55,20 @@ class UserAuthService:
                 "role": user.role
             }
         
-        # Create new user
-        from backend.modules.settings.models.settings_models import User
-        
-        new_user = User(
-            mobile_number=mobile_number,
-            is_active=True,
-            is_verified=True,  # Mobile verified via OTP
-            role="partner_user",  # Default role for external users
-            created_at=datetime.utcnow()
-        )
-        
-        self.db.add(new_user)
-        await self.db.commit()
-        await self.db.refresh(new_user)
+        # New user - verified mobile but no account yet
+        # Return success with indication that onboarding is needed
+        # Don't create User record yet - that happens during onboarding
+        # when we have business_partner_id to satisfy the constraint
         
         return {
-            "user_id": new_user.id,
+            "user_id": None,  # No user ID yet
             "is_new_user": True,
             "profile_complete": False,
             "full_name": None,
             "email": None,
-            "role": "partner_user"
+            "role": None,
+            "mobile_number": mobile_number,
+            "needs_onboarding": True
         }
     
     async def complete_profile(
