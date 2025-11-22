@@ -79,14 +79,18 @@ async def daily_kyc_reminder_job(
 
 async def auto_suspend_expired_kyc_job(
     db: AsyncSession,
-    emitter: EventEmitter
+    emitter: EventEmitter,
+    auto_suspend_enabled: bool = False  # CONFIGURABLE - default is NO auto-suspend
 ) -> dict:
     """
-    Auto-suspend partners with expired KYC
+    Check for expired KYC and optionally auto-suspend
+    
+    IMPORTANT: By default, this only sends notifications.
+    Set auto_suspend_enabled=True to actually suspend partners.
     
     Should run daily at 00:01 AM
     
-    Returns: Number of partners suspended
+    Returns: Number of partners checked and optionally suspended
     """
     now = datetime.utcnow()
     
@@ -103,18 +107,7 @@ async def auto_suspend_expired_kyc_job(
     suspended_count = 0
     
     for partner in expired_partners:
-        # Update status to suspended
-        partner.status = "suspended"
-        partner.updated_at = now
-        
-        # Emit event
-        await emitter.emit(PartnerSuspendedEvent(
-            partner_id=partner.id,
-            organization_id=partner.organization_id,
-            reason="KYC expired",
-            suspended_at=now
-        ))
-        
+        # Always emit KYC expired event (triggers notification)
         await emitter.emit(KYCExpiredEvent(
             partner_id=partner.id,
             organization_id=partner.organization_id,
@@ -123,14 +116,28 @@ async def auto_suspend_expired_kyc_job(
             last_kyc_date=partner.kyc_expiry_date
         ))
         
-        suspended_count += 1
+        # Only suspend if enabled
+        if auto_suspend_enabled:
+            partner.status = "suspended"
+            partner.updated_at = now
+            
+            await emitter.emit(PartnerSuspendedEvent(
+                partner_id=partner.id,
+                organization_id=partner.organization_id,
+                reason="KYC expired - auto-suspended",
+                suspended_at=now
+            ))
+            
+            suspended_count += 1
     
     await db.commit()
     
     return {
-        "job": "auto_suspend_expired_kyc",
+        "job": "check_expired_kyc",
         "executed_at": now.isoformat(),
-        "partners_suspended": suspended_count
+        "partners_with_expired_kyc": len(expired_partners),
+        "partners_suspended": suspended_count if auto_suspend_enabled else 0,
+        "auto_suspend_enabled": auto_suspend_enabled
     }
 
 
@@ -217,15 +224,16 @@ def register_partner_jobs(scheduler, db, email_service, sms_service, emitter):
         replace_existing=True
     )
     
-    # Auto-suspend expired KYC at 00:01 AM
+    # Daily check for expired KYC at 00:01 AM - DOES NOT auto-suspend by default
+    # Set args=[db, emitter, True] to enable auto-suspend
     scheduler.add_job(
         auto_suspend_expired_kyc_job,
         'cron',
         hour=0,
         minute=1,
-        args=[db, emitter],
-        id='partner_auto_suspend',
-        name='Auto-suspend Expired KYC Partners',
+        args=[db, emitter, False],  # False = only notify, True = auto-suspend
+        id='partner_check_expired_kyc',
+        name='Check Expired KYC (No Auto-Suspend)',
         replace_existing=True
     )
     

@@ -32,6 +32,12 @@ class ServiceProviderType(str, Enum):
     SHIPPING_AGENT = "shipping_agent"
 
 
+class TransporterType(str, Enum):
+    """Transporter sub-types"""
+    LORRY_OWNER = "lorry_owner"  # Has own vehicles - needs RC, Insurance, Fitness
+    COMMISSION_AGENT = "commission_agent"  # Arranges transport - NO vehicle docs needed
+
+
 class TradeClassification(str, Enum):
     """For import/export classification"""
     DOMESTIC = "domestic"
@@ -95,17 +101,29 @@ class DocumentType(str, Enum):
     GST_CERTIFICATE = "gst_certificate"
     PAN_CARD = "pan_card"
     BANK_PROOF = "bank_proof"
-    TRANSPORT_LICENSE = "transport_license"
-    VEHICLE_RC = "vehicle_rc"
-    INSURANCE_CERTIFICATE = "insurance_certificate"
-    PERMIT = "permit"
+    CANCELLED_CHEQUE = "cancelled_cheque"
+    VEHICLE_RC = "vehicle_rc"  # Only for LORRY OWNERS
+    VEHICLE_INSURANCE = "vehicle_insurance"  # Only for LORRY OWNERS
+    VEHICLE_FITNESS = "vehicle_fitness"  # Only for LORRY OWNERS
+    VEHICLE_PERMIT = "vehicle_permit"  # Only for LORRY OWNERS
     TRADE_LICENSE = "trade_license"
     INCORPORATION_CERT = "incorporation_cert"
     NO_GST_DECLARATION = "no_gst_declaration"
     FINANCIAL_STATEMENT = "financial_statement"
     ITR = "itr"
-    BROKER_LICENSE = "broker_license"
-    QUALITY_CERT = "quality_cert"
+    TAX_ID_CERTIFICATE = "tax_id_certificate"  # International
+    BUSINESS_REGISTRATION = "business_registration"  # International
+    ADDRESS_PROOF = "address_proof"  # International
+    BANK_STATEMENT = "bank_statement"  # International
+    LAB_ACCREDITATION = "lab_accreditation"  # Controller
+    EQUIPMENT_CALIBRATION = "equipment_calibration"  # Controller
+    INSPECTOR_QUALIFICATION = "inspector_qualification"  # Controller
+    NBFC_LICENSE = "nbfc_license"  # Financer
+    CREDIT_RATING = "credit_rating"  # Financer
+    BOARD_RESOLUTION = "board_resolution"  # Financer
+    CHA_LICENSE = "cha_license"  # Shipping Agent
+    SHIPPING_LINE_AGREEMENT = "shipping_line_agreement"  # Shipping Agent
+    PORT_REGISTRATION = "port_registration"  # Shipping Agent
 
 
 class AmendmentType(str, Enum):

@@ -41,6 +41,7 @@ from backend.modules.partners.schemas import (
     PartnerDocumentResponse,
     PartnerEmployeeResponse,
     PartnerFilters,
+    PartnerLocationCreate,
     PartnerLocationResponse,
     PartnerVehicleResponse,
     VehicleData,
@@ -422,6 +423,91 @@ async def get_partner_locations(
     location_repo = PartnerLocationRepository(db)
     locations = await location_repo.get_by_partner(partner_id)
     return locations
+
+
+@router.post(
+    "/{partner_id}/locations",
+    response_model=PartnerLocationResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add Location (Ship-To, Bill-To, Warehouse, etc.)"
+)
+async def add_partner_location(
+    partner_id: UUID,
+    location_data: PartnerLocationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Add a new location for a partner
+    
+    Use Cases:
+    - Buyers adding ship-to addresses
+    - Sellers/Traders adding warehouses/factories
+    - Any partner adding branches in different states
+    
+    Location Types:
+    - ship_to: Delivery address for buyers
+    - bill_to: Billing address
+    - warehouse: Storage facility
+    - branch_different_state: Branch with different GSTIN
+    - additional_same_state: Additional location same state
+    - factory: Production facility
+    - port: Port location
+    - icd: Inland Container Depot
+    """
+    from backend.modules.partners.services import GeocodingService
+    
+    # Verify partner exists
+    partner_repo = BusinessPartnerRepository(db)
+    partner = await partner_repo.get_by_id(partner_id)
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    
+    # Create location
+    location_repo = PartnerLocationRepository(db)
+    location = await location_repo.create(
+        partner_id=partner_id,
+        organization_id=partner.organization_id,
+        location_type=location_data.location_type,
+        location_name=location_data.location_name,
+        gstin_for_location=location_data.gstin_for_location,
+        address=location_data.address,
+        city=location_data.city,
+        state=location_data.state,
+        postal_code=location_data.postal_code,
+        country=location_data.country,
+        contact_person=location_data.contact_person,
+        contact_phone=location_data.contact_phone,
+        requires_gst=location_data.requires_gst,
+        status="active"
+    )
+    
+    # Geocode the location
+    geocoding = GeocodingService()
+    full_address = f"{location_data.address}, {location_data.city}, {location_data.state}, {location_data.postal_code}, {location_data.country}"
+    geocode_result = await geocoding.geocode_address(full_address)
+    
+    if geocode_result:
+        location.latitude = geocode_result["latitude"]
+        location.longitude = geocode_result["longitude"]
+        location.geocoded = True
+        location.geocode_confidence = geocode_result["confidence"]
+    
+    await db.commit()
+    await db.refresh(location)
+    
+    # Emit event
+    emitter = EventEmitter()
+    from backend.modules.partners.events import PartnerLocationAddedEvent
+    await emitter.emit(PartnerLocationAddedEvent(
+        partner_id=partner_id,
+        location_id=location.id,
+        location_type=location_data.location_type,
+        location_name=location_data.location_name,
+        added_by=current_user.id
+    ))
+    
+    return location
 
 
 @router.get(

@@ -126,15 +126,15 @@ class SellerSpecificData(BaseModel):
 
 class TransporterData(BaseModel):
     """Data for transporters"""
+    transporter_type: str  # "lorry_owner" or "commission_agent"
     operates_from_city: str
     operates_from_state: str
     commodities_transported: List[str] = []
     routes: List[str] = []
-    is_lorry_owner: bool = False
-    is_commission_agent: bool = False
+    # Only for LORRY OWNERS:
     fleet_size: Optional[int] = None
-    vehicle_types: List[str] = []
-    transport_license_number: Optional[str] = None
+    vehicle_types: Optional[List[str]] = None
+    # Commission agents don't need any of the above vehicle details
 
 
 class VehicleData(BaseModel):
@@ -153,13 +153,11 @@ class VehicleData(BaseModel):
 
 
 class BrokerData(BaseModel):
-    """Data for brokers"""
-    broker_license_number: str
-    exchange: str  # MCX, NCDEX
-    license_valid_till: Optional[date] = None
+    """Data for brokers - NO LICENSE REQUIRED"""
     specialization: List[str] = []  # cotton, yarn
     commission_buyer_side: Optional[Decimal] = None
     commission_seller_side: Optional[Decimal] = None
+    # Brokers only need GST (if applicable) or PAN - NO broker license
 
 
 class OnboardingApplicationCreate(BaseModel):
@@ -254,6 +252,21 @@ class RiskAssessment(BaseModel):
 # ============================================
 # BUSINESS PARTNER RESPONSES
 # ============================================
+
+class PartnerLocationCreate(BaseModel):
+    """Create new location for a partner"""
+    location_type: LocationType  # ship_to, bill_to, warehouse, branch, etc.
+    location_name: str
+    gstin_for_location: Optional[str] = None
+    address: str
+    city: str
+    state: Optional[str] = None
+    postal_code: str
+    country: str = "India"
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    requires_gst: bool = True
+
 
 class PartnerLocationResponse(BaseModel):
     """Location response"""

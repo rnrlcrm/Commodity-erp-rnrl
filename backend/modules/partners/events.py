@@ -449,3 +449,30 @@ class VehicleVerifiedEvent(BaseEvent):
             data=data,
             metadata=metadata,
         )
+
+
+class PartnerLocationAddedEvent(BaseEvent):
+    """Emitted when partner adds a new location (ship-to, warehouse, branch, etc.)"""
+    
+    def __init__(
+        self,
+        partner_id: uuid.UUID,
+        location_id: uuid.UUID,
+        location_type: str,
+        location_name: str,
+        added_by: uuid.UUID,
+        metadata: Optional[EventMetadata] = None,
+    ):
+        super().__init__(
+            event_type="partner.location.added",
+            aggregate_id=location_id,
+            aggregate_type="partner_location",
+            user_id=added_by,
+            data={
+                "partner_id": str(partner_id),
+                "location_type": location_type,
+                "location_name": location_name,
+            },
+            metadata=metadata,
+        )
+
