@@ -13,7 +13,7 @@ from sqlalchemy import (
 	Text,
 	UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from backend.db.session import Base
@@ -65,12 +65,45 @@ class User(Base):
 	__tablename__ = "users"
 	__table_args__ = (
 		CheckConstraint("email <> ''", name="ck_user_email_nonempty"),
+		# Data isolation constraints based on user_type
+		CheckConstraint(
+			"""
+			(user_type = 'SUPER_ADMIN' AND business_partner_id IS NULL AND organization_id IS NULL) OR
+			(user_type = 'INTERNAL' AND business_partner_id IS NULL AND organization_id IS NOT NULL) OR
+			(user_type = 'EXTERNAL' AND business_partner_id IS NOT NULL AND organization_id IS NULL)
+			""",
+			name="ck_user_type_isolation"
+		),
 	)
 
 	id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-	organization_id: Mapped[uuid.UUID] = mapped_column(
-		UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+	
+	# Data Isolation Fields
+	user_type: Mapped[str] = mapped_column(
+		String(20),
+		nullable=False,
+		default='INTERNAL',
+		comment="SUPER_ADMIN, INTERNAL, or EXTERNAL"
 	)
+	business_partner_id: Mapped[uuid.UUID | None] = mapped_column(
+		UUID(as_uuid=True),
+		ForeignKey("business_partners.id", ondelete="RESTRICT"),
+		nullable=True,
+		comment="For EXTERNAL users only"
+	)
+	organization_id: Mapped[uuid.UUID | None] = mapped_column(
+		UUID(as_uuid=True),
+		ForeignKey("organizations.id", ondelete="RESTRICT"),
+		nullable=True,
+		comment="For INTERNAL users only"
+	)
+	allowed_modules: Mapped[list[str] | None] = mapped_column(
+		ARRAY(String),
+		nullable=True,
+		comment="RBAC: List of modules user can access"
+	)
+	
+	# Existing Fields
 	email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 	full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 	password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -80,7 +113,10 @@ class User(Base):
 		DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
 	)
 
-	organization: Mapped[Organization] = relationship("Organization", back_populates="users")
+	# Relationships
+	# organization relationship commented out until Organization.users backref is added
+	# organization: Mapped[Organization | None] = relationship("Organization", back_populates="users")
+	# business_partner relationship will be added when BP module is fully implemented
 
 
 class UserRole(Base):
