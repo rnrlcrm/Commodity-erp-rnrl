@@ -45,6 +45,35 @@ class DocumentUpload(BaseModel):
     verification_result: Optional[Dict[str, Any]] = None
 
 
+class PartnerFilters(BaseModel):
+    """Advanced filters for partner listing"""
+    partner_type: Optional[PartnerType] = None
+    status: Optional[PartnerStatus] = None
+    kyc_status: Optional[KYCStatus] = None
+    kyc_expiring_days: Optional[int] = None  # Expiring in next N days
+    risk_category: Optional[RiskCategory] = None
+    state: Optional[str] = None
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    search: Optional[str] = None  # Search in business_name, tax_id_number
+    sort_by: Optional[str] = "created_at"
+    sort_order: Optional[str] = "desc"  # asc or desc
+    skip: int = 0
+    limit: int = 50
+
+
+class DashboardStats(BaseModel):
+    """Dashboard statistics"""
+    total_partners: int
+    by_type: Dict[str, int]
+    by_status: Dict[str, int]
+    kyc_breakdown: Dict[str, int]
+    risk_distribution: Dict[str, int]
+    pending_approvals: Dict[str, int]
+    state_wise: Dict[str, int]
+    monthly_onboarding: List[Dict[str, Any]]
+
+
 class GSTVerificationResult(BaseModel):
     """GST verification from government API"""
     gstin: str

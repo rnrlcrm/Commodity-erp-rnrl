@@ -33,12 +33,14 @@ from backend.modules.partners.schemas import (
     AmendmentRequest,
     ApprovalDecision,
     BusinessPartnerResponse,
+    DashboardStats,
     EmployeeInvite,
     KYCRenewalRequest,
     OnboardingApplicationCreate,
     OnboardingApplicationResponse,
     PartnerDocumentResponse,
     PartnerEmployeeResponse,
+    PartnerFilters,
     PartnerLocationResponse,
     PartnerVehicleResponse,
     VehicleData,
@@ -655,3 +657,511 @@ async def add_vehicle(
     await db.commit()
     
     return new_vehicle
+
+
+# ===== ENHANCED FILTERS & SEARCH =====
+
+@router.get(
+    "/list",
+    response_model=Dict[str, Any],
+    summary="List Partners with Advanced Filters",
+    description="""
+    Get partners with advanced filtering:
+    - KYC expiring in N days
+    - State-wise filtering
+    - Date range filtering
+    - Full-text search on business name/GSTIN
+    - Risk category filtering
+    """
+)
+async def list_partners_advanced(
+    partner_type: Optional[PartnerType] = None,
+    status: Optional[PartnerStatus] = None,
+    kyc_status: Optional[KYCStatus] = None,
+    kyc_expiring_days: Optional[int] = None,
+    risk_category: Optional[RiskCategory] = None,
+    state: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    organization_id: UUID = Depends(get_current_organization_id)
+):
+    """List partners with advanced filters"""
+    from sqlalchemy import select, func, or_, and_, desc, asc
+    from datetime import datetime, timedelta
+    from backend.modules.partners.models import BusinessPartner
+    
+    # Base query
+    query = select(BusinessPartner).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False
+    )
+    
+    # Apply filters
+    if partner_type:
+        query = query.where(BusinessPartner.partner_type == partner_type)
+    
+    if status:
+        query = query.where(BusinessPartner.status == status)
+    
+    if kyc_status:
+        query = query.where(BusinessPartner.kyc_status == kyc_status)
+    
+    if kyc_expiring_days:
+        expiry_threshold = datetime.utcnow() + timedelta(days=kyc_expiring_days)
+        query = query.where(
+            and_(
+                BusinessPartner.kyc_expiry_date <= expiry_threshold,
+                BusinessPartner.kyc_expiry_date >= datetime.utcnow()
+            )
+        )
+    
+    if risk_category:
+        query = query.where(BusinessPartner.risk_category == risk_category)
+    
+    if state:
+        query = query.where(BusinessPartner.primary_state == state)
+    
+    if date_from:
+        query = query.where(BusinessPartner.created_at >= datetime.fromisoformat(date_from))
+    
+    if date_to:
+        query = query.where(BusinessPartner.created_at <= datetime.fromisoformat(date_to))
+    
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.where(
+            or_(
+                BusinessPartner.legal_business_name.ilike(search_pattern),
+                BusinessPartner.trade_name.ilike(search_pattern),
+                BusinessPartner.tax_id_number.ilike(search_pattern),
+                BusinessPartner.pan_number.ilike(search_pattern)
+            )
+        )
+    
+    # Get total count
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query)
+    
+    # Apply sorting
+    if sort_order == "desc":
+        query = query.order_by(desc(getattr(BusinessPartner, sort_by)))
+    else:
+        query = query.order_by(asc(getattr(BusinessPartner, sort_by)))
+    
+    # Apply pagination
+    query = query.offset(skip).limit(limit)
+    
+    # Execute
+    result = await db.execute(query)
+    partners = result.scalars().all()
+    
+    return {
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "data": partners
+    }
+
+
+# ===== EXPORT FUNCTIONALITY =====
+
+@router.get(
+    "/export",
+    summary="Export Partners to Excel/CSV",
+    description="Export partners with all filters applied"
+)
+async def export_partners(
+    format: str = "excel",  # excel or csv
+    partner_type: Optional[PartnerType] = None,
+    status: Optional[PartnerStatus] = None,
+    kyc_status: Optional[KYCStatus] = None,
+    state: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    organization_id: UUID = Depends(get_current_organization_id)
+):
+    """Export partners to Excel or CSV"""
+    from fastapi.responses import StreamingResponse
+    import io
+    import csv
+    
+    # Same query as list endpoint
+    from sqlalchemy import select, and_
+    from backend.modules.partners.models import BusinessPartner
+    from datetime import datetime
+    
+    query = select(BusinessPartner).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False
+    )
+    
+    if partner_type:
+        query = query.where(BusinessPartner.partner_type == partner_type)
+    if status:
+        query = query.where(BusinessPartner.status == status)
+    if kyc_status:
+        query = query.where(BusinessPartner.kyc_status == kyc_status)
+    if state:
+        query = query.where(BusinessPartner.primary_state == state)
+    if date_from:
+        query = query.where(BusinessPartner.created_at >= datetime.fromisoformat(date_from))
+    if date_to:
+        query = query.where(BusinessPartner.created_at <= datetime.fromisoformat(date_to))
+    
+    result = await db.execute(query)
+    partners = result.scalars().all()
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Headers
+    writer.writerow([
+        'Business Name', 'GSTIN', 'PAN', 'Partner Type', 'Status', 
+        'KYC Status', 'KYC Expiry', 'Risk Score', 'Risk Category',
+        'State', 'Contact Person', 'Email', 'Phone', 'Created At'
+    ])
+    
+    # Data
+    for p in partners:
+        writer.writerow([
+            p.legal_business_name,
+            p.tax_id_number,
+            p.pan_number,
+            p.partner_type,
+            p.status,
+            p.kyc_status,
+            p.kyc_expiry_date.isoformat() if p.kyc_expiry_date else '',
+            p.risk_score or '',
+            p.risk_category or '',
+            p.primary_state or '',
+            p.primary_contact_person,
+            p.primary_contact_email,
+            p.primary_contact_phone,
+            p.created_at.isoformat()
+        ])
+    
+    output.seek(0)
+    
+    if format == "excel":
+        # For Excel, you'd use openpyxl or pandas
+        # For now, return CSV with Excel mime type
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="application/vnd.ms-excel",
+            headers={
+                "Content-Disposition": f"attachment; filename=partners_{datetime.now().strftime('%Y%m%d')}.csv"
+            }
+        )
+    else:
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=partners_{datetime.now().strftime('%Y%m%d')}.csv"
+            }
+        )
+
+
+# ===== KYC PDF DOWNLOAD =====
+
+@router.get(
+    "/{partner_id}/kyc-register/download",
+    summary="Download Complete KYC Register as PDF",
+    description="Generate PDF with complete partner KYC details for record keeping"
+)
+async def download_kyc_register(
+    partner_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+    organization_id: UUID = Depends(get_current_organization_id)
+):
+    """Generate and download complete KYC register PDF"""
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    import io
+    
+    # Get partner with all related data
+    partner_repo = BusinessPartnerRepository(db)
+    partner = await partner_repo.get_by_id(partner_id, organization_id)
+    
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    
+    # Get related data
+    loc_repo = PartnerLocationRepository(db)
+    doc_repo = PartnerDocumentRepository(db)
+    emp_repo = PartnerEmployeeRepository(db)
+    
+    locations = await loc_repo.get_by_partner_id(partner_id)
+    documents = await doc_repo.get_by_partner_id(partner_id)
+    employees = await emp_repo.get_by_partner_id(partner_id)
+    
+    # Create PDF
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    # Title
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(50, height - 50, "KYC REGISTER")
+    
+    # Business Details
+    y = height - 100
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, y, "Business Details")
+    y -= 20
+    
+    p.setFont("Helvetica", 10)
+    p.drawString(50, y, f"Legal Name: {partner.legal_business_name}")
+    y -= 15
+    p.drawString(50, y, f"GSTIN: {partner.tax_id_number}")
+    y -= 15
+    p.drawString(50, y, f"PAN: {partner.pan_number}")
+    y -= 15
+    p.drawString(50, y, f"Partner Type: {partner.partner_type}")
+    y -= 15
+    p.drawString(50, y, f"Status: {partner.status}")
+    y -= 15
+    p.drawString(50, y, f"KYC Status: {partner.kyc_status}")
+    y -= 15
+    if partner.kyc_expiry_date:
+        p.drawString(50, y, f"KYC Expiry: {partner.kyc_expiry_date.strftime('%Y-%m-%d')}")
+    y -= 15
+    p.drawString(50, y, f"Risk Score: {partner.risk_score or 'N/A'} ({partner.risk_category or 'N/A'})")
+    y -= 30
+    
+    # Documents
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, y, f"Uploaded Documents ({len(documents)})")
+    y -= 20
+    
+    p.setFont("Helvetica", 9)
+    for doc in documents:
+        p.drawString(60, y, f"• {doc.document_type} - Uploaded: {doc.uploaded_at.strftime('%Y-%m-%d')}")
+        y -= 12
+        if y < 100:
+            p.showPage()
+            y = height - 50
+    
+    y -= 20
+    
+    # Locations
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, y, f"Locations ({len(locations)})")
+    y -= 20
+    
+    p.setFont("Helvetica", 9)
+    for loc in locations:
+        p.drawString(60, y, f"• {loc.location_name} - {loc.city}, {loc.state}")
+        y -= 12
+        if y < 100:
+            p.showPage()
+            y = height - 50
+    
+    y -= 20
+    
+    # Employees
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, y, f"Employees ({len(employees)})")
+    y -= 20
+    
+    p.setFont("Helvetica", 9)
+    for emp in employees:
+        p.drawString(60, y, f"• {emp.employee_name} - {emp.designation or 'N/A'}")
+        y -= 12
+        if y < 100:
+            p.showPage()
+            y = height - 50
+    
+    # Approval History
+    if partner.approved_at:
+        y -= 30
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(50, y, "Approval Details")
+        y -= 20
+        
+        p.setFont("Helvetica", 9)
+        p.drawString(60, y, f"Approved on: {partner.approved_at.strftime('%Y-%m-%d %H:%M')}")
+        y -= 12
+        if partner.approval_notes:
+            p.drawString(60, y, f"Notes: {partner.approval_notes[:100]}")
+    
+    # Footer
+    p.setFont("Helvetica", 8)
+    p.drawString(50, 30, f"Generated on: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+    p.drawString(50, 20, f"Generated by: User ID {user_id}")
+    
+    p.save()
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=kyc_register_{partner.tax_id_number}.pdf"
+        }
+    )
+
+
+# ===== DASHBOARD & ANALYTICS =====
+
+@router.get(
+    "/dashboard/stats",
+    response_model=DashboardStats,
+    summary="Dashboard Statistics",
+    description="Get comprehensive dashboard statistics"
+)
+async def get_dashboard_stats(
+    db: AsyncSession = Depends(get_db),
+    organization_id: UUID = Depends(get_current_organization_id)
+):
+    """Get dashboard statistics"""
+    from sqlalchemy import select, func, extract
+    from backend.modules.partners.models import BusinessPartner, PartnerOnboardingApplication
+    from datetime import datetime, timedelta
+    
+    # Total partners
+    total_query = select(func.count()).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False
+    )
+    total_partners = await db.scalar(total_query)
+    
+    # By type
+    by_type_query = select(
+        BusinessPartner.partner_type,
+        func.count()
+    ).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False
+    ).group_by(BusinessPartner.partner_type)
+    
+    by_type_result = await db.execute(by_type_query)
+    by_type = {row[0]: row[1] for row in by_type_result}
+    
+    # By status
+    by_status_query = select(
+        BusinessPartner.status,
+        func.count()
+    ).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False
+    ).group_by(BusinessPartner.status)
+    
+    by_status_result = await db.execute(by_status_query)
+    by_status = {row[0]: row[1] for row in by_status_result}
+    
+    # KYC breakdown
+    now = datetime.utcnow()
+    valid_count = await db.scalar(
+        select(func.count()).where(
+            BusinessPartner.organization_id == organization_id,
+            BusinessPartner.is_deleted == False,
+            BusinessPartner.kyc_status == "valid",
+            BusinessPartner.kyc_expiry_date > now + timedelta(days=90)
+        )
+    )
+    
+    expiring_90 = await db.scalar(
+        select(func.count()).where(
+            BusinessPartner.organization_id == organization_id,
+            BusinessPartner.is_deleted == False,
+            BusinessPartner.kyc_expiry_date <= now + timedelta(days=90),
+            BusinessPartner.kyc_expiry_date > now + timedelta(days=30)
+        )
+    )
+    
+    expiring_30 = await db.scalar(
+        select(func.count()).where(
+            BusinessPartner.organization_id == organization_id,
+            BusinessPartner.is_deleted == False,
+            BusinessPartner.kyc_expiry_date <= now + timedelta(days=30),
+            BusinessPartner.kyc_expiry_date > now
+        )
+    )
+    
+    expired = await db.scalar(
+        select(func.count()).where(
+            BusinessPartner.organization_id == organization_id,
+            BusinessPartner.is_deleted == False,
+            BusinessPartner.kyc_expiry_date <= now
+        )
+    )
+    
+    kyc_breakdown = {
+        "valid": valid_count or 0,
+        "expiring_90_days": expiring_90 or 0,
+        "expiring_30_days": expiring_30 or 0,
+        "expired": expired or 0
+    }
+    
+    # Risk distribution
+    risk_query = select(
+        BusinessPartner.risk_category,
+        func.count()
+    ).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False,
+        BusinessPartner.risk_category.isnot(None)
+    ).group_by(BusinessPartner.risk_category)
+    
+    risk_result = await db.execute(risk_query)
+    risk_distribution = {row[0]: row[1] for row in risk_result}
+    
+    # Pending approvals
+    pending_onboarding = await db.scalar(
+        select(func.count()).where(
+            PartnerOnboardingApplication.organization_id == organization_id,
+            PartnerOnboardingApplication.status == "submitted"
+        )
+    )
+    
+    # State-wise
+    state_query = select(
+        BusinessPartner.primary_state,
+        func.count()
+    ).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False,
+        BusinessPartner.primary_state.isnot(None)
+    ).group_by(BusinessPartner.primary_state)
+    
+    state_result = await db.execute(state_query)
+    state_wise = {row[0]: row[1] for row in state_result}
+    
+    # Monthly onboarding (last 12 months)
+    monthly_query = select(
+        extract('year', BusinessPartner.created_at).label('year'),
+        extract('month', BusinessPartner.created_at).label('month'),
+        func.count()
+    ).where(
+        BusinessPartner.organization_id == organization_id,
+        BusinessPartner.is_deleted == False,
+        BusinessPartner.created_at >= now - timedelta(days=365)
+    ).group_by('year', 'month').order_by('year', 'month')
+    
+    monthly_result = await db.execute(monthly_query)
+    monthly_onboarding = [
+        {"month": f"{int(row[0])}-{int(row[1]):02d}", "count": row[2]}
+        for row in monthly_result
+    ]
+    
+    return DashboardStats(
+        total_partners=total_partners or 0,
+        by_type=by_type,
+        by_status=by_status,
+        kyc_breakdown=kyc_breakdown,
+        risk_distribution=risk_distribution,
+        pending_approvals={"onboarding": pending_onboarding or 0},
+        state_wise=state_wise,
+        monthly_onboarding=monthly_onboarding
+    )
