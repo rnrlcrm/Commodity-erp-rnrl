@@ -112,9 +112,7 @@ class ContactInfo(BaseModel):
 
 class BuyerSpecificData(BaseModel):
     """Additional data for buyers"""
-    credit_limit_requested: Optional[Decimal] = None
-    payment_terms_preference: Optional[str] = None  # advance, 15_days, 30_days
-    monthly_volume_estimate: Optional[str] = None
+    monthly_volume_estimate: Optional[str] = None  # Only volume estimate, credit/payment assigned by back office
 
 
 class SellerSpecificData(BaseModel):

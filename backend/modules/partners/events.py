@@ -461,6 +461,9 @@ class PartnerLocationAddedEvent(BaseEvent):
         location_type: str,
         location_name: str,
         added_by: uuid.UUID,
+        google_maps_tagged: bool = False,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
         metadata: Optional[EventMetadata] = None,
     ):
         super().__init__(
@@ -472,6 +475,9 @@ class PartnerLocationAddedEvent(BaseEvent):
                 "partner_id": str(partner_id),
                 "location_type": location_type,
                 "location_name": location_name,
+                "google_maps_tagged": google_maps_tagged,
+                "latitude": latitude,
+                "longitude": longitude,
             },
             metadata=metadata,
         )

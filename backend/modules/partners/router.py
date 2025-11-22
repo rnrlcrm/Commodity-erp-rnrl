@@ -429,7 +429,7 @@ async def get_partner_locations(
     "/{partner_id}/locations",
     response_model=PartnerLocationResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Add Location (Ship-To, Bill-To, Warehouse, etc.)"
+    summary="Add Location (Branch, Warehouse, Ship-To, etc.)"
 )
 async def add_partner_location(
     partner_id: UUID,
@@ -440,22 +440,17 @@ async def add_partner_location(
     """
     Add a new location for a partner
     
-    Use Cases:
-    - Buyers adding ship-to addresses
-    - Sellers/Traders adding warehouses/factories
-    - Any partner adding branches in different states
+    RESTRICTIONS:
+    - ship_to: ONLY BUYERS can add (no GST required)
+    - branch_different_state: Requires GSTIN with same PAN as primary
+    - warehouse/factory: All partners can add
     
-    Location Types:
-    - ship_to: Delivery address for buyers
-    - bill_to: Billing address
-    - warehouse: Storage facility
-    - branch_different_state: Branch with different GSTIN
-    - additional_same_state: Additional location same state
-    - factory: Production facility
-    - port: Port location
-    - icd: Inland Container Depot
+    VALIDATIONS:
+    - Google Maps geocoding with tagging
+    - GST validation for branches (PAN matching)
+    - Partner type validation for ship-to
     """
-    from backend.modules.partners.services import GeocodingService
+    from backend.modules.partners.services import GeocodingService, GSTVerificationService
     
     # Verify partner exists
     partner_repo = BusinessPartnerRepository(db)
@@ -463,7 +458,69 @@ async def add_partner_location(
     if not partner:
         raise HTTPException(status_code=404, detail="Partner not found")
     
-    # Create location
+    # VALIDATION 1: Ship-To only for BUYERS
+    if location_data.location_type == "ship_to":
+        if partner.partner_type not in ["buyer", "trader"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Only buyers and traders can add ship-to addresses"
+            )
+        # Ship-to does NOT require GST
+        location_data.requires_gst = False
+        location_data.gstin_for_location = None
+    
+    # VALIDATION 2: Branch in different state - validate GSTIN
+    if location_data.location_type == "branch_different_state":
+        if not location_data.gstin_for_location:
+            raise HTTPException(
+                status_code=400,
+                detail="GSTIN required for branch in different state"
+            )
+        
+        # Extract PAN from new GSTIN (characters 3-12)
+        new_pan = location_data.gstin_for_location[2:12]
+        primary_pan = partner.pan_number
+        
+        if new_pan != primary_pan:
+            raise HTTPException(
+                status_code=400,
+                detail=f"GSTIN PAN ({new_pan}) does not match primary PAN ({primary_pan}). Branch GSTIN must belong to same business."
+            )
+        
+        # Verify GSTIN via GST API
+        gst_service = GSTVerificationService()
+        try:
+            gst_data = await gst_service.verify_gstin(location_data.gstin_for_location)
+            if not gst_data or gst_data.get("status") != "Active":
+                raise HTTPException(
+                    status_code=400,
+                    detail="GSTIN is not active or invalid"
+                )
+            
+            # Verify business name matches
+            if gst_data.get("legal_name").upper() != partner.legal_business_name.upper():
+                raise HTTPException(
+                    status_code=400,
+                    detail="GSTIN business name does not match primary business name"
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"GST verification failed: {str(e)}"
+            )
+    
+    # VALIDATION 3: Geocode with Google Maps and tag location
+    geocoding = GeocodingService()
+    full_address = f"{location_data.address}, {location_data.city}, {location_data.state}, {location_data.postal_code}, {location_data.country}"
+    geocode_result = await geocoding.geocode_address(full_address)
+    
+    if not geocode_result or geocode_result.get("confidence", 0) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not verify address via Google Maps. Please check address details."
+        )
+    
+    # Create location with Google Maps data
     location_repo = PartnerLocationRepository(db)
     location = await location_repo.create(
         partner_id=partner_id,
@@ -479,19 +536,13 @@ async def add_partner_location(
         contact_person=location_data.contact_person,
         contact_phone=location_data.contact_phone,
         requires_gst=location_data.requires_gst,
+        # Google Maps data
+        latitude=geocode_result["latitude"],
+        longitude=geocode_result["longitude"],
+        geocoded=True,
+        geocode_confidence=geocode_result["confidence"],
         status="active"
     )
-    
-    # Geocode the location
-    geocoding = GeocodingService()
-    full_address = f"{location_data.address}, {location_data.city}, {location_data.state}, {location_data.postal_code}, {location_data.country}"
-    geocode_result = await geocoding.geocode_address(full_address)
-    
-    if geocode_result:
-        location.latitude = geocode_result["latitude"]
-        location.longitude = geocode_result["longitude"]
-        location.geocoded = True
-        location.geocode_confidence = geocode_result["confidence"]
     
     await db.commit()
     await db.refresh(location)
@@ -504,7 +555,10 @@ async def add_partner_location(
         location_id=location.id,
         location_type=location_data.location_type,
         location_name=location_data.location_name,
-        added_by=current_user.id
+        added_by=current_user.id,
+        google_maps_tagged=True,
+        latitude=location.latitude,
+        longitude=location.longitude
     ))
     
     return location
