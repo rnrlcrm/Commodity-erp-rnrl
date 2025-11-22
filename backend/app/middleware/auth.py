@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 # Paths that don't require authentication
 SKIP_AUTH_PATHS = {
     "/",
+    "/healthz",
+    "/ready",
     "/health",
     "/docs",
     "/redoc",
