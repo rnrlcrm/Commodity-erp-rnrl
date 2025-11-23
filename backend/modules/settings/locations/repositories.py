@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.settings.locations.models import Location
 
@@ -18,25 +18,31 @@ from backend.modules.settings.locations.models import Location
 class LocationRepository:
     """Repository for Location database operations"""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
-    def create(self, location: Location) -> Location:
+    async def create(self, location: Location) -> Location:
         """Create a new location"""
         self.db.add(location)
-        self.db.flush()
-        self.db.refresh(location)
+        await self.db.flush()
+        await self.db.refresh(location)
         return location
     
-    def get_by_id(self, location_id: UUID) -> Optional[Location]:
+    async def get_by_id(self, location_id: UUID) -> Optional[Location]:
         """Get location by ID"""
-        return self.db.query(Location).filter(Location.id == location_id).first()
+        result = await self.db.execute(
+            select(Location).where(Location.id == location_id)
+        )
+        return result.scalar_one_or_none()
     
-    def get_by_google_place_id(self, place_id: str) -> Optional[Location]:
+    async def get_by_google_place_id(self, place_id: str) -> Optional[Location]:
         """Get location by Google Place ID (prevents duplicates)"""
-        return self.db.query(Location).filter(Location.google_place_id == place_id).first()
+        result = await self.db.execute(
+            select(Location).where(Location.google_place_id == place_id)
+        )
+        return result.scalar_one_or_none()
     
-    def list(
+    async def list(
         self,
         city: Optional[str] = None,
         state: Optional[str] = None,
@@ -52,24 +58,26 @@ class LocationRepository:
         Returns:
             Tuple of (locations list, total count)
         """
-        query = self.db.query(Location)
+        from sqlalchemy import func
+        
+        query = select(Location)
         
         # Apply filters
         if city:
-            query = query.filter(Location.city.ilike(f"%{city}%"))
+            query = query.where(Location.city.ilike(f"%{city}%"))
         
         if state:
-            query = query.filter(Location.state.ilike(f"%{state}%"))
+            query = query.where(Location.state.ilike(f"%{state}%"))
         
         if region:
-            query = query.filter(Location.region == region)
+            query = query.where(Location.region == region)
         
         if is_active is not None:
-            query = query.filter(Location.is_active == is_active)
+            query = query.where(Location.is_active == is_active)
         
         if search:
             search_pattern = f"%{search}%"
-            query = query.filter(
+            query = query.where(
                 or_(
                     Location.name.ilike(search_pattern),
                     Location.city.ilike(search_pattern),
@@ -78,25 +86,47 @@ class LocationRepository:
             )
         
         # Get total count
-        total = query.count()
+        count_query = select(func.count()).select_from(Location)
+        if city:
+            count_query = count_query.where(Location.city.ilike(f"%{city}%"))
+        if state:
+            count_query = count_query.where(Location.state.ilike(f"%{state}%"))
+        if region:
+            count_query = count_query.where(Location.region == region)
+        if is_active is not None:
+            count_query = count_query.where(Location.is_active == is_active)
+        if search:
+            search_pattern = f"%{search}%"
+            count_query = count_query.where(
+                or_(
+                    Location.name.ilike(search_pattern),
+                    Location.city.ilike(search_pattern),
+                    Location.state.ilike(search_pattern)
+                )
+            )
+        
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar_one()
         
         # Apply pagination
-        locations = query.order_by(Location.name).offset(offset).limit(limit).all()
+        query = query.order_by(Location.name).offset(offset).limit(limit)
+        result = await self.db.execute(query)
+        locations = list(result.scalars().all())
         
         return locations, total
     
-    def update(self, location: Location) -> Location:
+    async def update(self, location: Location) -> Location:
         """Update an existing location"""
-        self.db.flush()
-        self.db.refresh(location)
+        await self.db.flush()
+        await self.db.refresh(location)
         return location
     
-    def soft_delete(self, location: Location) -> Location:
+    async def soft_delete(self, location: Location) -> Location:
         """Soft delete a location (set is_active=False)"""
         location.is_active = False
-        return self.update(location)
+        return await self.update(location)
     
-    def count_references(self, location_id: UUID) -> int:
+    async def count_references(self, location_id: UUID) -> int:
         """
         Count how many other entities reference this location.
         Used to prevent deletion of locations in use.
@@ -109,6 +139,7 @@ class LocationRepository:
         - trades.loading_location_id (TODO: when trades module is built)
         - trades.delivery_location_id (TODO: when trades module is built)
         """
+        from sqlalchemy import func
         from backend.modules.settings.organization.models import Organization
         from backend.modules.settings.models.settings_models import User
         

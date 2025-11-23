@@ -14,7 +14,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.settings.commodities.models import Commodity, CommodityVariety
 from backend.modules.settings.commodities.repositories import (
@@ -27,7 +27,7 @@ from backend.modules.settings.commodities.schemas import CommodityCreate, Variet
 class BulkOperationService:
     """Service for bulk import/export operations"""
     
-    def __init__(self, db: Session, current_user_id: UUID):
+    def __init__(self, db: AsyncSession, current_user_id: UUID):
         self.db = db
         self.current_user_id = current_user_id
         self.commodity_repo = CommodityRepository(db)

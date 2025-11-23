@@ -2,7 +2,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db.session import get_db
 from backend.modules.settings.organization.schemas import (
@@ -28,7 +28,7 @@ from backend.modules.settings.organization.services import OrganizationService
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 
-def get_service(db: Session = Depends(get_db)) -> OrganizationService:
+async def get_service(db: AsyncSession = Depends(get_db)) -> OrganizationService:
     return OrganizationService(db)
 
 

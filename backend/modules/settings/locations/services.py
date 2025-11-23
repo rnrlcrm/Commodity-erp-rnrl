@@ -100,7 +100,7 @@ def map_state_to_region(state_code: Optional[str]) -> str:
 class LocationService:
     """Service for location management"""
     
-    def __init__(self, db: Session, event_emitter: EventEmitter):
+    def __init__(self, db: AsyncSession, event_emitter: EventEmitter):
         self.db = db
         self.repository = LocationRepository(db)
         self.event_emitter = event_emitter

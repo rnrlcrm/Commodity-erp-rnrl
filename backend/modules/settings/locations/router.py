@@ -10,7 +10,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.events.emitter import EventEmitter
 from backend.db.session import get_db
@@ -30,13 +30,13 @@ from backend.modules.settings.locations.services import LocationService
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-def get_event_emitter(db: Session = Depends(get_db)) -> EventEmitter:
+async def get_event_emitter(db: AsyncSession = Depends(get_db)) -> EventEmitter:
     """Get event emitter instance"""
     return EventEmitter(db)
 
 
-def get_location_service(
-    db: Session = Depends(get_db),
+async def get_location_service(
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter)
 ) -> LocationService:
     """Dependency to get LocationService instance"""

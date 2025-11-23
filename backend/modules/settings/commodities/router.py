@@ -12,7 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.events.emitter import EventEmitter
 from backend.db.session import get_db
@@ -86,8 +86,8 @@ def get_current_user_id() -> UUID:
 
 
 # Dependency for event emitter
-def get_event_emitter(
-    db: Session = Depends(get_db)
+async def get_event_emitter(
+    db: AsyncSession = Depends(get_db)
 ) -> EventEmitter:
     """Get event emitter instance"""
     return EventEmitter(db)
@@ -104,7 +104,7 @@ def get_ai_helper() -> CommodityAIHelper:
 @router.post("/", response_model=CommodityResponse, status_code=status.HTTP_201_CREATED)
 def create_commodity(
     data: CommodityCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id)
@@ -118,7 +118,7 @@ def create_commodity(
 @router.get("/{commodity_id}", response_model=CommodityResponse)
 def get_commodity(
     commodity_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id)
@@ -138,7 +138,7 @@ def get_commodity(
 def list_commodities(
     category: Optional[str] = None,
     is_active: Optional[bool] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id)
@@ -153,7 +153,7 @@ def list_commodities(
 def update_commodity(
     commodity_id: UUID,
     data: CommodityUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id)
@@ -172,7 +172,7 @@ def update_commodity(
 @router.delete("/{commodity_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_commodity(
     commodity_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id)
@@ -230,7 +230,7 @@ def suggest_parameters(
 def add_variety(
     commodity_id: UUID,
     data: CommodityVarietyCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -246,7 +246,7 @@ def add_variety(
 @router.get("/{commodity_id}/varieties", response_model=List[CommodityVarietyResponse])
 def list_varieties(
     commodity_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -260,7 +260,7 @@ def list_varieties(
 def update_variety(
     variety_id: UUID,
     data: CommodityVarietyUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -281,7 +281,7 @@ def update_variety(
 def add_parameter(
     commodity_id: UUID,
     data: CommodityParameterCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -297,7 +297,7 @@ def add_parameter(
 @router.get("/{commodity_id}/parameters", response_model=List[CommodityParameterResponse])
 def list_parameters(
     commodity_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -311,7 +311,7 @@ def list_parameters(
 def update_parameter(
     parameter_id: UUID,
     data: CommodityParameterUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -331,7 +331,7 @@ def update_parameter(
 @router.post("/system-parameters", response_model=SystemCommodityParameterResponse, status_code=status.HTTP_201_CREATED)
 def create_system_parameter(
     data: SystemCommodityParameterCreate,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Create system-wide commodity parameter"""
     service = SystemCommodityParameterService(db)
@@ -342,7 +342,7 @@ def create_system_parameter(
 @router.get("/system-parameters", response_model=List[SystemCommodityParameterResponse])
 def list_system_parameters(
     category: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """List system parameters"""
     service = SystemCommodityParameterService(db)
@@ -354,7 +354,7 @@ def list_system_parameters(
 def update_system_parameter(
     parameter_id: UUID,
     data: SystemCommodityParameterUpdate,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Update system parameter"""
     service = SystemCommodityParameterService(db)
@@ -372,7 +372,7 @@ def update_system_parameter(
 @router.post("/trade-types", response_model=TradeTypeResponse, status_code=status.HTTP_201_CREATED)
 def create_trade_type(
     data: TradeTypeCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -384,7 +384,7 @@ def create_trade_type(
 
 @router.get("/trade-types", response_model=List[TradeTypeResponse])
 def list_trade_types(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -398,7 +398,7 @@ def list_trade_types(
 def update_trade_type(
     trade_type_id: UUID,
     data: TradeTypeUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -418,7 +418,7 @@ def update_trade_type(
 @router.post("/bargain-types", response_model=BargainTypeResponse, status_code=status.HTTP_201_CREATED)
 def create_bargain_type(
     data: BargainTypeCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -430,7 +430,7 @@ def create_bargain_type(
 
 @router.get("/bargain-types", response_model=List[BargainTypeResponse])
 def list_bargain_types(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -444,7 +444,7 @@ def list_bargain_types(
 def update_bargain_type(
     bargain_type_id: UUID,
     data: BargainTypeUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -464,7 +464,7 @@ def update_bargain_type(
 @router.post("/passing-terms", response_model=PassingTermResponse, status_code=status.HTTP_201_CREATED)
 def create_passing_term(
     data: PassingTermCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -476,7 +476,7 @@ def create_passing_term(
 
 @router.get("/passing-terms", response_model=List[PassingTermResponse])
 def list_passing_terms(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -490,7 +490,7 @@ def list_passing_terms(
 def update_passing_term(
     term_id: UUID,
     data: PassingTermUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -510,7 +510,7 @@ def update_passing_term(
 @router.post("/weightment-terms", response_model=WeightmentTermResponse, status_code=status.HTTP_201_CREATED)
 def create_weightment_term(
     data: WeightmentTermCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -522,7 +522,7 @@ def create_weightment_term(
 
 @router.get("/weightment-terms", response_model=List[WeightmentTermResponse])
 def list_weightment_terms(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -536,7 +536,7 @@ def list_weightment_terms(
 def update_weightment_term(
     term_id: UUID,
     data: WeightmentTermUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -556,7 +556,7 @@ def update_weightment_term(
 @router.post("/delivery-terms", response_model=DeliveryTermResponse, status_code=status.HTTP_201_CREATED)
 def create_delivery_term(
     data: DeliveryTermCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -568,7 +568,7 @@ def create_delivery_term(
 
 @router.get("/delivery-terms", response_model=List[DeliveryTermResponse])
 def list_delivery_terms(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -582,7 +582,7 @@ def list_delivery_terms(
 def update_delivery_term(
     term_id: UUID,
     data: DeliveryTermUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -602,7 +602,7 @@ def update_delivery_term(
 @router.post("/payment-terms", response_model=PaymentTermResponse, status_code=status.HTTP_201_CREATED)
 def create_payment_term(
     data: PaymentTermCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -614,7 +614,7 @@ def create_payment_term(
 
 @router.get("/payment-terms", response_model=List[PaymentTermResponse])
 def list_payment_terms(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -628,7 +628,7 @@ def list_payment_terms(
 def update_payment_term(
     term_id: UUID,
     data: PaymentTermUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -649,7 +649,7 @@ def update_payment_term(
 def set_commission(
     commodity_id: UUID,
     data: CommissionStructureCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -665,7 +665,7 @@ def set_commission(
 @router.get("/{commodity_id}/commission", response_model=CommissionStructureResponse)
 def get_commission(
     commodity_id: UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -684,7 +684,7 @@ def get_commission(
 def update_commission(
     commission_id: UUID,
     data: CommissionStructureUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -704,7 +704,7 @@ def update_commission(
 @router.post("/bulk/upload", response_model=BulkOperationResult)
 def bulk_upload_commodities(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     user_id: UUID = Depends(get_current_user_id)
 ):
@@ -732,7 +732,7 @@ def bulk_upload_commodities(
 @router.get("/bulk/download")
 def download_commodities_template(
     include_data: bool = False,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id)
 ):
     """
@@ -769,7 +769,7 @@ def advanced_search_commodities(
     is_active: Optional[bool] = True,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id)
 ):
     """
@@ -802,7 +802,7 @@ def advanced_search_commodities(
 @router.post("/bulk/validate")
 def validate_bulk_upload(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id)
 ):
     """
