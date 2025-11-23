@@ -26,10 +26,57 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from backend.core.errors.exceptions import DomainError
+from backend.app.middleware.rate_limit import setup_rate_limiting
 
 
 def create_app() -> FastAPI:
-	app = FastAPI(title="Cotton ERP Backend", version="0.1.0")
+	app = FastAPI(
+		title="Cotton ERP API",
+		version="1.0.0",
+		description="""
+		## 2035-Ready Cotton Trading ERP System
+		
+		Complete ERP system for cotton trading with:
+		- 🔐 Zero-trust security (JWT rotation, RBAC)
+		- 📱 Mobile-first offline sync (WatermelonDB)
+		- ⚡ Real-time updates (WebSocket sharding)
+		- 📊 Event sourcing & audit trail
+		- 🌐 Multi-organization support
+		- 🔄 Async architecture (10,000+ concurrent users)
+		
+		### Authentication
+		All endpoints require JWT token except `/auth/*` endpoints.
+		
+		Get token: `POST /api/v1/auth/login`
+		
+		Use in header: `Authorization: Bearer <token>`
+		
+		### Rate Limiting
+		- Default: 1000 requests/hour per IP
+		- Authentication endpoints: 5 requests/minute
+		- Standard endpoints: 100 requests/minute
+		
+		### Data Isolation
+		- **SUPER_ADMIN**: Access to all data
+		- **INTERNAL**: Organization-scoped data
+		- **EXTERNAL**: Business partner-scoped data
+		""",
+		version="1.0.0",
+		docs_url="/api/docs",
+		redoc_url="/api/redoc",
+		openapi_url="/api/openapi.json",
+		contact={
+			"name": "Cotton ERP Support",
+			"email": "support@cotton-erp.com",
+		},
+		license_info={
+			"name": "Proprietary",
+		},
+		swagger_ui_parameters={
+			"defaultModelsExpandDepth": -1,  # Hide schemas by default
+			"persistAuthorization": True,  # Remember auth token
+		}
+	)
 	# Logging config load
 	log_cfg_path = Path(__file__).resolve().parents[2] / "configs" / "logging" / "backend.json"
 	if log_cfg_path.exists():
@@ -88,10 +135,8 @@ def create_app() -> FastAPI:
 		except Exception:
 			return {"ready": False}
 
-	# Rate limiter: global default (e.g. 200/min per IP)
-	limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
-	app.state.limiter = limiter
-	app.add_exception_handler(RateLimitExceeded, _rate_limited)
+	# Rate limiter with better configuration
+	setup_rate_limiting(app)
 
 	# API Routers
 	app.include_router(user_onboarding_router, prefix="/api/v1", tags=["auth"])

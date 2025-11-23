@@ -37,10 +37,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 
+from backend.core.events.mixins import EventMixin
 from backend.db.session import Base
 
 
-class BusinessPartner(Base):
+class BusinessPartner(Base, EventMixin):
     """
     Business Partner - Complete model for all partner types
     

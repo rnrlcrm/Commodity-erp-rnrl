@@ -16,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
+from backend.core.events.mixins import EventMixin
 from backend.db.session import Base
 from backend.modules.settings.organization.models import Organization
 
@@ -61,7 +62,7 @@ class RolePermission(Base):
 	)
 
 
-class User(Base):
+class User(Base, EventMixin):
 	__tablename__ = "users"
 	__table_args__ = (
 		CheckConstraint("email <> ''", name="ck_user_email_nonempty"),

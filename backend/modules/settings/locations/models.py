@@ -14,10 +14,11 @@ from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Stri
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
+from backend.core.events.mixins import EventMixin
 from backend.db.session import Base
 
 
-class Location(Base):
+class Location(Base, EventMixin):
     """
     Location Master Table
     

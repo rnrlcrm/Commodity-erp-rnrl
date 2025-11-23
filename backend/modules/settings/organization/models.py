@@ -17,10 +17,11 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
+from backend.core.events.mixins import EventMixin
 from backend.db.session import Base
 
 
-class Organization(Base):
+class Organization(Base, EventMixin):
     __tablename__ = "organizations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

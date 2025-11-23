@@ -26,10 +26,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
+from backend.core.events.mixins import EventMixin
 from backend.db.session import Base
 
 
-class Commodity(Base):
+class Commodity(Base, EventMixin):
     """Core commodity entity"""
     
     __tablename__ = "commodities"
