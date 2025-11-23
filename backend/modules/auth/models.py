@@ -23,7 +23,7 @@ from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.db.base import Base
+from backend.db.session import Base
 
 
 class UserSession(Base):

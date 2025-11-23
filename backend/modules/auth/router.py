@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from backend.db.session import get_async_db
+from backend.db import get_db as get_async_db
 from backend.modules.auth.schemas import (
     RefreshTokenRequest,
     TokenResponse,
@@ -31,7 +31,7 @@ from backend.modules.auth.schemas import (
     LogoutResponse
 )
 from backend.core.jwt.session import SessionService
-from backend.app.middleware.auth import get_current_user
+from backend.core.auth.deps import get_current_user
 
 
 router = APIRouter(prefix="/auth", tags=["authentication"])

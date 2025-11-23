@@ -10,7 +10,7 @@ Endpoints:
 
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 

@@ -21,7 +21,7 @@ from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.core.auth.jwt import decode_token
-from backend.db.async_session import async_session_maker
+from backend.db.async_session import async_sessionmaker as async_session_maker
 from backend.modules.settings.repositories.settings_repositories import UserRepository
 
 logger = logging.getLogger(__name__)

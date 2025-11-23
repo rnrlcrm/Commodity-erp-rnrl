@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 from sqlalchemy import select
 
-from backend.db.base_class import Base
+from backend.db.session import Base
 
 
 class ConsentType(str, Enum):

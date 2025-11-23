@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from backend.db.base_class import Base
+from backend.db.session import Base
 
 logger = logging.getLogger(__name__)
 

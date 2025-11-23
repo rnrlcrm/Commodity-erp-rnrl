@@ -25,7 +25,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 
-from backend.db.base_class import Base
+from backend.db.session import Base
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class UserRightRequest(Base):
     requested_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)
     rejected_reason = Column(Text, nullable=True)
-    metadata = Column(JSONB, nullable=True)  # Request-specific data
+    request_metadata = Column(JSONB, nullable=True)  # Request-specific data (renamed from metadata)
 
 
 class DataExportService:

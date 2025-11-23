@@ -24,7 +24,7 @@ from backend.core.websocket import (
     WebSocketMessage,
 )
 from backend.core.websocket.sharding import ChannelPatterns
-from backend.domain.users.models import User
+from backend.modules.settings.models.settings_models import User
 
 logger = logging.getLogger(__name__)
 

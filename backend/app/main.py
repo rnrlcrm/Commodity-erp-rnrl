@@ -101,10 +101,10 @@ def create_app() -> FastAPI:
 	# Phase 2 Infrastructure Routers
 	from backend.api.v1.websocket import router as websocket_router
 	from backend.api.v1.webhooks import router as webhooks_router
-	from backend.api.v1.ai import router as ai_router
+	# from backend.api.v1.ai import router as ai_router  # Requires langchain, chromadb (optional)
 	app.include_router(websocket_router, prefix="/api/v1", tags=["websocket"])
 	app.include_router(webhooks_router, prefix="/api/v1", tags=["webhooks"])
-	app.include_router(ai_router, prefix="/api/v1", tags=["ai"])
+	# app.include_router(ai_router, prefix="/api/v1", tags=["ai"])  # Optional: install langchain chromadb
 	
 	# Session Management (NEW)
 	from backend.modules.auth.router import router as session_router

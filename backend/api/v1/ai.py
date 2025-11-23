@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from backend.core.auth.dependencies import get_current_user
-from backend.core.settings.base import Settings, get_settings
+from backend.core.settings.config import settings as Settings, settings as get_settings
 from backend.ai.embeddings.chromadb.store import ChromaDBStore, Collections
 from backend.ai.embeddings.chromadb.search import SemanticSearch
 from backend.ai.orchestrators.langchain.orchestrator import LangChainOrchestrator

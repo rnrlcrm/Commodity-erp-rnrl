@@ -18,7 +18,7 @@ from backend.core.auth.dependencies import get_current_user
 from backend.core.webhooks import WebhookManager
 from backend.core.webhooks.queue import QueuePriority
 from backend.core.webhooks.schemas import WebhookEvent, WebhookEventType, WebhookSubscription
-from backend.domain.users.models import User
+from backend.modules.settings.models.settings_models import User
 
 logger = logging.getLogger(__name__)
 

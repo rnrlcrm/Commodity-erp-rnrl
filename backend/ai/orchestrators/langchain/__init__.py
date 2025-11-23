@@ -10,14 +10,17 @@ Exports:
 - MemoryManager: Conversation memory
 """
 
-from backend.ai/orchestrators/langchain/orchestrator import LangChainOrchestrator
-from backend.ai.orchestrators.langchain.chains import ConversationChain, AnalysisChain
-from backend.ai.orchestrators.langchain.agents import AgentExecutor, ERPAgent
-from backend.ai.orchestrators.langchain.memory import MemoryManager
+from backend.ai.orchestrators.langchain.orchestrator import LangChainOrchestrator
+from backend.ai.orchestrators.langchain.chains import ConversationChain
+from backend.ai.orchestrators.langchain.agents import ERPAgent, TradeAssistant, ContractAssistant, QualityAssistant
 
 __all__ = [
     "LangChainOrchestrator",
     "ConversationChain",
+    "ERPAgent",
+    "TradeAssistant",
+    "ContractAssistant",
+    "QualityAssistant",
     "AnalysisChain",
     "AgentExecutor",
     "ERPAgent",

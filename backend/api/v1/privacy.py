@@ -17,11 +17,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.dependencies import get_db
+from backend.db import get_db
 from backend.core.auth.dependencies import get_current_user
 from backend.core.gdpr.consent import ConsentType, PrivacyService, UserConsent
 from backend.core.gdpr.user_rights import DataExportService, DeletionService, UserRightType
-from backend.domain.users.models import User
+from backend.modules.settings.models.settings_models import User
 
 logger = logging.getLogger(__name__)
 

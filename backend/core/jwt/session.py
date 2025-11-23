@@ -29,8 +29,8 @@ from backend.core.settings.config import settings
 
 # Redis client for session caching
 redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
+    host=getattr(settings, 'REDIS_HOST', 'localhost'),
+    port=getattr(settings, 'REDIS_PORT', 6379),
     decode_responses=True,
     max_connections=50
 )
