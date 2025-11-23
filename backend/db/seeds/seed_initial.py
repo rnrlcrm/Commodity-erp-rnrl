@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import os
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 
 try:
     # When running with PYTHONPATH=., we can import as a package-less module
@@ -12,19 +13,21 @@ except ModuleNotFoundError:  # Fallback when launched from backend working dir
     from modules.settings.services.settings_services import SeedService  # type: ignore
 
 
-def main() -> None:
-    database_url = os.environ["DATABASE_URL"]
+async def main() -> None:
+    database_url = os.environ["DATABASE_URL"].replace("postgresql://", "postgresql+asyncpg://")
     org_name = os.getenv("DEFAULT_ORG_NAME", "Cotton Corp")
     admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@example.com")
     admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMe123!")
 
-    engine = create_engine(database_url, future=True)
-    with Session(engine, future=True) as session:
+    engine = create_async_engine(database_url, future=True)
+    async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
+    async with async_session_maker() as session:
         service = SeedService(session)
-        service.seed_defaults(org_name, admin_email, admin_password)
-        session.commit()
+        await service.seed_defaults(org_name, admin_email, admin_password)
+        await session.commit()
         print("Seed completed: org, permissions, role, admin user")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

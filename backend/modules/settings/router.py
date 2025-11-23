@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.audit import audit_log
-from backend.db.session import get_db
+from backend.db.async_session import get_db
 from backend.modules.settings.schemas.settings_schemas import LoginRequest, SignupRequest, TokenResponse, UserOut
 from backend.modules.settings.services.settings_services import AuthService
 from backend.core.auth.deps import get_current_user
@@ -24,10 +24,10 @@ def health() -> dict:
 
 
 @router.post("/auth/signup", response_model=UserOut, tags=["auth"])
-def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> UserOut:
+async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> UserOut:
     svc = AuthService(db)
     try:
-        user = svc.signup(payload.email, payload.password, payload.full_name)
+        user = await svc.signup(payload.email, payload.password, payload.full_name)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     audit_log("user.signup", None, "user", str(user.id), {"email": user.email})
@@ -43,10 +43,10 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> UserOut:
 
 
 @router.post("/auth/login", response_model=TokenResponse, tags=["auth"])
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     svc = AuthService(db)
     try:
-        access, refresh, expires_in = svc.login(payload.email, payload.password)
+        access, refresh, expires_in = await svc.login(payload.email, payload.password)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     audit_log("user.login", None, "user", None, {"email": payload.email})
@@ -54,10 +54,10 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
 
 
 @router.post("/auth/refresh", response_model=TokenResponse, tags=["auth"])
-def refresh(token: str, db: Session = Depends(get_db)) -> TokenResponse:  # noqa: D401 - simple endpoint
+async def refresh(token: str, db: AsyncSession = Depends(get_db)) -> TokenResponse:  # noqa: D401 - simple endpoint
     svc = AuthService(db)
     try:
-        access, new_refresh, expires_in = svc.refresh(token)
+        access, new_refresh, expires_in = await svc.refresh(token)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     audit_log("user.refresh", None, "refresh_token", None, {})
@@ -65,10 +65,10 @@ def refresh(token: str, db: Session = Depends(get_db)) -> TokenResponse:  # noqa
 
 
 @router.post("/auth/logout", tags=["auth"])
-def logout(token: str, db: Session = Depends(get_db)) -> dict:
+async def logout(token: str, db: AsyncSession = Depends(get_db)) -> dict:
     svc = AuthService(db)
     try:
-        svc.logout(token)
+        await svc.logout(token)
     except ValueError:
         pass
     audit_log("user.logout", None, "refresh_token", None, {})

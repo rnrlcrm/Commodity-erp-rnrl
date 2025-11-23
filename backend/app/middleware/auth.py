@@ -21,7 +21,7 @@ from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.core.auth.jwt import decode_token
-from backend.db.session import SessionLocal
+from backend.db.async_session import async_session_maker
 from backend.modules.settings.repositories.settings_repositories import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -106,43 +106,41 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
         
         # Load user from database with all isolation fields
-        db = SessionLocal()
-        try:
-            user_repo = UserRepository(db)
-            user = user_repo.get_by_id(user_id)
-            
-            if user is None:
-                logger.warning(f"User {user_id} not found")
+        async with async_session_maker() as db:
+            try:
+                user_repo = UserRepository(db)
+                user = await user_repo.get_by_id(user_id)
+                
+                if user is None:
+                    logger.warning(f"User {user_id} not found")
+                    return Response(
+                        content='{"detail":"User not found"}',
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        media_type="application/json",
+                    )
+                
+                if not user.is_active:
+                    logger.warning(f"Inactive user {user_id} attempted access")
+                    return Response(
+                        content='{"detail":"User account is inactive"}',
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        media_type="application/json",
+                    )
+                
+                # Set user on request state for downstream middleware/handlers
+                request.state.user = user
+                
+                logger.debug(
+                    f"Authenticated user {user.id} ({user.user_type}) for {request.method} {request.url.path}"
+                )
+                
+            except Exception as e:
+                logger.error(f"Error loading user: {e}")
                 return Response(
-                    content='{"detail":"User not found"}',
-                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content='{"detail":"Authentication error"}',
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     media_type="application/json",
                 )
-            
-            if not user.is_active:
-                logger.warning(f"Inactive user {user_id} attempted access")
-                return Response(
-                    content='{"detail":"User account is inactive"}',
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    media_type="application/json",
-                )
-            
-            # Set user on request state for downstream middleware/handlers
-            request.state.user = user
-            
-            logger.debug(
-                f"Authenticated user {user.id} ({user.user_type}) for {request.method} {request.url.path}"
-            )
-            
-        except Exception as e:
-            logger.error(f"Error loading user: {e}")
-            return Response(
-                content='{"detail":"Authentication error"}',
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                media_type="application/json",
-            )
-        finally:
-            db.close()
         
         # Proceed to next middleware/handler
         response = await call_next(request)
