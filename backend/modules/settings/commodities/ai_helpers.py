@@ -267,8 +267,13 @@ class CommodityAIHelper:
             from sqlalchemy import select
             
             # Search for templates matching this category
+            # Order by usage_count DESC to show most popular parameters first (AI learning)
             stmt = select(SystemCommodityParameter).where(
-                SystemCommodityParameter.category.ilike(f"%{category}%")
+                SystemCommodityParameter.commodity_category.ilike(f"%{category}%")
+            ).order_by(
+                SystemCommodityParameter.usage_count.desc(),
+                SystemCommodityParameter.is_mandatory.desc(),
+                SystemCommodityParameter.parameter_name
             ).limit(20)
             
             result = await self.db.execute(stmt)
@@ -280,7 +285,7 @@ class CommodityAIHelper:
                     suggestions.append(
                         ParameterSuggestion(
                             name=template.parameter_name,
-                            type=template.data_type,
+                            type=template.parameter_type,
                             unit=template.unit,
                             typical_range=f"{template.min_value}-{template.max_value}" if template.min_value else None,
                             mandatory=template.is_mandatory,

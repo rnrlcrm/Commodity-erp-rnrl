@@ -21,6 +21,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -100,21 +101,33 @@ class CommodityParameter(Base):
 
 
 class SystemCommodityParameter(Base):
-    """AI-suggested standard parameters for commodity categories"""
+    """AI-suggested standard parameters for commodity categories with learning"""
     
     __tablename__ = "system_commodity_parameters"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     commodity_category = Column(String(100), nullable=False, index=True)
     parameter_name = Column(String(100), nullable=False)
-    parameter_type = Column(String(50), nullable=False)
+    parameter_type = Column(String(50), nullable=False)  # NUMERIC, TEXT, RANGE
     unit = Column(String(50), nullable=True)
-    typical_range_min = Column(Numeric(10, 2), nullable=True)
-    typical_range_max = Column(Numeric(10, 2), nullable=True)
+    min_value = Column(Numeric(10, 2), nullable=True)
+    max_value = Column(Numeric(10, 2), nullable=True)
+    default_value = Column(String(100), nullable=True)
+    is_mandatory = Column(Boolean, default=False, nullable=False)
     description = Column(Text, nullable=True)
-    source = Column(String(100), nullable=True)  # Industry Standard, CCI, Custom
+    
+    # AI Learning fields
+    usage_count = Column(Integer, default=0, nullable=False)  # Track popularity
+    source = Column(String(100), nullable=True)  # Industry Standard, CCI, AI_LEARNED, SEED
     
     created_at = Column(DateTime(timezone=True), server_default=text("NOW()"), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=datetime.utcnow, nullable=True)
+    created_by = Column(UUID(as_uuid=True), nullable=True)
+    
+    # Unique constraint to prevent duplicate templates
+    __table_args__ = (
+        UniqueConstraint('commodity_category', 'parameter_name', name='uix_category_parameter'),
+    )
 
 
 class TradeType(Base):
