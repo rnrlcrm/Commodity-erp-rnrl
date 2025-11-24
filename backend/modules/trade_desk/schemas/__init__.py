@@ -1,7 +1,8 @@
 """
-Availability Engine API Schemas
+Trade Desk API Schemas
 
 Pydantic schemas for request/response validation.
+Includes Availability Engine and Requirement Engine schemas.
 """
 
 from datetime import datetime
@@ -10,6 +11,26 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
+# Import Requirement schemas
+from backend.modules.trade_desk.schemas.requirement_schemas import (
+    AIAdjustmentRequest,
+    AIAdjustmentResponse,
+    CancelRequirementRequest,
+    DemandStatisticsResponse,
+    FulfillmentUpdateRequest,
+    IntentSearchRequest,
+    RequirementCreateRequest,
+    RequirementEventResponse,
+    RequirementHistoryResponse,
+    RequirementResponse,
+    RequirementSearchRequest,
+    RequirementSearchResponse,
+    RequirementSearchResult,
+    RequirementUpdateRequest,
+)
+
+# Availability schemas remain in this file for backward compatibility
 
 
 # ========================

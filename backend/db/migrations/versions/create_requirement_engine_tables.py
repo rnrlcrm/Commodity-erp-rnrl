@@ -97,6 +97,28 @@ def upgrade() -> None:
                   comment='Currency code (ISO 4217)'),
         
         # ========================================================================
+        # 🚀 RISK MANAGEMENT & CREDIT CONTROL
+        # ========================================================================
+        sa.Column('estimated_trade_value', sa.Numeric(18, 2), nullable=True,
+                  comment='Auto-calculated estimated trade value (preferred_quantity * max_budget_per_unit)'),
+        sa.Column('buyer_credit_limit_remaining', sa.Numeric(18, 2), nullable=True,
+                  comment='Remaining credit limit for this buyer from credit module'),
+        sa.Column('buyer_exposure_after_trade', sa.Numeric(18, 2), nullable=True,
+                  comment='Projected buyer exposure if this trade executes'),
+        sa.Column('risk_precheck_status', sa.String(20), nullable=True,
+                  comment='PASS, WARN, FAIL - Risk assessment status'),
+        sa.Column('risk_precheck_score', sa.Integer, nullable=True,
+                  comment='Numeric risk score (0-100, higher is better)'),
+        sa.Column('buyer_branch_id', postgresql.UUID(as_uuid=True), nullable=True,
+                  comment='Buyer branch ID for internal trade blocking logic'),
+        sa.Column('blocked_internal_trades', sa.Boolean, nullable=False, server_default='true',
+                  comment='If true, blocks matching with same branch sellers'),
+        sa.Column('buyer_rating_score', sa.Numeric(3, 2), nullable=True,
+                  comment='Buyer rating score (0.00-5.00) from rating module'),
+        sa.Column('buyer_payment_performance_score', sa.Integer, nullable=True,
+                  comment='Payment performance score (0-100) based on history'),
+        
+        # ========================================================================
         # PAYMENT & DELIVERY PREFERENCES
         # ========================================================================
         sa.Column('preferred_payment_terms', postgresql.JSONB, nullable=True,
@@ -255,6 +277,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['cancelled_by_user_id'], ['users.id'],
                                 name='fk_requirements_cancelled_by_user',
                                 ondelete='SET NULL'),
+        sa.ForeignKeyConstraint(['buyer_branch_id'], ['branches.id'],
+                                name='fk_requirements_buyer_branch',
+                                ondelete='SET NULL'),
         
         # ========================================================================
         # CHECK CONSTRAINTS (Business Logic Validation)
@@ -297,6 +322,22 @@ def upgrade() -> None:
             name='check_delivery_window_order'
         ),
         sa.CheckConstraint('buyer_priority_score >= 0.0', name='check_buyer_priority_score_non_negative'),
+        sa.CheckConstraint(
+            "risk_precheck_status IS NULL OR risk_precheck_status IN ('PASS', 'WARN', 'FAIL')",
+            name='check_risk_precheck_status_values'
+        ),
+        sa.CheckConstraint(
+            'risk_precheck_score IS NULL OR (risk_precheck_score >= 0 AND risk_precheck_score <= 100)',
+            name='check_risk_precheck_score_range'
+        ),
+        sa.CheckConstraint(
+            'buyer_rating_score IS NULL OR (buyer_rating_score >= 0.00 AND buyer_rating_score <= 5.00)',
+            name='check_buyer_rating_score_range'
+        ),
+        sa.CheckConstraint(
+            'buyer_payment_performance_score IS NULL OR (buyer_payment_performance_score >= 0 AND buyer_payment_performance_score <= 100)',
+            name='check_buyer_payment_performance_score_range'
+        ),
     )
     
     # ============================================================================
@@ -309,6 +350,9 @@ def upgrade() -> None:
     op.create_index('ix_requirements_urgency_level', 'requirements', ['urgency_level'])
     op.create_index('ix_requirements_intent_type', 'requirements', ['intent_type'])
     op.create_index('ix_requirements_buyer_priority_score', 'requirements', ['buyer_priority_score'])
+    op.create_index('ix_requirements_risk_precheck_status', 'requirements', ['risk_precheck_status'])
+    op.create_index('ix_requirements_buyer_branch_id', 'requirements', ['buyer_branch_id'])
+    op.create_index('ix_requirements_buyer_rating_score', 'requirements', ['buyer_rating_score'])
     
     # ============================================================================
     # INDEXES - COMPOSITE (Query Optimization)
@@ -432,7 +476,10 @@ def upgrade() -> None:
         'Buyer requirements for commodity procurement - Engine 2 of 5. 
         Includes 7 enhancements for 2035: Intent Layer, AI Market Embeddings, 
         Delivery Flexibility, Commodity Conversion, Negotiation Preferences, 
-        Buyer Trust Score, AI Adjustment Events. Supports autonomous AI trading.'
+        Buyer Trust Score, AI Adjustment Events. 
+        Risk Management: Credit limit checking, risk scoring, internal trade blocking, 
+        buyer rating integration, payment performance tracking. 
+        Supports autonomous AI trading with comprehensive risk controls.'
     """)
 
 

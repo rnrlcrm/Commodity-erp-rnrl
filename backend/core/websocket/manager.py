@@ -51,6 +51,16 @@ class WebSocketEvent(str, Enum):
     ORDER_UPDATE = "order.update"
     NOTIFICATION = "notification"
     USER_TYPING = "user.typing"
+    
+    # Requirement Engine events
+    REQUIREMENT_CREATED = "requirement.created"
+    REQUIREMENT_PUBLISHED = "requirement.published"
+    REQUIREMENT_UPDATED = "requirement.updated"
+    REQUIREMENT_FULFILLMENT_UPDATED = "requirement.fulfillment_updated"
+    REQUIREMENT_FULFILLED = "requirement.fulfilled"
+    REQUIREMENT_CANCELLED = "requirement.cancelled"
+    REQUIREMENT_AI_ADJUSTED = "requirement.ai_adjusted"
+    REQUIREMENT_RISK_ALERT = "requirement.risk_alert"
 
 
 class WebSocketMessage(BaseModel):
