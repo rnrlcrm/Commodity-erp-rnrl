@@ -69,3 +69,56 @@ class PriceType(str, Enum):
     MATRIX = "MATRIX"
     NEGOTIABLE = "NEGOTIABLE"
     SPOT = "SPOT"
+
+
+# ============================================================================
+# REQUIREMENT ENGINE ENUMS (Engine 2 of 5)
+# ============================================================================
+
+class RequirementStatus(str, Enum):
+    """
+    Lifecycle status of a requirement posting.
+    
+    DRAFT: Being created, not yet published
+    ACTIVE: Published and searchable by sellers
+    PARTIALLY_FULFILLED: Some quantity purchased
+    FULFILLED: All quantity purchased
+    EXPIRED: Past valid_until date
+    CANCELLED: Cancelled by buyer
+    """
+    DRAFT = "DRAFT"
+    ACTIVE = "ACTIVE"
+    PARTIALLY_FULFILLED = "PARTIALLY_FULFILLED"
+    FULFILLED = "FULFILLED"
+    EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"
+
+
+class UrgencyLevel(str, Enum):
+    """
+    Urgency level for requirement procurement.
+    
+    URGENT: Need immediately (high priority matching)
+    NORMAL: Standard procurement timeline
+    PLANNING: Future planning (low urgency)
+    """
+    URGENT = "URGENT"
+    NORMAL = "NORMAL"
+    PLANNING = "PLANNING"
+
+
+class IntentType(str, Enum):
+    """
+    🚀 ENHANCEMENT #1: Buyer intent type for intelligent routing.
+    
+    DIRECT_BUY: Immediate purchase intent (route to matching engine)
+    NEGOTIATION: Want multiple offers and negotiate (route to negotiation engine)
+    AUCTION_REQUEST: Reverse auction mode (route to auction module)
+    PRICE_DISCOVERY_ONLY: Just exploring market prices (analytics only)
+    
+    Critical for autonomous trade engine decision making!
+    """
+    DIRECT_BUY = "DIRECT_BUY"
+    NEGOTIATION = "NEGOTIATION"
+    AUCTION_REQUEST = "AUCTION_REQUEST"
+    PRICE_DISCOVERY_ONLY = "PRICE_DISCOVERY_ONLY"
