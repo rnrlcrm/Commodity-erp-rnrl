@@ -111,6 +111,16 @@ class CommodityService:
         # Create commodity
         commodity = await self.repository.create(data)
         
+        # NEW: Learn from this commodity creation (AI self-improvement)
+        if self.ai_helper.hsn_learning and data.hsn_code:
+            await self.ai_helper.hsn_learning.confirm_hsn_mapping(
+                commodity_name=data.name,
+                category=data.category,
+                hsn_code=data.hsn_code,
+                gst_rate=data.gst_rate,
+                user_id=self.current_user_id
+            )
+        
         # Emit event
         await self.event_emitter.emit(
             CommodityCreated(
@@ -265,7 +275,7 @@ class CommodityVarietyService:
 
 
 class CommodityParameterService:
-    """Service for commodity quality parameters"""
+    """Service for commodity quality parameters with AI learning"""
     
     def __init__(
         self,
@@ -274,16 +284,23 @@ class CommodityParameterService:
         current_user_id: UUID
     ):
         self.repository = CommodityParameterRepository(session)
+        self.system_param_repository = SystemCommodityParameterRepository(session)
+        self.commodity_repository = CommodityRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.session = session
     
     async def add_parameter(
         self,
         data: CommodityParameterCreate
     ) -> CommodityParameter:
-        """Add quality parameter to commodity"""
+        """Add quality parameter to commodity with AI learning"""
         
+        # Create the parameter for this commodity
         parameter = await self.repository.create(data)
+        
+        # AI LEARNING: Check if this parameter should become a template
+        await self._learn_parameter_template(parameter)
         
         await self.event_emitter.emit(
             CommodityParameterAdded(
@@ -292,13 +309,60 @@ class CommodityParameterService:
                 user_id=self.current_user_id,
                 payload={
                     "commodity_id": str(parameter.commodity_id),
-                    "name": parameter.name,
-                    "type": parameter.type
+                    "name": parameter.parameter_name,
+                    "type": parameter.parameter_type
                 }
             )
         )
         
         return parameter
+    
+    async def _learn_parameter_template(self, parameter: CommodityParameter) -> None:
+        """
+        AI Learning: Create/update SystemCommodityParameter template
+        
+        When user adds a custom parameter, system learns by:
+        1. Getting the commodity's category
+        2. Checking if template already exists for this category+parameter
+        3. If not, creating a new template for future suggestions
+        4. If yes, incrementing usage count to improve ranking
+        """
+        from sqlalchemy import select, func
+        
+        # Get commodity to determine category
+        commodity = await self.commodity_repository.get_by_id(parameter.commodity_id)
+        if not commodity:
+            return
+        
+        # Check if this parameter template already exists for this category
+        stmt = select(SystemCommodityParameter).where(
+            SystemCommodityParameter.commodity_category == commodity.category,
+            SystemCommodityParameter.parameter_name == parameter.parameter_name
+        )
+        result = await self.session.execute(stmt)
+        existing_template = result.scalar_one_or_none()
+        
+        if existing_template:
+            # Template exists - increment usage count (popularity tracking)
+            existing_template.usage_count = (existing_template.usage_count or 0) + 1
+            existing_template.updated_at = func.now()
+        else:
+            # New parameter discovered - create template for future suggestions
+            new_template = SystemCommodityParameter(
+                commodity_category=commodity.category,
+                parameter_name=parameter.parameter_name,
+                parameter_type=parameter.parameter_type,
+                unit=parameter.unit,
+                min_value=parameter.min_value,
+                max_value=parameter.max_value,
+                default_value=parameter.default_value,
+                is_mandatory=parameter.is_mandatory,
+                usage_count=1,
+                created_by=self.current_user_id
+            )
+            self.session.add(new_template)
+        
+        await self.session.flush()
     
     async def update_parameter(
         self,
