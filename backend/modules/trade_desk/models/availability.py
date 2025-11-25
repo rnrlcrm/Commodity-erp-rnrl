@@ -131,6 +131,23 @@ class Availability(Base, EventMixin):
     ai_confidence_score = Column(Numeric(5, 4), nullable=True)  # 0.0000 to 1.0000
     ai_price_anomaly_flag = Column(Boolean, default=False, nullable=False)
     
+    # Risk Management Fields (Added 2025-11-25)
+    expected_price = Column(Numeric(15, 2), nullable=True)  # Seller's expected price
+    estimated_trade_value = Column(Numeric(18, 2), nullable=True)  # Auto-calculated
+    risk_precheck_status = Column(String(20), nullable=True, index=True)  # PASS/WARN/FAIL
+    risk_precheck_score = Column(Integer, nullable=True)  # 0-100
+    seller_exposure_after_trade = Column(Numeric(18, 2), nullable=True)
+    seller_branch_id = Column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("branches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    blocked_for_branches = Column(Boolean, default=False, nullable=False, index=True)
+    seller_rating_score = Column(Numeric(3, 2), nullable=True)  # 0.00-5.00
+    seller_delivery_score = Column(Integer, nullable=True)  # 0-100
+    risk_flags = Column(JSONB, nullable=True)  # Risk-related metadata
+    
     # Market Visibility & Access Control
     market_visibility = Column(
         String(20),
@@ -206,6 +223,12 @@ class Availability(Base, EventMixin):
         CheckConstraint("min_order_quantity IS NULL OR min_order_quantity > 0", name="check_min_order_quantity_positive"),
         CheckConstraint("base_price IS NULL OR base_price > 0", name="check_base_price_positive"),
         CheckConstraint("available_until IS NULL OR available_from IS NULL OR available_until > available_from", name="check_date_range_valid"),
+        # Risk management constraints
+        CheckConstraint("risk_precheck_status IS NULL OR risk_precheck_status IN ('PASS', 'WARN', 'FAIL')", name="check_risk_precheck_status_valid"),
+        CheckConstraint("risk_precheck_score IS NULL OR (risk_precheck_score >= 0 AND risk_precheck_score <= 100)", name="check_risk_precheck_score_range"),
+        CheckConstraint("seller_rating_score IS NULL OR (seller_rating_score >= 0 AND seller_rating_score <= 5)", name="check_seller_rating_score_range"),
+        CheckConstraint("seller_delivery_score IS NULL OR (seller_delivery_score >= 0 AND seller_delivery_score <= 100)", name="check_seller_delivery_score_range"),
+        CheckConstraint("expected_price IS NULL OR expected_price > 0", name="check_expected_price_positive"),
     )
     
     # ========================
@@ -525,3 +548,132 @@ class Availability(Base, EventMixin):
             self.total_quantity, old_available, old_reserved, old_sold,
             user_id, f"Sold {quantity} to buyer {buyer_id}"
         )
+    
+    # ========================
+    # Risk Management Methods
+    # ========================
+    
+    def calculate_estimated_trade_value(self) -> Decimal:
+        """
+        Calculate estimated trade value based on available quantity and expected price.
+        Uses expected_price if available, otherwise falls back to base_price.
+        
+        Returns:
+            Decimal: Estimated trade value
+        """
+        price = self.expected_price or self.base_price or Decimal(0)
+        quantity = self.available_quantity or Decimal(0)
+        
+        self.estimated_trade_value = price * quantity
+        return self.estimated_trade_value
+    
+    def update_risk_precheck(
+        self,
+        seller_credit_limit_remaining: Decimal,
+        seller_rating: Decimal,
+        seller_delivery_performance: int,
+        seller_exposure: Decimal,
+        user_id: UUID
+    ) -> Dict[str, Any]:
+        """
+        Update risk precheck status and score based on seller metrics.
+        Mirrors the buyer risk check from Requirement Engine.
+        
+        Args:
+            seller_credit_limit_remaining: Remaining credit limit
+            seller_rating: Seller rating score (0.00-5.00)
+            seller_delivery_performance: Delivery score (0-100)
+            seller_exposure: Current seller exposure
+            user_id: User performing the check
+            
+        Returns:
+            Dict with risk assessment details
+        """
+        # Calculate estimated trade value first
+        self.calculate_estimated_trade_value()
+        
+        # Calculate exposure after this trade
+        trade_value = self.estimated_trade_value or Decimal(0)
+        self.seller_exposure_after_trade = seller_exposure + trade_value
+        
+        # Update seller scores
+        self.seller_rating_score = seller_rating
+        self.seller_delivery_score = seller_delivery_performance
+        
+        # Risk scoring (0-100)
+        risk_score = 100
+        risk_factors = []
+        
+        # Factor 1: Credit limit check (40 points)
+        if self.seller_exposure_after_trade > seller_credit_limit_remaining:
+            risk_score -= 40
+            risk_factors.append(
+                f"Insufficient seller credit limit (need: {trade_value}, "
+                f"available: {seller_credit_limit_remaining})"
+            )
+        elif seller_credit_limit_remaining < trade_value * Decimal("1.2"):
+            risk_score -= 20
+            risk_factors.append("Low seller credit limit buffer (<20%)")
+        
+        # Factor 2: Seller rating (30 points)
+        if seller_rating < Decimal("3.0"):
+            risk_score -= 30
+            risk_factors.append(f"Low seller rating (<3.0): {seller_rating}")
+        elif seller_rating < Decimal("4.0"):
+            risk_score -= 15
+            risk_factors.append(f"Moderate seller rating (<4.0): {seller_rating}")
+        
+        # Factor 3: Delivery performance (30 points)
+        if seller_delivery_performance < 50:
+            risk_score -= 30
+            risk_factors.append(f"Poor delivery history (<50): {seller_delivery_performance}")
+        elif seller_delivery_performance < 75:
+            risk_score -= 15
+            risk_factors.append(f"Moderate delivery history (<75): {seller_delivery_performance}")
+        
+        # Determine status based on score
+        if risk_score >= 80:
+            self.risk_precheck_status = "PASS"
+        elif risk_score >= 60:
+            self.risk_precheck_status = "WARN"
+        else:
+            self.risk_precheck_status = "FAIL"
+        
+        self.risk_precheck_score = max(0, risk_score)
+        
+        # Store risk factors in JSONB
+        self.risk_flags = {
+            "risk_factors": risk_factors,
+            "credit_limit_remaining": float(seller_credit_limit_remaining),
+            "exposure_after_trade": float(self.seller_exposure_after_trade),
+            "rating_score": float(seller_rating),
+            "delivery_score": seller_delivery_performance,
+            "assessed_at": datetime.utcnow().isoformat()
+        }
+        
+        return {
+            "risk_precheck_status": self.risk_precheck_status,
+            "risk_precheck_score": self.risk_precheck_score,
+            "estimated_trade_value": self.estimated_trade_value,
+            "seller_exposure_after_trade": self.seller_exposure_after_trade,
+            "risk_factors": risk_factors
+        }
+    
+    def check_internal_trade_block(self, buyer_branch_id: Optional[UUID]) -> bool:
+        """
+        Check if availability is blocked for buyer's branch (internal trade prevention).
+        
+        Args:
+            buyer_branch_id: Branch ID of the buyer
+            
+        Returns:
+            bool: True if trade is blocked (same branch), False if allowed
+        """
+        if not self.blocked_for_branches:
+            return False
+        
+        if not buyer_branch_id or not self.seller_branch_id:
+            return False
+        
+        # Block if buyer and seller are from same branch
+        return self.seller_branch_id == buyer_branch_id
