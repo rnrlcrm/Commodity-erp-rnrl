@@ -16,6 +16,7 @@ Test Categories:
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -25,22 +26,24 @@ from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
+from unittest.mock import AsyncMock
 
 from backend.modules.trade_desk.models.requirement import Requirement
 from backend.modules.trade_desk.models.availability import Availability
 from backend.modules.settings.commodities.models import Commodity
+from backend.modules.settings.locations.models import Location
 from backend.modules.trade_desk.repositories.requirement_repository import RequirementRepository
 from backend.modules.trade_desk.repositories.availability_repository import AvailabilityRepository
 from backend.modules.trade_desk.matching.matching_engine import MatchingEngine, MatchResult
 from backend.modules.trade_desk.config.matching_config import MatchingConfig
-from backend.core.database import Base
+from backend.db.session import Base
 
 
 # ============================================================================
 # FIXTURES: Database Setup
 # ============================================================================
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_db_engine():
     """Create in-memory SQLite async engine for testing."""
     engine = create_async_engine(
@@ -58,7 +61,7 @@ async def async_db_engine():
     await engine.dispose()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_db_session(async_db_engine):
     """Create async database session."""
     async_session = sessionmaker(
@@ -72,11 +75,9 @@ async def async_db_session(async_db_engine):
         await session.rollback()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mock_risk_engine():
     """Mock risk engine for testing."""
-    from unittest.mock import AsyncMock
-    
     risk_engine = AsyncMock()
     risk_engine.evaluate_match_risk = AsyncMock(return_value={
         "risk_status": "PASS",
@@ -94,7 +95,7 @@ def matching_config():
     return MatchingConfig()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_commodity(async_db_session):
     """Create sample commodity."""
     commodity = Commodity(
@@ -110,11 +111,9 @@ async def sample_commodity(async_db_session):
     return commodity
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_location(async_db_session):
     """Create sample location."""
-    from backend.modules.settings.locations.models import Location
-    
     location = Location(
         id=uuid4(),
         name="Mumbai",
@@ -130,7 +129,7 @@ async def sample_location(async_db_session):
     return location
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_requirement(async_db_session, sample_commodity, sample_location):
     """Create sample requirement for testing."""
     requirement = Requirement(
@@ -166,7 +165,7 @@ async def sample_requirement(async_db_session, sample_commodity, sample_location
     return requirement
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_availability(async_db_session, sample_commodity, sample_location):
     """Create sample availability for testing."""
     availability = Availability(

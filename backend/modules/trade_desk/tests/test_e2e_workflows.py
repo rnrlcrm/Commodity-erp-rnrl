@@ -26,13 +26,14 @@ from unittest.mock import AsyncMock, Mock
 from backend.modules.trade_desk.models.requirement import Requirement
 from backend.modules.trade_desk.models.availability import Availability
 from backend.modules.settings.commodities.models import Commodity
+from backend.modules.settings.locations.models import Location
 from backend.modules.trade_desk.repositories.requirement_repository import RequirementRepository
 from backend.modules.trade_desk.repositories.availability_repository import AvailabilityRepository
 from backend.modules.trade_desk.matching.matching_engine import MatchingEngine, MatchResult
 from backend.modules.trade_desk.matching.scoring import MatchScorer
 from backend.modules.trade_desk.matching.validators import MatchValidator
 from backend.modules.trade_desk.config.matching_config import MatchingConfig
-from backend.core.database import Base
+from backend.db.session import Base
 
 
 # ============================================================================
