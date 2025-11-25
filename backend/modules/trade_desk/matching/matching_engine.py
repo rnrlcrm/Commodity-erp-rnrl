@@ -107,7 +107,7 @@ class MatchingEngine:
         self.availability_repo = availability_repo
         self.config = config or get_matching_config()
         self.scorer = MatchScorer(config=self.config)
-        self.validator = MatchValidator(risk_engine=risk_engine, config=self.config)
+        self.validator = MatchValidator(db=db, risk_engine=risk_engine, config=self.config)
     
     # ========================================================================
     # LOCATION-FIRST HARD FILTER ⭐ CRITICAL
