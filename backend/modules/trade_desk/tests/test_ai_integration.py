@@ -16,7 +16,7 @@ from uuid import uuid4
 from backend.modules.trade_desk.matching.validators import MatchValidator, ValidationResult
 from backend.modules.trade_desk.config.matching_config import MatchingConfig
 from backend.modules.trade_desk.models.requirement import Requirement
-from backend.modules/trade_desk.models.availability import Availability
+from backend.modules.trade_desk.models.availability import Availability
 
 
 @pytest.fixture

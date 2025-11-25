@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.modules.trade_desk.models.requirement import Requirement
 from backend.modules.trade_desk.models.availability import Availability
 from backend.modules.trade_desk.config.matching_config import MatchingConfig
-from backend.modules.trade_desk.services.risk_engine import RiskEngine
+from backend.modules.risk.risk_engine import RiskEngine
 
 
 @dataclass
