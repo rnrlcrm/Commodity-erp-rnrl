@@ -170,6 +170,10 @@ def create_app() -> FastAPI:
 	from backend.api.v1.sync import router as sync_router
 	app.include_router(sync_router, prefix="/api/v1", tags=["sync"])
 	
+	# Risk Management Module (NEW)
+	from backend.modules.risk.routes import router as risk_router
+	app.include_router(risk_router, prefix="/api/v1", tags=["risk"])
+	
 	return app
 
 

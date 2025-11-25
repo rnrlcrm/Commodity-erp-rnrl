@@ -203,6 +203,39 @@ class RequirementService:
         await self._validate_buyer_locations(buyer_id, delivery_locations)
         
         # ====================================================================
+        # STEP 1A: 🚀 ROLE RESTRICTION VALIDATION (Option A)
+        # Prevent SELLER from posting BUY requirements
+        # Allow BUYER and TRADER to post BUY requirements
+        # ====================================================================
+        from backend.modules.risk.risk_engine import RiskEngine
+        risk_engine = RiskEngine(self.db)
+        
+        role_validation = await risk_engine.validate_partner_role(
+            partner_id=buyer_id,
+            transaction_type="BUY"
+        )
+        
+        if not role_validation["allowed"]:
+            raise ValueError(role_validation["reason"])
+        
+        # ====================================================================
+        # STEP 1B: 🚀 CIRCULAR TRADING PREVENTION (Option A: Same-day only)
+        # Block if buyer has open SELL for same commodity today
+        # ====================================================================
+        circular_check = await risk_engine.check_circular_trading(
+            partner_id=buyer_id,
+            commodity_id=commodity_id,
+            transaction_type="BUY",
+            trade_date=valid_from.date()
+        )
+        
+        if circular_check["blocked"]:
+            raise ValueError(
+                f"{circular_check['reason']}\n\n"
+                f"Recommendation: {circular_check['recommendation']}"
+            )
+        
+        # ====================================================================
         # STEP 2: 🚀 Risk precheck (credit limit, buyer rating, payment performance)
         # ====================================================================
         # Fetch buyer credit & performance data (placeholder - integrate with credit module)

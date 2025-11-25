@@ -128,6 +128,44 @@ class AvailabilityService:
         # 1. Validate seller location (business rule enforcement)
         await self._validate_seller_location(seller_id, location_id)
         
+        # ====================================================================
+        # 1A: 🚀 ROLE RESTRICTION VALIDATION (Option A)
+        # Prevent BUYER from posting SELL availabilities
+        # Allow SELLER and TRADER to post SELL availabilities
+        # ====================================================================
+        from backend.modules.risk.risk_engine import RiskEngine
+        risk_engine = RiskEngine(self.db)
+        
+        role_validation = await risk_engine.validate_partner_role(
+            partner_id=seller_id,
+            transaction_type="SELL"
+        )
+        
+        if not role_validation["allowed"]:
+            raise ValueError(role_validation["reason"])
+        
+        # ====================================================================
+        # 1B: 🚀 CIRCULAR TRADING PREVENTION (Option A: Same-day only)
+        # Block if seller has open BUY for same commodity today
+        # ====================================================================
+        if expiry_date:
+            trade_date = expiry_date.date()
+        else:
+            trade_date = datetime.now().date()
+        
+        circular_check = await risk_engine.check_circular_trading(
+            partner_id=seller_id,
+            commodity_id=commodity_id,
+            transaction_type="SELL",
+            trade_date=trade_date
+        )
+        
+        if circular_check["blocked"]:
+            raise ValueError(
+                f"{circular_check['reason']}\n\n"
+                f"Recommendation: {circular_check['recommendation']}"
+            )
+        
         # 2. Auto-normalize quality parameters (AI standardization)
         if quality_params:
             quality_params = await self.normalize_quality_params(
