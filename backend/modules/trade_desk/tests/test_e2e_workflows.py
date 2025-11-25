@@ -13,6 +13,7 @@ Test Categories:
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -22,6 +23,7 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import AsyncMock, Mock
+from testcontainers.postgres import PostgresContainer
 
 from backend.modules.trade_desk.models.requirement import Requirement
 from backend.modules.trade_desk.models.availability import Availability
@@ -40,11 +42,24 @@ from backend.db.session import Base
 # FIXTURES
 # ============================================================================
 
-@pytest.fixture
-async def async_db_engine():
-    """Create in-memory async database engine."""
+@pytest_asyncio.fixture(scope="session")
+async def postgres_container():
+    """Start PostgreSQL container for testing session."""
+    container = PostgresContainer("postgres:15-alpine")
+    container.start()
+    
+    yield container
+    
+    container.stop()
+
+
+@pytest_asyncio.fixture
+async def async_db_engine(postgres_container):
+    """Create async PostgreSQL engine from testcontainer."""
+    connection_url = postgres_container.get_connection_url().replace("psycopg2", "asyncpg")
+    
     engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
+        connection_url,
         echo=False,
         future=True
     )
@@ -53,10 +68,14 @@ async def async_db_engine():
         await conn.run_sync(Base.metadata.create_all)
     
     yield engine
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    
     await engine.dispose()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_db_session(async_db_engine):
     """Create async database session."""
     async_session = sessionmaker(
@@ -70,7 +89,7 @@ async def async_db_session(async_db_engine):
         await session.rollback()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mock_risk_engine():
     """Mock risk engine that returns PASS by default."""
     risk_engine = AsyncMock()

@@ -2,7 +2,7 @@
 Integration Tests: Matching Engine
 
 Tests async methods, database queries, candidate fetching, allocation workflows.
-Uses real SQLAlchemy models with in-memory database.
+Uses Testcontainers + PostgreSQL for realistic database integration.
 
 Target Coverage: 85% of matching_engine.py
 
@@ -16,205 +16,25 @@ Test Categories:
 """
 
 import pytest
-import pytest_asyncio
 import asyncio
 from decimal import Decimal
 from datetime import datetime, timedelta
-from uuid import uuid4, UUID
+from uuid import uuid4
 from typing import Dict, Any, List
-
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
 from unittest.mock import AsyncMock
 
 from backend.modules.trade_desk.models.requirement import Requirement
 from backend.modules.trade_desk.models.availability import Availability
-from backend.modules.settings.commodities.models import Commodity
-from backend.modules.settings.locations.models import Location
-from backend.modules.trade_desk.repositories.requirement_repository import RequirementRepository
-from backend.modules.trade_desk.repositories.availability_repository import AvailabilityRepository
-from backend.modules.trade_desk.matching.matching_engine import MatchingEngine, MatchResult
-from backend.modules.trade_desk.config.matching_config import MatchingConfig
-from backend.db.session import Base
+from backend.modules.trade_desk.matching.matching_engine import MatchResult
 
 
-# ============================================================================
-# FIXTURES: Database Setup
-# ============================================================================
+# All fixtures are now in conftest.py
 
-@pytest_asyncio.fixture
-async def async_db_engine():
-    """Create in-memory SQLite async engine for testing."""
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        echo=False,
-        future=True
-    )
-    
-    # Create all tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    yield engine
-    
-    await engine.dispose()
-
-
-@pytest_asyncio.fixture
-async def async_db_session(async_db_engine):
-    """Create async database session."""
-    async_session = sessionmaker(
-        async_db_engine, 
-        class_=AsyncSession, 
-        expire_on_commit=False
-    )
-    
-    async with async_session() as session:
-        yield session
-        await session.rollback()
-
-
-@pytest_asyncio.fixture
-async def mock_risk_engine():
-    """Mock risk engine for testing."""
-    risk_engine = AsyncMock()
-    risk_engine.evaluate_match_risk = AsyncMock(return_value={
-        "risk_status": "PASS",
-        "risk_score": 95,
-        "flags": [],
-        "details": {}
-    })
-    
-    return risk_engine
-
-
-@pytest.fixture
-def matching_config():
-    """Create test matching configuration."""
-    return MatchingConfig()
-
-
-@pytest_asyncio.fixture
-async def sample_commodity(async_db_session):
-    """Create sample commodity."""
-    commodity = Commodity(
-        id=uuid4(),
-        code="COTTON",
-        name="Cotton",
-        category="Agricultural",
-        is_active=True
-    )
-    async_db_session.add(commodity)
-    await async_db_session.commit()
-    await async_db_session.refresh(commodity)
-    return commodity
-
-
-@pytest_asyncio.fixture
-async def sample_location(async_db_session):
-    """Create sample location."""
-    location = Location(
-        id=uuid4(),
-        name="Mumbai",
-        state="Maharashtra",
-        country="India",
-        latitude=19.0760,
-        longitude=72.8777,
-        is_active=True
-    )
-    async_db_session.add(location)
-    await async_db_session.commit()
-    await async_db_session.refresh(location)
-    return location
-
-
-@pytest_asyncio.fixture
-async def sample_requirement(async_db_session, sample_commodity, sample_location):
-    """Create sample requirement for testing."""
-    requirement = Requirement(
-        id=uuid4(),
-        requirement_number=f"REQ-{datetime.utcnow().strftime('%Y%m%d')}-001",
-        buyer_partner_id=uuid4(),
-        commodity_id=sample_commodity.id,
-        quantity_required=Decimal("100.000"),
-        delivery_locations=[
-            {
-                "location_id": str(sample_location.id),
-                "latitude": sample_location.latitude,
-                "longitude": sample_location.longitude,
-                "max_distance_km": 50
-            }
-        ],
-        quality_params={
-            "staple_length": 28.5,
-            "micronaire": 4.5,
-            "strength": 28.0
-        },
-        expected_price=Decimal("50000.00"),
-        max_price=Decimal("55000.00"),
-        currency="INR",
-        status="ACTIVE",
-        intent="DIRECT_BUY",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
-    )
-    async_db_session.add(requirement)
-    await async_db_session.commit()
-    await async_db_session.refresh(requirement)
-    return requirement
-
-
-@pytest_asyncio.fixture
-async def sample_availability(async_db_session, sample_commodity, sample_location):
-    """Create sample availability for testing."""
-    availability = Availability(
-        id=uuid4(),
-        commodity_id=sample_commodity.id,
-        location_id=sample_location.id,
-        seller_id=uuid4(),
-        total_quantity=Decimal("150.000"),
-        available_quantity=Decimal("150.000"),
-        reserved_quantity=Decimal("0.000"),
-        sold_quantity=Decimal("0.000"),
-        base_price=Decimal("48000.00"),
-        currency="INR",
-        quality_params={
-            "staple_length": 29.0,
-            "micronaire": 4.3,
-            "strength": 29.0
-        },
-        status="ACTIVE",
-        risk_precheck_status="PASS",
-        risk_precheck_score=95,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
-    )
-    async_db_session.add(availability)
-    await async_db_session.commit()
-    await async_db_session.refresh(availability)
-    return availability
-
-
-@pytest.fixture
-async def matching_engine(
-    async_db_session, 
-    mock_risk_engine, 
-    matching_config
-):
-    """Create matching engine instance with repositories."""
-    req_repo = RequirementRepository(async_db_session)
-    avail_repo = AvailabilityRepository(async_db_session)
-    
-    engine = MatchingEngine(
-        db=async_db_session,
-        risk_engine=mock_risk_engine,
-        requirement_repo=req_repo,
-        availability_repo=avail_repo,
-        config=matching_config
-    )
-    
-    return engine
+# All fixtures are now in conftest.py
+# - postgres_container (session scope)
+# - async_db_session (function scope, with rollback)
+# - matching_engine (with mocked risk engine)
+# - sample_requirement, sample_availability, sample_commodity, sample_location
 
 
 # ============================================================================
