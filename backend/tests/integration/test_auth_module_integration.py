@@ -95,7 +95,7 @@ class TestUserLogin:
         """✅ Test: Login with wrong password returns 401."""
         # Create test user
         user = User(
-            email="test@example.com",
+            email="invalid-pass@example.com",
             password_hash=pwd_hasher.hash("Password123!"),
             full_name="Test User",
             organization_id=seed_organization.id,
@@ -108,7 +108,7 @@ class TestUserLogin:
         response = await async_client.post(
             "/api/v1/settings/auth/login",
             json={
-                "email": "test@example.com",
+                "email": "invalid-pass@example.com",
                 "password": "WrongPassword!"
             }
         )

@@ -43,6 +43,8 @@ SKIP_AUTH_PATHS = {
     "/api/v1/auth/complete-profile",
     "/api/v1/settings/auth/signup",
     "/api/v1/settings/auth/login",
+    "/api/v1/settings/auth/refresh",
+    "/api/v1/settings/auth/logout",
     "/api/v1/partners/onboarding",  # Onboarding endpoints use token with mobile as subject
 }
 
