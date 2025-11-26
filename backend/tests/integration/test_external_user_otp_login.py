@@ -379,5 +379,5 @@ class TestInternalUserPasswordLogin:
             }
         )
         
-        assert response.status_code == 401
+        assert response.status_code == 400  # Bad Request - wrong login method
         assert "EXTERNAL users must login via mobile OTP" in response.json()["detail"]

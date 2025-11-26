@@ -108,6 +108,13 @@ async def login(
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis)
 ) -> TokenResponse | LoginWith2FAResponse:
+    from backend.modules.settings.repositories.settings_repositories import UserRepository
+    from backend.core.auth.jwt import create_token
+    from backend.core.settings.config import settings as app_settings
+    from backend.modules.settings.models.settings_models import RefreshToken
+    from backend.core.auth.jwt import decode_token
+    from datetime import datetime, timezone
+    
     # Initialize account lockout service
     lockout_service = AccountLockoutService(redis_client)
     
@@ -120,18 +127,28 @@ async def login(
         )
     
     svc = AuthService(db)
+    user_repo = UserRepository(db)
+    
     try:
-        # Check if user exists and validate password
-        from backend.modules.settings.repositories.settings_repositories import UserRepository
-        user_repo = UserRepository(db)
+        # Get user by email
         user = await user_repo.get_by_email(payload.email)
         
         if not user:
             # Record failed attempt
-            lockout_info = await lockout_service.record_failed_attempt(payload.email)
-            raise ValueError("Invalid credentials")
+            await lockout_service.record_failed_attempt(payload.email)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        
+        # Check user type - EXTERNAL users must use OTP
+        if user.user_type not in ['INTERNAL', 'SUPER_ADMIN']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="EXTERNAL users must login via mobile OTP"
+            )
+        
         if not user.is_active:
-            raise ValueError("User account is inactive")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive")
+        
+        # Verify password
         if not svc.hasher.verify(payload.password, user.password_hash):
             # Record failed attempt
             lockout_info = await lockout_service.record_failed_attempt(payload.email)
@@ -140,7 +157,10 @@ async def login(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=lockout_info["message"]
                 )
-            raise ValueError(f"Invalid credentials. {lockout_info['remaining_attempts']} attempts remaining.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid credentials. {lockout_info['remaining_attempts']} attempts remaining."
+            )
         
         # Clear failed attempts on successful password verification
         await lockout_service.clear_failed_attempts(payload.email)
@@ -153,12 +173,31 @@ async def login(
                 email=payload.email
             )
         
-        # No 2FA - proceed with normal login
-        access, refresh, expires_in = await svc.login(payload.email, payload.password)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-    audit_log("user.login", None, "user", None, {"email": payload.email})
-    return TokenResponse(access_token=access, refresh_token=refresh, expires_in=expires_in)
+        # No 2FA - generate tokens
+        access_minutes = app_settings.ACCESS_TOKEN_EXPIRES_MINUTES
+        refresh_days = app_settings.REFRESH_TOKEN_EXPIRES_DAYS
+        
+        access = create_token(str(user.id), str(user.organization_id), minutes=access_minutes, token_type="access")
+        refresh = create_token(str(user.id), str(user.organization_id), days=refresh_days, token_type="refresh")
+        
+        # Store refresh token
+        payload_data = decode_token(refresh)
+        rt = RefreshToken(
+            user_id=user.id,
+            jti=payload_data["jti"],
+            expires_at=datetime.fromtimestamp(payload_data["exp"], tz=timezone.utc),
+            revoked=False,
+        )
+        db.add(rt)
+        await db.flush()
+        
+        audit_log("user.login", None, "user", str(user.id), {"email": payload.email})
+        return TokenResponse(access_token=access, refresh_token=refresh, expires_in=access_minutes * 60)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.post("/auth/refresh", response_model=TokenResponse, tags=["auth"])

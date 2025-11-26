@@ -27,8 +27,8 @@ class OrganizationRepository(BaseRepo):
 		result = await self.db.execute(select(Organization).where(Organization.name == name))
 		return result.scalar_one_or_none()
 
-	async def create(self, name: str, code: Optional[str] = None) -> Organization:
-		obj = Organization(name=name, code=code)
+	async def create(self, name: str, legal_name: Optional[str] = None) -> Organization:
+		obj = Organization(name=name, legal_name=legal_name)
 		self.db.add(obj)
 		await self.db.flush()
 		return obj

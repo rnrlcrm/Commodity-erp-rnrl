@@ -446,7 +446,39 @@ async def seed_payment_terms(db_session: AsyncSession):
 # ============================================
 
 @pytest_asyncio.fixture
-async def async_client(db_session: AsyncSession) -> AsyncGenerator:
+async def redis_client():
+    """
+    Redis client for testing.
+    Clears all test-related keys before each test to ensure isolation.
+    """
+    import redis.asyncio as redis
+    
+    client = redis.from_url(
+        "redis://localhost:6379",
+        encoding="utf-8",
+        decode_responses=False
+    )
+    
+    # Clear test-related keys before each test
+    try:
+        # Delete account lockout keys
+        async for key in client.scan_iter("login_attempts:*"):
+            await client.delete(key)
+        async for key in client.scan_iter("account_locked:*"):
+            await client.delete(key)
+        # Delete OTP keys
+        async for key in client.scan_iter("otp:*"):
+            await client.delete(key)
+    except Exception:
+        pass  # Redis might not be available in some test environments
+    
+    yield client
+    
+    await client.aclose()
+
+
+@pytest_asyncio.fixture
+async def async_client(db_session: AsyncSession, redis_client) -> AsyncGenerator:
     """
     Async HTTP client for API testing.
     
@@ -460,7 +492,13 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator:
     async def override_get_db():
         yield db_session
     
+    # Override Redis dependency to use test redis client
+    async def override_get_redis():
+        yield redis_client
+    
+    from backend.modules.settings.router import get_redis
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_redis] = override_get_redis
     
     async with AsyncClient(
         transport=ASGITransport(app=app), 
