@@ -44,12 +44,9 @@ from backend.modules.settings.commodities.hsn_models import (  # noqa: F401,E402
 from backend.modules.partners.models import (  # noqa: F401,E402
     BusinessPartner,
 )
-# Direct import from models.py to avoid router initialization
-locations_models_path = REPO_ROOT / "backend" / "modules" / "settings" / "locations" / "models.py"
-spec = importlib.util.spec_from_file_location("locations_models", locations_models_path)
-locations_models = importlib.util.module_from_spec(spec)  # noqa: F401,E402
-sys.modules["locations_models"] = locations_models
-spec.loader.exec_module(locations_models)
+from backend.modules.settings.locations.models import Location  # noqa: F401,E402
+from backend.modules.trade_desk.models.requirement import Requirement  # noqa: F401,E402
+from backend.modules.trade_desk.models.availability import Availability  # noqa: F401,E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
