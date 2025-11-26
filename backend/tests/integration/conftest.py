@@ -4,6 +4,7 @@ Integration Test Infrastructure with Testcontainers + PostgreSQL
 Provides real PostgreSQL database for thorough integration testing of all modules.
 """
 import asyncio
+import os
 import uuid
 from typing import AsyncGenerator, Generator
 
@@ -13,6 +14,13 @@ from sqlalchemy import text, create_engine, event, exc
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
+
+from backend.db.async_session import get_db
+
+# Configure password hashing for tests (avoid bcrypt 5.0.0 compatibility issues)
+os.environ.setdefault("PASSWORD_SCHEME", "pbkdf2_sha256")
+# Disable rate limiting in tests
+os.environ.setdefault("TESTING", "true")
 
 
 # ============================================
@@ -298,6 +306,15 @@ async def seed_organization(db_session: AsyncSession):
 
 
 @pytest_asyncio.fixture
+async def seed_business_partner(db_session: AsyncSession):
+    """Create test business partner for EXTERNAL users."""
+    partner = create_test_partner(partner_type="buyer", legal_name="Test Partner Ltd")
+    db_session.add(partner)
+    await db_session.flush()
+    return partner
+
+
+@pytest_asyncio.fixture
 async def seed_user(db_session: AsyncSession, seed_organization):
     """Create test user for audit trails."""
     from backend.modules.settings.models.settings_models import User
@@ -424,3 +441,72 @@ async def seed_payment_terms(db_session: AsyncSession):
     
     await db_session.flush()
     return terms
+
+
+# ============================================
+# HTTP CLIENT FIXTURE
+# ============================================
+
+@pytest_asyncio.fixture
+async def redis_client():
+    """
+    Redis client for testing.
+    Clears all test-related keys before each test to ensure isolation.
+    """
+    import redis.asyncio as redis
+    
+    client = redis.from_url(
+        "redis://localhost:6379",
+        encoding="utf-8",
+        decode_responses=False
+    )
+    
+    # Clear test-related keys before each test
+    try:
+        # Delete account lockout keys
+        async for key in client.scan_iter("login_attempts:*"):
+            await client.delete(key)
+        async for key in client.scan_iter("account_locked:*"):
+            await client.delete(key)
+        # Delete OTP keys
+        async for key in client.scan_iter("otp:*"):
+            await client.delete(key)
+    except Exception:
+        pass  # Redis might not be available in some test environments
+    
+    yield client
+    
+    await client.aclose()
+
+
+@pytest_asyncio.fixture
+async def async_client(db_session: AsyncSession, redis_client) -> AsyncGenerator:
+    """
+    Async HTTP client for API testing.
+    
+    Provides HTTPX AsyncClient configured for FastAPI testing.
+    Automatically handles database session dependency override.
+    """
+    from httpx import AsyncClient, ASGITransport
+    from backend.app.main import app
+    
+    # Override database dependency to use test session
+    async def override_get_db():
+        yield db_session
+    
+    # Override Redis dependency to use test redis client
+    async def override_get_redis():
+        yield redis_client
+    
+    from backend.modules.settings.router import get_redis
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_redis] = override_get_redis
+    
+    async with AsyncClient(
+        transport=ASGITransport(app=app), 
+        base_url="http://test"
+    ) as client:
+        yield client
+    
+    # Cleanup
+    app.dependency_overrides.clear()

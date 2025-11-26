@@ -21,7 +21,7 @@ from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.core.auth.jwt import decode_token
-from backend.db.async_session import async_sessionmaker as async_session_maker
+from backend.db.async_session import AsyncSessionLocal
 from backend.modules.settings.repositories.settings_repositories import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,10 @@ SKIP_AUTH_PATHS = {
     "/api/v1/auth/complete-profile",
     "/api/v1/settings/auth/signup",
     "/api/v1/settings/auth/login",
+    "/api/v1/settings/auth/refresh",
+    "/api/v1/settings/auth/logout",
+    "/api/v1/settings/auth/me",  # Uses its own get_current_user dependency
+    "/api/v1/settings/auth/sub-users",  # Uses its own get_current_user dependency
     "/api/v1/partners/onboarding",  # Onboarding endpoints use token with mobile as subject
 }
 
@@ -106,7 +110,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
         
         # Load user from database with all isolation fields
-        async with async_session_maker() as db:
+        async with AsyncSessionLocal() as db:
             try:
                 user_repo = UserRepository(db)
                 user = await user_repo.get_by_id(user_id)
@@ -160,6 +164,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/static",
             "/api/v1/partners/onboarding",
             "/api/v1/auth",
+            "/api/v1/settings/auth",  # All settings auth endpoints use get_current_user dependency
         ]
         for prefix in skip_prefixes:
             if path.startswith(prefix):

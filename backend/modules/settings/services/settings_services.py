@@ -83,9 +83,20 @@ class AuthService:
 		return user
 
 	async def login(self, email: str, password: str) -> tuple[str, str, int]:
+		"""
+		Login for INTERNAL users (backoffice) only.
+		EXTERNAL users (business partners) must use mobile OTP.
+		"""
 		user = await self.user_repo.get_by_email(email)
 		if not user:
 			raise ValueError("Invalid credentials")
+		
+		# Enforce user_type: Only INTERNAL and SUPER_ADMIN can login with email/password
+		if user.user_type not in ['INTERNAL', 'SUPER_ADMIN']:
+			raise ValueError("EXTERNAL users must login via mobile OTP")
+		
+		if not user.is_active:
+			raise ValueError("User account is inactive")
 		if not self.hasher.verify(password, user.password_hash):
 			raise ValueError("Invalid credentials")
 		access_minutes = settings.ACCESS_TOKEN_EXPIRES_MINUTES
@@ -106,7 +117,10 @@ class AuthService:
 
 	async def refresh(self, refresh_token_str: str) -> tuple[str, str, int]:
 		from backend.core.auth.jwt import decode_token
-		payload = decode_token(refresh_token_str)
+		try:
+			payload = decode_token(refresh_token_str)
+		except Exception:
+			raise ValueError("Invalid refresh token")
 		if payload.get("type") != "refresh":
 			raise ValueError("Invalid refresh token")
 		jti = payload.get("jti")
@@ -138,7 +152,10 @@ class AuthService:
 
 	async def logout(self, refresh_token_str: str) -> None:
 		from backend.core.auth.jwt import decode_token
-		payload = decode_token(refresh_token_str)
+		try:
+			payload = decode_token(refresh_token_str)
+		except Exception:
+			raise ValueError("Invalid refresh token")
 		if payload.get("type") != "refresh":
 			raise ValueError("Invalid refresh token")
 		jti = payload.get("jti")
@@ -149,4 +166,229 @@ class AuthService:
 		if token_row and not token_row.revoked:
 			token_row.revoked = True
 			self.db.add(token_row)
+
+	async def logout_all_devices(self, user_id: str) -> int:
+		"""
+		Logout user from all devices by revoking all refresh tokens.
+		Returns the number of tokens revoked.
+		"""
+		from uuid import UUID
+		
+		# Revoke all non-revoked refresh tokens for this user
+		result = await self.db.execute(
+			select(RefreshToken).where(
+				RefreshToken.user_id == UUID(user_id),
+				RefreshToken.revoked == False
+			)
+		)
+		tokens = result.scalars().all()
+		
+		count = 0
+		for token in tokens:
+			token.revoked = True
+			self.db.add(token)
+			count += 1
+		
+		await self.db.flush()
+		return count
+
+	async def revoke_all_sessions(self, user_id: str) -> None:
+		"""
+		Revoke all sessions for a user (called on password change).
+		This forces re-authentication on all devices.
+		"""
+		await self.logout_all_devices(user_id)
+
+	async def create_sub_user(
+		self,
+		parent_user_id: str,
+		mobile_number: str,
+		full_name: str,
+		pin: Optional[str] = None,
+		role: Optional[str] = None
+	) -> User:
+		"""
+		Create a sub-user for the authenticated parent user (business partner).
+		Sub-users login via mobile OTP or secure PIN.
+		"""
+		from uuid import UUID
+		import re
+		
+		# Validate mobile number format
+		if not re.match(r'^\+?[1-9]\d{1,14}$', mobile_number):
+			raise ValueError("Invalid mobile number format")
+		
+		# Check if mobile already exists
+		existing = await self.db.execute(
+			select(User).where(User.mobile_number == mobile_number)
+		)
+		if existing.scalar_one_or_none():
+			raise ValueError("Mobile number already registered")
+		
+		# Hash PIN if provided
+		pin_hash = None
+		if pin:
+			if not re.match(r'^\d{4,6}$', pin):
+				raise ValueError("PIN must be 4-6 digits")
+			pin_hash = self.hasher.hash(pin)
+		
+		# Create sub-user (repository enforces max 2 limit and validations)
+		sub_user = await self.user_repo.create_sub_user(
+			parent_user_id=UUID(parent_user_id),
+			mobile_number=mobile_number,
+			full_name=full_name,
+			pin_hash=pin_hash,
+			role=role
+		)
+		await self.db.flush()
+		
+		# Emit event for audit trail
+		sub_user.emit_event(
+			event_type="sub_user.created",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": str(sub_user.id),
+				"mobile_number": mobile_number,
+				"full_name": full_name,
+				"role": role,
+				"business_partner_id": str(sub_user.business_partner_id)
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
+		return sub_user
+
+	async def get_sub_users(self, parent_user_id: str) -> list[User]:
+		"""Get all sub-users for a parent user."""
+		from uuid import UUID
+		return await self.user_repo.get_sub_users(UUID(parent_user_id))
+
+	async def delete_sub_user(self, parent_user_id: str, sub_user_id: str) -> None:
+		"""Delete a sub-user (only if owned by parent)."""
+		from uuid import UUID
+		
+		sub_user = await self.user_repo.get_by_id(UUID(sub_user_id))
+		if not sub_user:
+			raise ValueError("Sub-user not found")
+		
+		if str(sub_user.parent_user_id) != parent_user_id:
+			raise ValueError("You can only delete your own sub-users")
+		
+		# Emit event before deletion
+		sub_user.emit_event(
+			event_type="sub_user.deleted",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": sub_user_id,
+				"mobile_number": sub_user.mobile_number,
+				"business_partner_id": str(sub_user.business_partner_id)
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
+		await self.db.delete(sub_user)
+		await self.db.flush()
+
+	async def disable_sub_user(self, parent_user_id: str, sub_user_id: str) -> User:
+		"""Disable a sub-user (only if owned by parent)."""
+		from uuid import UUID
+		
+		sub_user = await self.user_repo.get_by_id(UUID(sub_user_id))
+		if not sub_user:
+			raise ValueError("Sub-user not found")
+		
+		if str(sub_user.parent_user_id) != parent_user_id:
+			raise ValueError("You can only disable your own sub-users")
+		
+		await self.user_repo.disable_sub_user(UUID(sub_user_id))
+		
+		# Emit event
+		sub_user.emit_event(
+			event_type="sub_user.disabled",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": sub_user_id,
+				"mobile_number": sub_user.mobile_number
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
+		return sub_user
+
+	async def enable_sub_user(self, parent_user_id: str, sub_user_id: str) -> User:
+		"""Enable a sub-user (only if owned by parent)."""
+		from uuid import UUID
+		
+		sub_user = await self.user_repo.get_by_id(UUID(sub_user_id))
+		if not sub_user:
+			raise ValueError("Sub-user not found")
+		
+		if str(sub_user.parent_user_id) != parent_user_id:
+			raise ValueError("You can only enable your own sub-users")
+		
+		await self.user_repo.enable_sub_user(UUID(sub_user_id))
+		
+		# Emit event
+		sub_user.emit_event(
+			event_type="sub_user.enabled",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": sub_user_id,
+				"mobile_number": sub_user.mobile_number
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
+		return sub_user
+
+	async def setup_2fa(self, user_id: str, pin: str) -> None:
+		"""Enable 2FA and set PIN for a user."""
+		from uuid import UUID
+		import re
+		
+		# Validate PIN (4-6 digits)
+		if not re.match(r'^\d{4,6}$', pin):
+			raise ValueError("PIN must be 4-6 digits")
+		
+		# Hash the PIN
+		pin_hash = self.hasher.hash(pin)
+		
+		# Enable 2FA
+		await self.user_repo.enable_2fa(UUID(user_id), pin_hash)
+
+	async def verify_pin(self, email: str, pin: str) -> tuple[str, str, int]:
+		"""Verify 2FA PIN and issue tokens."""
+		user = await self.user_repo.get_by_email(email)
+		if not user:
+			raise ValueError("Invalid credentials")
+		
+		if not user.two_fa_enabled or not user.pin_hash:
+			raise ValueError("2FA not enabled for this user")
+		
+		if not self.hasher.verify(pin, user.pin_hash):
+			raise ValueError("Invalid PIN")
+		
+		# Issue tokens
+		access_minutes = settings.ACCESS_TOKEN_EXPIRES_MINUTES
+		refresh_days = settings.REFRESH_TOKEN_EXPIRES_DAYS
+		access = create_token(str(user.id), str(user.organization_id), minutes=access_minutes, token_type="access")
+		refresh = create_token(str(user.id), str(user.organization_id), days=refresh_days, token_type="refresh")
+		
+		from backend.core.auth.jwt import decode_token
+		payload = decode_token(refresh)
+		rt = RefreshToken(
+			user_id=user.id,
+			jti=payload["jti"],
+			expires_at=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+			revoked=False,
+		)
+		self.db.add(rt)
+		await self.db.flush()
+		return access, refresh, access_minutes * 60
+
+	async def disable_2fa(self, user_id: str) -> None:
+		"""Disable 2FA for a user."""
+		from uuid import UUID
+		await self.user_repo.disable_2fa(UUID(user_id))
+
 

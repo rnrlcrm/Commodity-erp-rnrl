@@ -99,10 +99,31 @@ class User(Base, EventMixin):
 		nullable=True,
 		comment="For INTERNAL users only"
 	)
+	
+	# Sub-User Fields (Phase 2)
+	parent_user_id: Mapped[uuid.UUID | None] = mapped_column(
+		UUID(as_uuid=True),
+		ForeignKey("users.id", ondelete="CASCADE"),
+		nullable=True,
+		comment="Parent user ID for sub-users (max 2 per parent)"
+	)
 	allowed_modules: Mapped[list[str] | None] = mapped_column(
 		ARRAY(String),
 		nullable=True,
 		comment="RBAC: List of modules user can access"
+	)
+	
+	# 2FA Fields (Phase 3)
+	two_fa_enabled: Mapped[bool] = mapped_column(
+		Boolean,
+		nullable=False,
+		default=False,
+		comment="Whether 2FA with PIN is enabled for this user"
+	)
+	pin_hash: Mapped[str | None] = mapped_column(
+		String(255),
+		nullable=True,
+		comment="Hashed 4-6 digit PIN for 2FA verification"
 	)
 	
 	# Existing Fields
