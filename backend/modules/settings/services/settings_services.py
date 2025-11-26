@@ -83,9 +83,18 @@ class AuthService:
 		return user
 
 	async def login(self, email: str, password: str) -> tuple[str, str, int]:
+		"""
+		Login for INTERNAL users (backoffice) only.
+		EXTERNAL users (business partners) must use mobile OTP.
+		"""
 		user = await self.user_repo.get_by_email(email)
 		if not user:
 			raise ValueError("Invalid credentials")
+		
+		# Enforce user_type: Only INTERNAL and SUPER_ADMIN can login with email/password
+		if user.user_type not in ['INTERNAL', 'SUPER_ADMIN']:
+			raise ValueError("EXTERNAL users must login via mobile OTP")
+		
 		if not user.is_active:
 			raise ValueError("User account is inactive")
 		if not self.hasher.verify(password, user.password_hash):
@@ -161,30 +170,60 @@ class AuthService:
 	async def create_sub_user(
 		self,
 		parent_user_id: str,
-		email: str,
-		password: str,
+		mobile_number: str,
 		full_name: str,
+		pin: Optional[str] = None,
 		role: Optional[str] = None
 	) -> User:
-		"""Create a sub-user for the authenticated parent user."""
+		"""
+		Create a sub-user for the authenticated parent user (business partner).
+		Sub-users login via mobile OTP or secure PIN.
+		"""
 		from uuid import UUID
+		import re
 		
-		# Check if email already exists
-		if await self.user_repo.get_by_email(email):
-			raise ValueError("Email already registered")
+		# Validate mobile number format
+		if not re.match(r'^\+?[1-9]\d{1,14}$', mobile_number):
+			raise ValueError("Invalid mobile number format")
 		
-		# Hash password
-		hashed = self.hasher.hash(password)
+		# Check if mobile already exists
+		existing = await self.db.execute(
+			select(User).where(User.mobile_number == mobile_number)
+		)
+		if existing.scalar_one_or_none():
+			raise ValueError("Mobile number already registered")
 		
-		# Create sub-user (repository enforces max 2 limit and no recursive sub-users)
+		# Hash PIN if provided
+		pin_hash = None
+		if pin:
+			if not re.match(r'^\d{4,6}$', pin):
+				raise ValueError("PIN must be 4-6 digits")
+			pin_hash = self.hasher.hash(pin)
+		
+		# Create sub-user (repository enforces max 2 limit and validations)
 		sub_user = await self.user_repo.create_sub_user(
 			parent_user_id=UUID(parent_user_id),
-			email=email,
+			mobile_number=mobile_number,
 			full_name=full_name,
-			password_hash=hashed,
+			pin_hash=pin_hash,
 			role=role
 		)
 		await self.db.flush()
+		
+		# Emit event for audit trail
+		sub_user.emit_event(
+			event_type="sub_user.created",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": str(sub_user.id),
+				"mobile_number": mobile_number,
+				"full_name": full_name,
+				"role": role,
+				"business_partner_id": str(sub_user.business_partner_id)
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
 		return sub_user
 
 	async def get_sub_users(self, parent_user_id: str) -> list[User]:
@@ -203,8 +242,72 @@ class AuthService:
 		if str(sub_user.parent_user_id) != parent_user_id:
 			raise ValueError("You can only delete your own sub-users")
 		
+		# Emit event before deletion
+		sub_user.emit_event(
+			event_type="sub_user.deleted",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": sub_user_id,
+				"mobile_number": sub_user.mobile_number,
+				"business_partner_id": str(sub_user.business_partner_id)
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
 		await self.db.delete(sub_user)
 		await self.db.flush()
+
+	async def disable_sub_user(self, parent_user_id: str, sub_user_id: str) -> User:
+		"""Disable a sub-user (only if owned by parent)."""
+		from uuid import UUID
+		
+		sub_user = await self.user_repo.get_by_id(UUID(sub_user_id))
+		if not sub_user:
+			raise ValueError("Sub-user not found")
+		
+		if str(sub_user.parent_user_id) != parent_user_id:
+			raise ValueError("You can only disable your own sub-users")
+		
+		await self.user_repo.disable_sub_user(UUID(sub_user_id))
+		
+		# Emit event
+		sub_user.emit_event(
+			event_type="sub_user.disabled",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": sub_user_id,
+				"mobile_number": sub_user.mobile_number
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
+		return sub_user
+
+	async def enable_sub_user(self, parent_user_id: str, sub_user_id: str) -> User:
+		"""Enable a sub-user (only if owned by parent)."""
+		from uuid import UUID
+		
+		sub_user = await self.user_repo.get_by_id(UUID(sub_user_id))
+		if not sub_user:
+			raise ValueError("Sub-user not found")
+		
+		if str(sub_user.parent_user_id) != parent_user_id:
+			raise ValueError("You can only enable your own sub-users")
+		
+		await self.user_repo.enable_sub_user(UUID(sub_user_id))
+		
+		# Emit event
+		sub_user.emit_event(
+			event_type="sub_user.enabled",
+			user_id=UUID(parent_user_id),
+			data={
+				"sub_user_id": sub_user_id,
+				"mobile_number": sub_user.mobile_number
+			}
+		)
+		await sub_user.flush_events(self.db)
+		
+		return sub_user
 
 	async def setup_2fa(self, user_id: str, pin: str) -> None:
 		"""Enable 2FA and set PIN for a user."""

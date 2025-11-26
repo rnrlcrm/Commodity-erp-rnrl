@@ -127,27 +127,28 @@ async def create_sub_user(
     user=Depends(get_current_user),  # noqa: ANN001
     db: AsyncSession = Depends(get_db)
 ) -> SubUserOut:
-    """Create a sub-user (max 2 per parent)."""
+    """Create a sub-user (max 2 per parent). Sub-users login via mobile OTP or PIN."""
     svc = AuthService(db)
     try:
         sub_user = await svc.create_sub_user(
             parent_user_id=str(user.id),
-            email=payload.email,
-            password=payload.password,
+            mobile_number=payload.mobile_number,
             full_name=payload.full_name,
+            pin=payload.pin,
             role=payload.role
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
-    audit_log("sub_user.created", str(user.id), "user", str(sub_user.id), {"email": sub_user.email})
+    audit_log("sub_user.created", str(user.id), "user", str(sub_user.id), {"mobile_number": sub_user.mobile_number})
     return SubUserOut(
         id=str(sub_user.id),
-        email=sub_user.email,
+        mobile_number=sub_user.mobile_number,
         full_name=sub_user.full_name,
         role=sub_user.role,
         is_active=sub_user.is_active,
         parent_user_id=str(sub_user.parent_user_id),
+        business_partner_id=str(sub_user.business_partner_id),
         created_at=sub_user.created_at,
         updated_at=sub_user.updated_at,
     )
@@ -165,11 +166,12 @@ async def list_sub_users(
     return [
         SubUserOut(
             id=str(su.id),
-            email=su.email,
+            mobile_number=su.mobile_number,
             full_name=su.full_name,
             role=su.role,
             is_active=su.is_active,
             parent_user_id=str(su.parent_user_id),
+            business_partner_id=str(su.business_partner_id),
             created_at=su.created_at,
             updated_at=su.updated_at,
         )
@@ -191,6 +193,60 @@ async def delete_sub_user(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     
     audit_log("sub_user.deleted", str(user.id), "user", sub_user_id, {})
+
+
+@router.post("/auth/sub-users/{sub_user_id}/disable", response_model=SubUserOut, tags=["auth", "sub-users"])
+async def disable_sub_user(
+    sub_user_id: str,
+    user=Depends(get_current_user),  # noqa: ANN001
+    db: AsyncSession = Depends(get_db)
+) -> SubUserOut:
+    """Disable a sub-user (only your own sub-users)."""
+    svc = AuthService(db)
+    try:
+        sub_user = await svc.disable_sub_user(str(user.id), sub_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    
+    audit_log("sub_user.disabled", str(user.id), "user", sub_user_id, {})
+    return SubUserOut(
+        id=str(sub_user.id),
+        mobile_number=sub_user.mobile_number,
+        full_name=sub_user.full_name,
+        role=sub_user.role,
+        is_active=sub_user.is_active,
+        parent_user_id=str(sub_user.parent_user_id),
+        business_partner_id=str(sub_user.business_partner_id),
+        created_at=sub_user.created_at,
+        updated_at=sub_user.updated_at,
+    )
+
+
+@router.post("/auth/sub-users/{sub_user_id}/enable", response_model=SubUserOut, tags=["auth", "sub-users"])
+async def enable_sub_user(
+    sub_user_id: str,
+    user=Depends(get_current_user),  # noqa: ANN001
+    db: AsyncSession = Depends(get_db)
+) -> SubUserOut:
+    """Enable a sub-user (only your own sub-users)."""
+    svc = AuthService(db)
+    try:
+        sub_user = await svc.enable_sub_user(str(user.id), sub_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    
+    audit_log("sub_user.enabled", str(user.id), "user", sub_user_id, {})
+    return SubUserOut(
+        id=str(sub_user.id),
+        mobile_number=sub_user.mobile_number,
+        full_name=sub_user.full_name,
+        role=sub_user.role,
+        is_active=sub_user.is_active,
+        parent_user_id=str(sub_user.parent_user_id),
+        business_partner_id=str(sub_user.business_partner_id),
+        created_at=sub_user.created_at,
+        updated_at=sub_user.updated_at,
+    )
 
 
 # ============================================

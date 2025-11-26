@@ -304,6 +304,15 @@ async def seed_organization(db_session: AsyncSession):
 
 
 @pytest_asyncio.fixture
+async def seed_business_partner(db_session: AsyncSession):
+    """Create test business partner for EXTERNAL users."""
+    partner = create_test_partner(partner_type="buyer", legal_name="Test Partner Ltd")
+    db_session.add(partner)
+    await db_session.flush()
+    return partner
+
+
+@pytest_asyncio.fixture
 async def seed_user(db_session: AsyncSession, seed_organization):
     """Create test user for audit trails."""
     from backend.modules.settings.models.settings_models import User

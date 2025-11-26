@@ -40,21 +40,22 @@ class UserOut(BaseModel):
 
 
 class CreateSubUserRequest(BaseModel):
-	"""Request to create a sub-user."""
-	email: EmailStr
+	"""Request to create a sub-user (EXTERNAL user under business partner)."""
+	mobile_number: str = Field(pattern=r'^\+?[1-9]\d{1,14}$')
 	full_name: str
-	password: str = Field(min_length=8, max_length=128)
+	pin: Optional[str] = Field(None, min_length=4, max_length=6, pattern=r'^\d+$')
 	role: Optional[str] = None
 
 
 class SubUserOut(BaseModel):
 	"""Sub-user response."""
 	id: str
-	email: EmailStr
+	mobile_number: str
 	full_name: Optional[str]
 	role: Optional[str]
 	is_active: bool
 	parent_user_id: str
+	business_partner_id: str
 	created_at: datetime
 	updated_at: datetime
 

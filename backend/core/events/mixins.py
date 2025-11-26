@@ -80,7 +80,16 @@ class EventMixin:
         
         store = EventStore(db)
         for event in self._pending_events:
-            await store.save(event)
+            # EventStore.append expects individual parameters, not a BaseEvent object
+            await store.append(
+                event_type=event.event_type,
+                aggregate_id=event.aggregate_id,
+                aggregate_type=event.aggregate_type,
+                user_id=event.user_id,
+                data=event.data,
+                metadata=event.metadata.dict() if event.metadata else None,
+                version=event.version
+            )
         
         # Clear pending events
         self._pending_events = []

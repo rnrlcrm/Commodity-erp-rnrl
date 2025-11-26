@@ -41,6 +41,11 @@ class UserRepository(BaseRepo):
 	async def get_by_email(self, email: str) -> Optional[User]:
 		result = await self.db.execute(select(User).where(User.email == email))
 		return result.scalar_one_or_none()
+	
+	async def get_by_mobile(self, mobile_number: str) -> Optional[User]:
+		"""Get user by mobile number."""
+		result = await self.db.execute(select(User).where(User.mobile_number == mobile_number))
+		return result.scalar_one_or_none()
 
 	async def get_first(self) -> Optional[User]:
 		result = await self.db.execute(select(User).limit(1))
@@ -70,16 +75,23 @@ class UserRepository(BaseRepo):
 	async def create_sub_user(
 		self,
 		parent_user_id: UUID,
-		email: str,
+		mobile_number: str,
 		full_name: str,
-		password_hash: str,
+		pin_hash: Optional[str] = None,
 		role: Optional[str] = None
 	) -> User:
-		"""Create a sub-user with parent relationship."""
-		# Get parent user to inherit organization
+		"""
+		Create a sub-user with parent relationship.
+		Sub-users login via mobile OTP or PIN (not email/password).
+		"""
+		# Get parent user to inherit business_partner_id
 		parent = await self.get_by_id(parent_user_id)
 		if not parent:
 			raise ValueError("Parent user not found")
+		
+		# Parent must be EXTERNAL user (business partner user)
+		if parent.user_type != 'EXTERNAL':
+			raise ValueError("Only EXTERNAL users (business partners) can create sub-users")
 		
 		# Check if parent is already a sub-user (no recursive sub-users)
 		if parent.parent_user_id is not None:
@@ -90,18 +102,46 @@ class UserRepository(BaseRepo):
 		if count >= 2:
 			raise ValueError("Maximum of 2 sub-users per parent reached")
 		
+		# Check for duplicate mobile number
+		existing = await self.get_by_mobile(mobile_number)
+		if existing:
+			raise ValueError("Mobile number already registered")
+		
 		obj = User(
-			organization_id=parent.organization_id,
-			email=email,
+			user_type='EXTERNAL',  # Sub-users are always EXTERNAL
+			business_partner_id=parent.business_partner_id,  # Inherit from parent
+			mobile_number=mobile_number,
 			full_name=full_name,
-			password_hash=password_hash,
+			pin_hash=pin_hash,  # Optional secure PIN
+			password_hash=None,  # No password for EXTERNAL users
 			parent_user_id=parent_user_id,
 			role=role,
-			is_active=True
+			is_active=True,
+			is_verified=False  # Will be verified on first OTP login
 		)
 		self.db.add(obj)
 		await self.db.flush()
 		return obj
+
+	async def disable_sub_user(self, sub_user_id: UUID) -> None:
+		"""Disable a sub-user (sets is_active = False)."""
+		user = await self.get_by_id(sub_user_id)
+		if not user:
+			raise ValueError("Sub-user not found")
+		if user.parent_user_id is None:
+			raise ValueError("Cannot disable - user is not a sub-user")
+		user.is_active = False
+		self.db.add(user)
+
+	async def enable_sub_user(self, sub_user_id: UUID) -> None:
+		"""Enable a sub-user (sets is_active = True)."""
+		user = await self.get_by_id(sub_user_id)
+		if not user:
+			raise ValueError("Sub-user not found")
+		if user.parent_user_id is None:
+			raise ValueError("Cannot enable - user is not a sub-user")
+		user.is_active = True
+		self.db.add(user)
 
 	async def enable_2fa(self, user_id: UUID, pin_hash: str) -> None:
 		"""Enable 2FA and set PIN hash for a user."""

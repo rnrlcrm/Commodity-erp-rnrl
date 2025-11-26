@@ -22,40 +22,40 @@ class TestSubUserCreation:
     """Test sub-user creation functionality."""
 
     @pytest.mark.asyncio
-    @pytest.mark.asyncio
     async def test_create_sub_user_success(
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Parent user can create a sub-user."""
-        # Create parent user
+        # Create EXTERNAL parent user (business partner)
         parent = User(
-            email="parent@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543210",
             full_name="Parent User",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush is enough for login to see it
-
-        # Login as parent
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent@example.com", "password": "Password123!"}
+        await db_session.flush()
+        
+        # For testing, we need to authenticate - create a token manually
+        from backend.core.auth.jwt import create_token
+        access_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        assert login_response.status_code == 200
-        access_token = login_response.json()["access_token"]
 
         # Create sub-user
         response = await async_client.post(
             "/api/v1/settings/auth/sub-users",
             json={
-                "email": "subuser1@example.com",
+                "mobile_number": "+919876543211",
                 "full_name": "Sub User 1",
-                "password": "SubPass123!",
                 "role": "assistant"
             },
             headers={"Authorization": f"Bearer {access_token}"}
@@ -63,11 +63,12 @@ class TestSubUserCreation:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["email"] == "subuser1@example.com"
+        assert data["mobile_number"] == "+919876543211"
         assert data["full_name"] == "Sub User 1"
         assert data["role"] == "assistant"
         assert data["is_active"] is True
         assert data["parent_user_id"] == str(parent.id)
+        assert data["business_partner_id"] == str(seed_business_partner.id)
         assert "id" in data
         assert "created_at" in data
 
@@ -76,34 +77,36 @@ class TestSubUserCreation:
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Parent can create a second sub-user (max 2)."""
-        # Create parent user
+        # Create EXTERNAL parent user
         parent = User(
-            email="parent2@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543220",
             full_name="Parent User 2",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush is enough for login
+        await db_session.flush()
 
-        # Login as parent
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent2@example.com", "password": "Password123!"}
+        # Create access token
+        from backend.core.auth.jwt import create_token
+        access_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        access_token = login_response.json()["access_token"]
 
         # Create first sub-user
         response1 = await async_client.post(
             "/api/v1/settings/auth/sub-users",
             json={
-                "email": "sub2a@example.com",
-                "full_name": "Sub User 2A",
-                "password": "SubPass123!"
+                "mobile_number": "+919876543221",
+                "full_name": "Sub User 2A"
             },
             headers={"Authorization": f"Bearer {access_token}"}
         )
@@ -113,59 +116,61 @@ class TestSubUserCreation:
         response2 = await async_client.post(
             "/api/v1/settings/auth/sub-users",
             json={
-                "email": "sub2b@example.com",
-                "full_name": "Sub User 2B",
-                "password": "SubPass123!"
+                "mobile_number": "+919876543222",
+                "full_name": "Sub User 2B"
             },
             headers={"Authorization": f"Bearer {access_token}"}
         )
         assert response2.status_code == 201
-        assert response2.json()["email"] == "sub2b@example.com"
+        assert response2.json()["mobile_number"] == "+919876543222"
 
     @pytest.mark.asyncio
     async def test_create_third_sub_user_fails(
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Cannot create more than 2 sub-users per parent."""
-        # Create parent user
+        # Create EXTERNAL parent user
         parent = User(
-            email="parent3@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543230",
             full_name="Parent User 3",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        await db_session.flush()
 
-        # Login as parent
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent3@example.com", "password": "Password123!"}
+        # Create access token
+        from backend.core.auth.jwt import create_token
+        access_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        access_token = login_response.json()["access_token"]
 
         # Create first sub-user
         await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub3a@example.com", "full_name": "Sub 3A", "password": "Pass123!"},
+            json={"mobile_number": "+919876543231", "full_name": "Sub 3A"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
 
         # Create second sub-user
         await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub3b@example.com", "full_name": "Sub 3B", "password": "Pass123!"},
+            json={"mobile_number": "+919876543232", "full_name": "Sub 3B"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
 
         # Try to create third sub-user (should fail)
         response = await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub3c@example.com", "full_name": "Sub 3C", "password": "Pass123!"},
+            json={"mobile_number": "+919876543233", "full_name": "Sub 3C"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
 
@@ -177,44 +182,50 @@ class TestSubUserCreation:
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Sub-users cannot create their own sub-users (no recursion)."""
-        # Create parent user
+        # Create EXTERNAL parent user
         parent = User(
-            email="parent4@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543240",
             full_name="Parent User 4",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        await db_session.flush()
 
-        # Login as parent and create sub-user
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent4@example.com", "password": "Password123!"}
+        # Create parent token
+        from backend.core.auth.jwt import create_token
+        parent_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        parent_token = login_response.json()["access_token"]
 
-        await async_client.post(
+        # Create sub-user
+        sub_response = await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub4@example.com", "full_name": "Sub 4", "password": "SubPass123!"},
+            json={"mobile_number": "+919876543241", "full_name": "Sub 4"},
             headers={"Authorization": f"Bearer {parent_token}"}
         )
-
-        # Login as sub-user
-        sub_login = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "sub4@example.com", "password": "SubPass123!"}
+        sub_user_id = sub_response.json()["id"]
+        
+        # Create token for sub-user
+        sub_token = create_token(
+            sub_user_id,
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        sub_token = sub_login.json()["access_token"]
 
         # Try to create sub-sub-user (should fail)
         response = await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "subsub@example.com", "full_name": "Sub Sub", "password": "Pass123!"},
+            json={"mobile_number": "+919876543242", "full_name": "Sub Sub"},
             headers={"Authorization": f"Bearer {sub_token}"}
         )
 
@@ -222,47 +233,50 @@ class TestSubUserCreation:
         assert "cannot create their own sub-users" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_create_sub_user_duplicate_email_fails(
+    async def test_create_sub_user_duplicate_mobile_fails(
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
-        """✅ Test: Cannot create sub-user with duplicate email."""
-        # Create parent user
+        """✅ Test: Cannot create sub-user with duplicate mobile number."""
+        # Create EXTERNAL parent user
         parent = User(
-            email="parent5@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543250",
             full_name="Parent User 5",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        await db_session.flush()
 
-        # Login as parent
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent5@example.com", "password": "Password123!"}
+        # Create access token
+        from backend.core.auth.jwt import create_token
+        access_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        access_token = login_response.json()["access_token"]
 
         # Create first sub-user
         await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "duplicate@example.com", "full_name": "First", "password": "Pass123!"},
+            json={"mobile_number": "+919876543251", "full_name": "First"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        # Try to create second sub-user with same email
+        # Try to create second sub-user with same mobile
         response = await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "duplicate@example.com", "full_name": "Second", "password": "Pass123!"},
+            json={"mobile_number": "+919876543251", "full_name": "Second"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
 
         assert response.status_code == 400
-        assert "Email already registered" in response.json()["detail"]
+        assert "Mobile number already registered" in response.json()["detail"]
 
 
 class TestSubUserListing:
@@ -273,26 +287,29 @@ class TestSubUserListing:
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Parent with no sub-users gets empty list."""
-        # Create parent user
+        # Create EXTERNAL parent user
         parent = User(
-            email="parent6@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543260",
             full_name="Parent User 6",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        await db_session.flush()
 
-        # Login as parent
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent6@example.com", "password": "Password123!"}
+        # Create access token
+        from backend.core.auth.jwt import create_token
+        access_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        access_token = login_response.json()["access_token"]
 
         # List sub-users
         response = await async_client.get(
@@ -308,36 +325,39 @@ class TestSubUserListing:
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Parent can list their sub-users."""
-        # Create parent user
+        # Create EXTERNAL parent user
         parent = User(
-            email="parent7@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543270",
             full_name="Parent User 7",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        await db_session.flush()
 
-        # Login as parent
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent7@example.com", "password": "Password123!"}
+        # Create access token
+        from backend.core.auth.jwt import create_token
+        access_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        access_token = login_response.json()["access_token"]
 
         # Create two sub-users
         await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub7a@example.com", "full_name": "Sub 7A", "password": "Pass123!", "role": "manager"},
+            json={"mobile_number": "+919876543271", "full_name": "Sub 7A", "role": "manager"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
         await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub7b@example.com", "full_name": "Sub 7B", "password": "Pass123!", "role": "assistant"},
+            json={"mobile_number": "+919876543272", "full_name": "Sub 7B", "role": "assistant"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
 
@@ -351,13 +371,14 @@ class TestSubUserListing:
         data = response.json()
         assert len(data) == 2
         
-        emails = {sub["email"] for sub in data}
-        assert "sub7a@example.com" in emails
-        assert "sub7b@example.com" in emails
+        mobiles = {sub["mobile_number"] for sub in data}
+        assert "+919876543271" in mobiles
+        assert "+919876543272" in mobiles
         
-        # Verify all have correct parent_user_id
+        # Verify all have correct parent_user_id and business_partner_id
         for sub in data:
             assert sub["parent_user_id"] == str(parent.id)
+            assert sub["business_partner_id"] == str(seed_business_partner.id)
             assert sub["is_active"] is True
 
 
@@ -369,31 +390,34 @@ class TestSubUserDeletion:
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Parent can delete their sub-user."""
-        # Create parent user
+        # Create EXTERNAL parent user
         parent = User(
-            email="parent8@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543280",
             full_name="Parent User 8",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        await db_session.flush()
 
-        # Login as parent
-        login_response = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent8@example.com", "password": "Password123!"}
+        # Create access token
+        from backend.core.auth.jwt import create_token
+        access_token = create_token(
+            str(parent.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        access_token = login_response.json()["access_token"]
 
         # Create sub-user
         create_response = await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub8@example.com", "full_name": "Sub 8", "password": "Pass123!"},
+            json={"mobile_number": "+919876543281", "full_name": "Sub 8"},
             headers={"Authorization": f"Bearer {access_token}"}
         )
         sub_user_id = create_response.json()["id"]
@@ -418,49 +442,54 @@ class TestSubUserDeletion:
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
         """✅ Test: Cannot delete another user's sub-user."""
-        # Create two parent users
+        # Create two EXTERNAL parent users
         parent1 = User(
-            email="parent9a@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543290",
             full_name="Parent 9A",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         parent2 = User(
-            email="parent9b@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
+            mobile_number="+919876543291",
             full_name="Parent 9B",
-            organization_id=seed_organization.id,
-            is_active=True
+            user_type="EXTERNAL",
+            business_partner_id=seed_business_partner.id,
+            is_active=True,
+            is_verified=True
         )
         db_session.add(parent1)
         db_session.add(parent2)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        await db_session.flush()
 
-        # Login as parent1 and create sub-user
-        login1 = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent9a@example.com", "password": "Password123!"}
+        # Create tokens
+        from backend.core.auth.jwt import create_token
+        token1 = create_token(
+            str(parent1.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
         )
-        token1 = login1.json()["access_token"]
+        token2 = create_token(
+            str(parent2.id),
+            str(seed_business_partner.id),
+            minutes=30,
+            token_type="access"
+        )
 
+        # Parent1 creates sub-user
         create_response = await async_client.post(
             "/api/v1/settings/auth/sub-users",
-            json={"email": "sub9@example.com", "full_name": "Sub 9", "password": "Pass123!"},
+            json={"mobile_number": "+919876543292", "full_name": "Sub 9"},
             headers={"Authorization": f"Bearer {token1}"}
         )
         sub_user_id = create_response.json()["id"]
 
-        # Login as parent2 and try to delete parent1's sub-user
-        login2 = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent9b@example.com", "password": "Password123!"}
-        )
-        token2 = login2.json()["access_token"]
-
+        # Parent2 tries to delete parent1's sub-user
         response = await async_client.delete(
             f"/api/v1/settings/auth/sub-users/{sub_user_id}",
             headers={"Authorization": f"Bearer {token2}"}
@@ -473,56 +502,22 @@ class TestSubUserDeletion:
 class TestSubUserLogin:
     """Test that sub-users can login independently."""
 
+    @pytest.mark.skip(reason="Sub-users now use mobile OTP login, not password - will be tested in mobile OTP tests")
     @pytest.mark.asyncio
     async def test_sub_user_can_login(
         self,
         async_client: AsyncClient,
         db_session: AsyncSession,
-        seed_organization
+        seed_business_partner
     ):
-        """✅ Test: Sub-user can login with their own credentials."""
-        # Create parent user
-        parent = User(
-            email="parent10@example.com",
-            password_hash=pwd_hasher.hash("Password123!"),
-            full_name="Parent User 10",
-            organization_id=seed_organization.id,
-            is_active=True
-        )
-        db_session.add(parent)
-        await db_session.flush()  # Flush so login endpoint can see parent
+        """✅ Test: Sub-user can login with mobile OTP (not password)."""
+        # TODO: Implement once mobile OTP login is integrated
+        # Sub-users are EXTERNAL users and must authenticate via mobile OTP
+        # This test should:
+        # 1. Create parent user (EXTERNAL)
+        # 2. Create sub-user with mobile_number
+        # 3. Send OTP to sub-user's mobile
+        # 4. Verify OTP and get access token
+        # 5. Use token to access /auth/me
+        pass
 
-        # Login as parent and create sub-user
-        parent_login = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "parent10@example.com", "password": "Password123!"}
-        )
-        parent_token = parent_login.json()["access_token"]
-
-        await async_client.post(
-            "/api/v1/settings/auth/sub-users",
-            json={"email": "sub10@example.com", "full_name": "Sub 10", "password": "SubPassword123!"},
-            headers={"Authorization": f"Bearer {parent_token}"}
-        )
-
-        # Sub-user login
-        sub_login = await async_client.post(
-            "/api/v1/settings/auth/login",
-            json={"email": "sub10@example.com", "password": "SubPassword123!"}
-        )
-
-        assert sub_login.status_code == 200
-        data = sub_login.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-
-        # Verify sub-user can access /auth/me
-        me_response = await async_client.get(
-            "/api/v1/settings/auth/me",
-            headers={"Authorization": f"Bearer {data['access_token']}"}
-        )
-
-        assert me_response.status_code == 200
-        me_data = me_response.json()
-        assert me_data["email"] == "sub10@example.com"
-        assert me_data["parent_user_id"] == str(parent.id)
