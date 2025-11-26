@@ -86,6 +86,8 @@ class AuthService:
 		user = await self.user_repo.get_by_email(email)
 		if not user:
 			raise ValueError("Invalid credentials")
+		if not user.is_active:
+			raise ValueError("User account is inactive")
 		if not self.hasher.verify(password, user.password_hash):
 			raise ValueError("Invalid credentials")
 		access_minutes = settings.ACCESS_TOKEN_EXPIRES_MINUTES

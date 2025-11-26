@@ -4,6 +4,7 @@ Integration Test Infrastructure with Testcontainers + PostgreSQL
 Provides real PostgreSQL database for thorough integration testing of all modules.
 """
 import asyncio
+import os
 import uuid
 from typing import AsyncGenerator, Generator
 
@@ -13,6 +14,10 @@ from sqlalchemy import text, create_engine, event, exc
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
+
+
+# Configure password hashing for tests (avoid bcrypt 5.0.0 compatibility issues)
+os.environ.setdefault("PASSWORD_SCHEME", "pbkdf2_sha256")
 
 
 # ============================================
@@ -424,3 +429,35 @@ async def seed_payment_terms(db_session: AsyncSession):
     
     await db_session.flush()
     return terms
+
+
+# ============================================
+# HTTP CLIENT FIXTURE
+# ============================================
+
+@pytest_asyncio.fixture
+async def async_client(db_session: AsyncSession) -> AsyncGenerator:
+    """
+    Async HTTP client for API testing.
+    
+    Provides HTTPX AsyncClient configured for FastAPI testing.
+    Automatically handles database session dependency override.
+    """
+    from httpx import AsyncClient, ASGITransport
+    from backend.app.main import app
+    from backend.db import get_db
+    
+    # Override database dependency to use test session
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    async with AsyncClient(
+        transport=ASGITransport(app=app), 
+        base_url="http://test"
+    ) as client:
+        yield client
+    
+    # Cleanup
+    app.dependency_overrides.clear()
