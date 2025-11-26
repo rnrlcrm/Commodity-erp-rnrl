@@ -19,6 +19,8 @@ from backend.db.async_session import get_db
 
 # Configure password hashing for tests (avoid bcrypt 5.0.0 compatibility issues)
 os.environ.setdefault("PASSWORD_SCHEME", "pbkdf2_sha256")
+# Disable rate limiting in tests
+os.environ.setdefault("TESTING", "true")
 
 
 # ============================================

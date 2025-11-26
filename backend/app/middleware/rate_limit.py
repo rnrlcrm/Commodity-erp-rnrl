@@ -36,11 +36,15 @@ def get_identifier(request: Request) -> str:
 
 
 # Initialize limiter
+# Disable rate limiting in test environment
+is_test = os.getenv("TESTING", "false").lower() == "true"
+
 limiter = Limiter(
     key_func=get_identifier,
-    default_limits=["1000/hour", "10000/day"],  # Global default
+    default_limits=[] if is_test else ["1000/hour", "10000/day"],  # Global default
     storage_uri=os.getenv("REDIS_URL", "memory://"),  # Use Redis in production
     strategy="fixed-window",  # Can be changed to "moving-window" for better accuracy
+    enabled=not is_test,  # Disable in tests
 )
 
 

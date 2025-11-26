@@ -57,8 +57,7 @@ def health() -> dict:
 
 
 @router.post("/auth/signup", response_model=UserOut, tags=["auth"])
-# @limiter.limit("5/minute")  # Prevent signup abuse - TEMP DISABLED FOR TESTING
-async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> UserOut:
+async def signup(payload: SignupRequest, request: Request = None, db: AsyncSession = Depends(get_db)) -> UserOut:
     """Generic signup - password policy NOT enforced here. Use /auth/signup-internal for INTERNAL users."""
     svc = AuthService(db)
     try:
@@ -78,9 +77,9 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.post("/auth/signup-internal", response_model=UserOut, tags=["auth"])
-# @limiter.limit("5/minute")  # Prevent signup abuse - TEMP DISABLED FOR TESTING
 async def signup_internal(
     payload: InternalUserSignupRequest,
+    request: Request = None,
     db: AsyncSession = Depends(get_db)
 ) -> UserOut:
     """Signup for INTERNAL users with enforced password policy."""
@@ -102,9 +101,9 @@ async def signup_internal(
 
 
 @router.post("/auth/login", tags=["auth"])
-# @limiter.limit("10/minute")  # Prevent brute force attacks - TEMP DISABLED FOR TESTING
 async def login(
     payload: LoginRequest,
+    request: Request = None,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis)
 ) -> TokenResponse | LoginWith2FAResponse:
@@ -211,6 +210,53 @@ async def refresh(token: str, db: AsyncSession = Depends(get_db)) -> TokenRespon
     return TokenResponse(access_token=access, refresh_token=new_refresh, expires_in=expires_in)
 
 
+@router.post("/auth/change-password", tags=["auth"])
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """
+    Change password for authenticated INTERNAL user.
+    Revokes all sessions after password change for security.
+    """
+    from backend.core.auth.passwords import PasswordHasher
+    from backend.modules.settings.repositories.settings_repositories import UserRepository
+    
+    # Verify user is INTERNAL type
+    if current_user.user_type not in ['INTERNAL', 'SUPER_ADMIN']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only INTERNAL users can change passwords. EXTERNAL users use OTP."
+        )
+    
+    hasher = PasswordHasher()
+    
+    # Verify old password
+    if not hasher.verify(payload.old_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect"
+        )
+    
+    # Update password
+    user_repo = UserRepository(db)
+    current_user.password_hash = hasher.hash(payload.new_password)
+    db.add(current_user)
+    await db.flush()
+    
+    # Revoke all sessions for security
+    svc = AuthService(db)
+    count = await svc.revoke_all_sessions(str(current_user.id))
+    
+    audit_log("user.password_changed", str(current_user.id), "security", str(current_user.id), {"sessions_revoked": count})
+    
+    return {
+        "message": "Password changed successfully. All sessions have been revoked. Please login again.",
+        "sessions_revoked": count
+    }
+
+
 @router.post("/auth/logout", tags=["auth"])
 async def logout(token: str, db: AsyncSession = Depends(get_db)) -> dict:
     svc = AuthService(db)
@@ -224,8 +270,7 @@ async def logout(token: str, db: AsyncSession = Depends(get_db)) -> dict:
 
 @router.post("/auth/logout-all", tags=["auth"])
 async def logout_all_devices(
-    request: Request,
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
     """
@@ -233,7 +278,7 @@ async def logout_all_devices(
     Useful for security incidents or when user wants to terminate all sessions.
     """
     svc = AuthService(db)
-    user_id = current_user["sub"]
+    user_id = str(current_user.id)
     
     try:
         count = await svc.logout_all_devices(user_id)
@@ -250,9 +295,9 @@ async def logout_all_devices(
 
 
 @router.post("/auth/send-otp", response_model=OTPResponse, tags=["auth"])
-# @limiter.limit("3/minute")  # Prevent OTP spam - TEMP DISABLED FOR TESTING
 async def send_otp_for_external_user(
     payload: SendOTPRequest,
+    request: Request = None,
     redis_client: redis.Redis = Depends(get_redis)
 ) -> OTPResponse:
     """
@@ -293,9 +338,9 @@ async def send_otp_for_external_user(
 
 
 @router.post("/auth/verify-otp", response_model=TokenResponse, tags=["auth"])
-# @limiter.limit("10/minute")  # Prevent OTP brute force - TEMP DISABLED FOR TESTING
 async def verify_otp_for_external_user(
     payload: VerifyOTPRequest,
+    request: Request = None,
     redis_client: redis.Redis = Depends(get_redis),
     db: AsyncSession = Depends(get_db)
 ) -> TokenResponse:

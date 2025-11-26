@@ -265,7 +265,7 @@ class TestE164MobileValidation:
         
         # Try to create sub-user without +
         response = await async_client.post(
-            "/api/v1/settings/sub-users",
+            "/api/v1/settings/auth/sub-users",
             json={
                 "mobile_number": "919876543211",  # Missing +
                 "full_name": "Sub User"
