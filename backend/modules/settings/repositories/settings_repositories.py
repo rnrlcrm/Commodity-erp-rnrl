@@ -103,6 +103,24 @@ class UserRepository(BaseRepo):
 		await self.db.flush()
 		return obj
 
+	async def enable_2fa(self, user_id: UUID, pin_hash: str) -> None:
+		"""Enable 2FA and set PIN hash for a user."""
+		user = await self.get_by_id(user_id)
+		if not user:
+			raise ValueError("User not found")
+		user.two_fa_enabled = True
+		user.pin_hash = pin_hash
+		self.db.add(user)
+
+	async def disable_2fa(self, user_id: UUID) -> None:
+		"""Disable 2FA and clear PIN hash for a user."""
+		user = await self.get_by_id(user_id)
+		if not user:
+			raise ValueError("User not found")
+		user.two_fa_enabled = False
+		user.pin_hash = None
+		self.db.add(user)
+
 
 class RoleRepository(BaseRepo):
 	async def get_by_name(self, name: str) -> Optional[Role]:

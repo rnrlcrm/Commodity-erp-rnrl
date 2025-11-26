@@ -113,6 +113,19 @@ class User(Base, EventMixin):
 		comment="RBAC: List of modules user can access"
 	)
 	
+	# 2FA Fields (Phase 3)
+	two_fa_enabled: Mapped[bool] = mapped_column(
+		Boolean,
+		nullable=False,
+		default=False,
+		comment="Whether 2FA with PIN is enabled for this user"
+	)
+	pin_hash: Mapped[str | None] = mapped_column(
+		String(255),
+		nullable=True,
+		comment="Hashed 4-6 digit PIN for 2FA verification"
+	)
+	
 	# Existing Fields
 	email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
 	mobile_number: Mapped[str | None] = mapped_column(

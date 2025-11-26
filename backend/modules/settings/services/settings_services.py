@@ -206,3 +206,54 @@ class AuthService:
 		await self.db.delete(sub_user)
 		await self.db.flush()
 
+	async def setup_2fa(self, user_id: str, pin: str) -> None:
+		"""Enable 2FA and set PIN for a user."""
+		from uuid import UUID
+		import re
+		
+		# Validate PIN (4-6 digits)
+		if not re.match(r'^\d{4,6}$', pin):
+			raise ValueError("PIN must be 4-6 digits")
+		
+		# Hash the PIN
+		pin_hash = self.hasher.hash(pin)
+		
+		# Enable 2FA
+		await self.user_repo.enable_2fa(UUID(user_id), pin_hash)
+
+	async def verify_pin(self, email: str, pin: str) -> tuple[str, str, int]:
+		"""Verify 2FA PIN and issue tokens."""
+		user = await self.user_repo.get_by_email(email)
+		if not user:
+			raise ValueError("Invalid credentials")
+		
+		if not user.two_fa_enabled or not user.pin_hash:
+			raise ValueError("2FA not enabled for this user")
+		
+		if not self.hasher.verify(pin, user.pin_hash):
+			raise ValueError("Invalid PIN")
+		
+		# Issue tokens
+		access_minutes = settings.ACCESS_TOKEN_EXPIRES_MINUTES
+		refresh_days = settings.REFRESH_TOKEN_EXPIRES_DAYS
+		access = create_token(str(user.id), str(user.organization_id), minutes=access_minutes, token_type="access")
+		refresh = create_token(str(user.id), str(user.organization_id), days=refresh_days, token_type="refresh")
+		
+		from backend.core.auth.jwt import decode_token
+		payload = decode_token(refresh)
+		rt = RefreshToken(
+			user_id=user.id,
+			jti=payload["jti"],
+			expires_at=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+			revoked=False,
+		)
+		self.db.add(rt)
+		await self.db.flush()
+		return access, refresh, access_minutes * 60
+
+	async def disable_2fa(self, user_id: str) -> None:
+		"""Disable 2FA for a user."""
+		from uuid import UUID
+		await self.user_repo.disable_2fa(UUID(user_id))
+
+

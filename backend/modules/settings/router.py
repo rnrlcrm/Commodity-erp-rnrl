@@ -12,6 +12,10 @@ from backend.modules.settings.schemas.settings_schemas import (
     UserOut,
     CreateSubUserRequest,
     SubUserOut,
+    Setup2FARequest,
+    Verify2FARequest,
+    TwoFAStatusResponse,
+    LoginWith2FAResponse,
 )
 from backend.modules.settings.services.settings_services import AuthService
 from backend.core.auth.deps import get_current_user
@@ -49,10 +53,31 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> 
     )
 
 
-@router.post("/auth/login", response_model=TokenResponse, tags=["auth"])
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+@router.post("/auth/login", tags=["auth"])
+async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse | LoginWith2FAResponse:
     svc = AuthService(db)
     try:
+        # Check if user exists and validate password
+        from backend.modules.settings.repositories.settings_repositories import UserRepository
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_email(payload.email)
+        
+        if not user:
+            raise ValueError("Invalid credentials")
+        if not user.is_active:
+            raise ValueError("User account is inactive")
+        if not svc.hasher.verify(payload.password, user.password_hash):
+            raise ValueError("Invalid credentials")
+        
+        # Check if 2FA is enabled
+        if user.two_fa_enabled:
+            return LoginWith2FAResponse(
+                two_fa_required=True,
+                message="2FA enabled. Please verify with PIN.",
+                email=payload.email
+            )
+        
+        # No 2FA - proceed with normal login
         access, refresh, expires_in = await svc.login(payload.email, payload.password)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -166,3 +191,62 @@ async def delete_sub_user(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     
     audit_log("sub_user.deleted", str(user.id), "user", sub_user_id, {})
+
+
+# ============================================
+# 2FA ENDPOINTS (Phase 3)
+# ============================================
+
+@router.post("/auth/2fa-setup", response_model=TwoFAStatusResponse, tags=["auth", "2fa"])
+async def setup_2fa(
+    payload: Setup2FARequest,
+    user=Depends(get_current_user),  # noqa: ANN001
+    db: AsyncSession = Depends(get_db)
+) -> TwoFAStatusResponse:
+    """Enable 2FA and set PIN for the authenticated user."""
+    svc = AuthService(db)
+    try:
+        await svc.setup_2fa(str(user.id), payload.pin)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    
+    audit_log("user.2fa_enabled", str(user.id), "user", str(user.id), {})
+    return TwoFAStatusResponse(
+        two_fa_enabled=True,
+        message="2FA enabled successfully. Use your PIN for future logins."
+    )
+
+
+@router.post("/auth/2fa-verify", response_model=TokenResponse, tags=["auth", "2fa"])
+async def verify_2fa(
+    payload: Verify2FARequest,
+    db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
+    """Verify 2FA PIN and issue tokens."""
+    svc = AuthService(db)
+    try:
+        access, refresh, expires_in = await svc.verify_pin(payload.email, payload.pin)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    
+    audit_log("user.2fa_verified", None, "user", None, {"email": payload.email})
+    return TokenResponse(access_token=access, refresh_token=refresh, expires_in=expires_in)
+
+
+@router.post("/auth/2fa-disable", response_model=TwoFAStatusResponse, tags=["auth", "2fa"])
+async def disable_2fa(
+    user=Depends(get_current_user),  # noqa: ANN001
+    db: AsyncSession = Depends(get_db)
+) -> TwoFAStatusResponse:
+    """Disable 2FA for the authenticated user."""
+    svc = AuthService(db)
+    try:
+        await svc.disable_2fa(str(user.id))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    
+    audit_log("user.2fa_disabled", str(user.id), "user", str(user.id), {})
+    return TwoFAStatusResponse(
+        two_fa_enabled=False,
+        message="2FA disabled successfully."
+    )

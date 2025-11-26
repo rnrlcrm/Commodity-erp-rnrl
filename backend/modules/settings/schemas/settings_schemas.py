@@ -61,3 +61,28 @@ class SubUserOut(BaseModel):
 	class Config:
 		from_attributes = True
 
+
+class Setup2FARequest(BaseModel):
+	"""Request to setup or update 2FA PIN."""
+	pin: str = Field(min_length=4, max_length=6, pattern=r'^\d+$')
+
+
+class Verify2FARequest(BaseModel):
+	"""Request to verify 2FA PIN during login."""
+	email: EmailStr
+	pin: str = Field(min_length=4, max_length=6, pattern=r'^\d+$')
+
+
+class TwoFAStatusResponse(BaseModel):
+	"""Response for 2FA status."""
+	two_fa_enabled: bool
+	message: str
+
+
+class LoginWith2FAResponse(BaseModel):
+	"""Response when 2FA is enabled - requires PIN verification."""
+	two_fa_required: bool
+	message: str
+	email: EmailStr
+
+
