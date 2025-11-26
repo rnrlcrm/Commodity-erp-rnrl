@@ -108,7 +108,10 @@ class AuthService:
 
 	async def refresh(self, refresh_token_str: str) -> tuple[str, str, int]:
 		from backend.core.auth.jwt import decode_token
-		payload = decode_token(refresh_token_str)
+		try:
+			payload = decode_token(refresh_token_str)
+		except Exception:
+			raise ValueError("Invalid refresh token")
 		if payload.get("type") != "refresh":
 			raise ValueError("Invalid refresh token")
 		jti = payload.get("jti")
@@ -140,7 +143,10 @@ class AuthService:
 
 	async def logout(self, refresh_token_str: str) -> None:
 		from backend.core.auth.jwt import decode_token
-		payload = decode_token(refresh_token_str)
+		try:
+			payload = decode_token(refresh_token_str)
+		except Exception:
+			raise ValueError("Invalid refresh token")
 		if payload.get("type") != "refresh":
 			raise ValueError("Invalid refresh token")
 		jti = payload.get("jti")
