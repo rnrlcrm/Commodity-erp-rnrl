@@ -534,12 +534,12 @@ class Requirement(Base, EventMixin):
     # ========================================================================
     # RELATIONSHIPS (will be defined when related models exist)
     # ========================================================================
-    # buyer_partner = relationship("Partner", foreign_keys=[buyer_partner_id])
+    buyer_partner = relationship("BusinessPartner", foreign_keys=[buyer_partner_id])
     # commodity = relationship("Commodity", foreign_keys=[commodity_id])
     # variety = relationship("CommodityVariety", foreign_keys=[variety_id])
     # created_by_user = relationship("User", foreign_keys=[created_by_user_id])
     # cancelled_by_user = relationship("User", foreign_keys=[cancelled_by_user_id])
-    # buyer_branch = relationship("Branch", foreign_keys=[buyer_branch_id])
+    buyer_branch = relationship("PartnerLocation", foreign_keys=[buyer_branch_id])
     
     def __init__(self, **kwargs):
         """Initialize requirement with default values for fields that have server_default"""

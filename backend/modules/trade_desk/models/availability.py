@@ -214,6 +214,7 @@ class Availability(Base, EventMixin):
     commodity = relationship("Commodity", foreign_keys=[commodity_id])
     location = relationship("Location", foreign_keys=[location_id])
     seller = relationship("BusinessPartner", foreign_keys=[seller_id])
+    seller_branch = relationship("PartnerLocation", foreign_keys=[seller_branch_id])
     
     # Constraints
     __table_args__ = (
