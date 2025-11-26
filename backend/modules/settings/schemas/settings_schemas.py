@@ -87,3 +87,21 @@ class LoginWith2FAResponse(BaseModel):
 	email: EmailStr
 
 
+class SendOTPRequest(BaseModel):
+	"""Request to send OTP to mobile number for EXTERNAL user login."""
+	mobile_number: str = Field(pattern=r'^\+?[1-9]\d{1,14}$')
+	country_code: str = Field(default="+91")
+
+
+class VerifyOTPRequest(BaseModel):
+	"""Request to verify OTP for EXTERNAL user login."""
+	mobile_number: str = Field(pattern=r'^\+?[1-9]\d{1,14}$')
+	otp: str = Field(min_length=6, max_length=6, pattern=r'^\d+$')
+
+
+class OTPResponse(BaseModel):
+	"""Response after sending OTP."""
+	success: bool
+	message: str
+	otp_sent_at: Optional[datetime] = None
+	expires_in_seconds: int = 300

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import AsyncGenerator
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.audit import audit_log
 from backend.db.async_session import get_db
@@ -16,6 +18,9 @@ from backend.modules.settings.schemas.settings_schemas import (
     Verify2FARequest,
     TwoFAStatusResponse,
     LoginWith2FAResponse,
+    SendOTPRequest,
+    VerifyOTPRequest,
+    OTPResponse,
 )
 from backend.modules.settings.services.settings_services import AuthService
 from backend.core.auth.deps import get_current_user
@@ -27,6 +32,19 @@ router = APIRouter()
 router.include_router(organization_router)
 router.include_router(commodities_router)
 router.include_router(locations_router)
+
+
+async def get_redis() -> AsyncGenerator[redis.Redis, None]:
+    """Get Redis client for OTP storage"""
+    redis_client = redis.from_url(
+        "redis://localhost:6379",
+        encoding="utf-8",
+        decode_responses=False
+    )
+    try:
+        yield redis_client
+    finally:
+        await redis_client.aclose()
 
 
 @router.get("/health", tags=["health"])  # lightweight placeholder
@@ -101,10 +119,152 @@ async def logout(token: str, db: AsyncSession = Depends(get_db)) -> dict:
     svc = AuthService(db)
     try:
         await svc.logout(token)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    audit_log("user.logout", None, "refresh_token", None, {})
+    return {"message": "Logged out successfully"}
+
+
+@router.post("/auth/send-otp", response_model=OTPResponse, tags=["auth"])
+async def send_otp_for_external_user(
+    payload: SendOTPRequest,
+    redis_client: redis.Redis = Depends(get_redis)
+) -> OTPResponse:
+    """
+    Send OTP to EXTERNAL user's mobile number for authentication.
+    
+    EXTERNAL users (business partners and sub-users) authenticate via mobile OTP only.
+    INTERNAL users (backoffice) must use email/password login.
+    """
+    from backend.modules.user_onboarding.services.otp_service import OTPService
+    
+    # Handle mobile number formatting
+    mobile = payload.mobile_number.strip()
+    if not mobile.startswith("+"):
+        full_mobile = f"{payload.country_code}{mobile}"
+    else:
+        full_mobile = mobile
+    
+    otp_service = OTPService(redis_client)
+    
+    try:
+        result = await otp_service.send_otp(full_mobile)
+        
+        audit_log("user.send_otp", None, "external_auth", None, {"mobile": full_mobile})
+        
+        return OTPResponse(
+            success=True,
+            message=f"OTP sent to {full_mobile}. Valid for 5 minutes.",
+            otp_sent_at=result["expires_at"],
+            expires_in_seconds=300
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send OTP: {str(e)}"
+        )
+
+
+@router.post("/auth/verify-otp", response_model=TokenResponse, tags=["auth"])
+async def verify_otp_for_external_user(
+    payload: VerifyOTPRequest,
+    redis_client: redis.Redis = Depends(get_redis),
+    db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
+    """
+    Verify OTP and login EXTERNAL user (business partner or sub-user).
+    
+    Returns JWT tokens for authenticated session.
+    User must exist in database (created during partner onboarding or as sub-user).
+    """
+    from backend.modules.user_onboarding.services.otp_service import OTPService
+    from backend.modules.settings.repositories.settings_repositories import UserRepository
+    from backend.core.auth.jwt import create_token
+    
+    otp_service = OTPService(redis_client)
+    user_repo = UserRepository(db)
+    
+    # Verify OTP
+    await otp_service.verify_otp(payload.mobile_number, payload.otp)
+    
+    # Get user by mobile number
+    user = await user_repo.get_by_mobile(payload.mobile_number)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please complete partner onboarding first."
+        )
+    
+    # Verify user is EXTERNAL type
+    if user.user_type not in ['EXTERNAL']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This login method is only for EXTERNAL users (business partners). INTERNAL users must use email/password."
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive. Please contact support."
+        )
+    
+    # Generate JWT tokens
+    from backend.modules.settings.services.settings_services import AuthService
+    from backend.core.settings.config import settings
+    svc = AuthService(db)
+    
+    # Use business_partner_id for EXTERNAL users
+    org_or_partner_id = str(user.business_partner_id) if user.business_partner_id else None
+    
+    if not org_or_partner_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no associated business partner"
+        )
+    
+    access_minutes = settings.ACCESS_TOKEN_EXPIRES_MINUTES
+    refresh_days = settings.REFRESH_TOKEN_EXPIRES_DAYS
+    
+    access = create_token(str(user.id), org_or_partner_id, minutes=access_minutes, token_type="access")
+    refresh = create_token(str(user.id), org_or_partner_id, days=refresh_days, token_type="refresh")
+    
+    # Store refresh token
+    from backend.modules.settings.models.settings_models import RefreshToken
+    from backend.core.auth.jwt import decode_token
+    from datetime import datetime, timezone
+    
+    payload_data = decode_token(refresh)
+    rt = RefreshToken(
+        user_id=user.id,
+        jti=payload_data["jti"],
+        expires_at=datetime.fromtimestamp(payload_data["exp"], tz=timezone.utc),
+        revoked=False,
+    )
+    db.add(rt)
+    await db.flush()
+    
+    audit_log("user.otp_login", str(user.id), "external_auth", str(user.id), {"mobile": payload.mobile_number})
+    
+    return TokenResponse(
+        access_token=access,
+        refresh_token=refresh,
+        expires_in=access_minutes * 60
+    )
+
+
+@router.post("/auth/logout", tags=["auth"])
+async def logout(token: str, db: AsyncSession = Depends(get_db)) -> dict:
+    svc = AuthService(db)
+    try:
+        await svc.logout(token)
     except ValueError:
         pass
     audit_log("user.logout", None, "refresh_token", None, {})
     return {"message": "Logged out successfully"}
+
 
 @router.get("/auth/me", response_model=UserOut, tags=["auth"])
 def me(user=Depends(get_current_user)) -> UserOut:  # noqa: ANN001
