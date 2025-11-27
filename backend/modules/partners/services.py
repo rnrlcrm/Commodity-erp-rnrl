@@ -835,50 +835,92 @@ class PartnerService:
         Returns:
             OnboardingApplication
         """
-        # Step 1: Verify GST
-        gst_result = await self.gst_service.verify_gstin(data.tax_id_number)
+        # Step 1: Verify GST if tax_id_number provided
+        gst_verified = False
+        gst_verification_data = None
+        legal_name = data.legal_name
+        trade_name = data.trade_name
+        entity_type = data.business_entity_type
+        registration_date = data.registration_date
         
-        if not gst_result.verified:
-            raise ValueError(f"GST verification failed: {gst_result.error}")
+        if data.tax_id_number:
+            try:
+                gst_result = await self.gst_service.verify_gstin(data.tax_id_number)
+                if gst_result.verified:
+                    gst_verified = True
+                    legal_name = gst_result.legal_name
+                    trade_name = gst_result.trade_name or data.trade_name
+                    entity_type = gst_result.entity_type
+                    registration_date = gst_result.registration_date
+                    gst_verification_data = gst_result.dict()
+            except Exception as e:
+                # Continue with manual data if GST verification fails
+                pass
         
         # Step 2: Geocode location (auto-verify if confidence >90%)
-        location_result = await self.geocoding_service.geocode_address(
-            data.primary_address,
-            data.primary_city,
-            data.primary_state,
-            data.primary_postal_code
-        )
+        location_verified = False
+        latitude = data.primary_latitude
+        longitude = data.primary_longitude
         
-        location_verified = location_result["confidence"] > 0.90
+        try:
+            location_result = await self.geocoding_service.geocode_address(
+                data.primary_address,
+                data.primary_city,
+                data.primary_state,
+                data.primary_postal_code
+            )
+            location_verified = location_result.get("confidence", 0) > 0.90
+            latitude = location_result.get("latitude")
+            longitude = location_result.get("longitude")
+        except Exception as e:
+            # Continue with manual coordinates if geocoding fails
+            pass
         
         # Step 3: Create application
         application = await self.app_repo.create(
+            user_id=self.current_user_id,
             organization_id=self.organization_id,
             partner_type=data.partner_type,
-            legal_business_name=gst_result.legal_name,
-            trade_name=gst_result.trade_name or data.trade_name,
+            service_provider_type=data.service_provider_type,
+            trade_classification=data.trade_classification,
+            legal_name=legal_name,
+            trade_name=trade_name,
+            country=data.country,
+            business_entity_type=entity_type,
+            registration_date=registration_date,
+            has_tax_registration=data.has_tax_registration,
+            tax_id_type=data.tax_id_type,
             tax_id_number=data.tax_id_number,
+            tax_details=data.tax_details,
+            tax_verified=gst_verified,
             pan_number=data.pan_number,
-            entity_type=gst_result.entity_type,
-            business_registration_date=gst_result.registration_date,
+            pan_name=data.pan_name,
+            pan_verified=False,
+            has_no_gst_declaration=data.has_no_gst_declaration,
+            declaration_reason=data.declaration_reason,
+            bank_account_name=data.bank_account_name,
+            bank_name=data.bank_name,
+            bank_account_number=data.bank_account_number,
+            bank_routing_code=data.bank_routing_code,
             primary_address=data.primary_address,
             primary_city=data.primary_city,
             primary_state=data.primary_state,
             primary_postal_code=data.primary_postal_code,
             primary_country=data.primary_country,
-            primary_latitude=location_result["latitude"],
-            primary_longitude=location_result["longitude"],
-            location_geocoded=location_verified,
-            location_confidence=location_result["confidence"],
-            primary_contact_person=data.primary_contact_person,
+            primary_latitude=latitude,
+            primary_longitude=longitude,
+            primary_contact_name=data.primary_contact_name,
             primary_contact_email=data.primary_contact_email,
             primary_contact_phone=data.primary_contact_phone,
-            gst_verified=True,
-            gst_verified_at=datetime.utcnow(),
-            gst_verification_data=gst_result.dict(),
-            location_verified=location_verified,
-            status="draft",
-            created_by=self.current_user_id
+            primary_currency=data.primary_currency,
+            commodities=data.commodities,
+            onboarding_stage="documents",
+            verification_results={
+                "gst_verified": gst_verified,
+                "location_verified": location_verified,
+                "gst_data": gst_verification_data
+            },
+            status="pending"
         )
         
         # TODO: Emit event
