@@ -106,7 +106,7 @@ class LocationService:
         self.event_emitter = event_emitter
         self.google_maps = GoogleMapsService()
     
-    def search_google_places(self, query: str) -> List[GooglePlaceSuggestion]:
+    async def search_google_places(self, query: str) -> List[GooglePlaceSuggestion]:
         """
         Search for places using Google Maps Autocomplete API.
         
@@ -121,7 +121,7 @@ class LocationService:
         
         return self.google_maps.search_places(query)
     
-    def fetch_google_place_details(self, place_id: str) -> GooglePlaceDetails:
+    async def fetch_google_place_details(self, place_id: str) -> GooglePlaceDetails:
         """
         Fetch full place details from Google Place Details API.
         
@@ -141,7 +141,7 @@ class LocationService:
         
         return details
     
-    def create_or_get_location(
+    async def create_or_get_location(
         self,
         data: LocationCreate,
         current_user_id: UUID
@@ -158,12 +158,12 @@ class LocationService:
             LocationResponse (new or existing)
         """
         # Check if location already exists
-        existing = self.repository.get_by_google_place_id(data.google_place_id)
+        existing = await self.repository.get_by_google_place_id(data.google_place_id)
         if existing:
             return LocationResponse.model_validate(existing)
         
         # Fetch details from Google
-        google_details = self.fetch_google_place_details(data.google_place_id)
+        google_details = await self.fetch_google_place_details(data.google_place_id)
         
         # Auto-assign region based on state code
         region = map_state_to_region(google_details.state_code)
@@ -186,8 +186,8 @@ class LocationService:
             created_by=current_user_id
         )
         
-        location = self.repository.create(location)
-        self.db.commit()
+        location = await self.repository.create(location)
+        await self.db.flush()
         
         # Emit event
         event_data = LocationEventData(
@@ -204,15 +204,15 @@ class LocationService:
             aggregate_id=location.id,
             user_id=current_user_id,
             timestamp=datetime.utcnow(),
-            data=event_data
+            data=event_data.model_dump(mode='json')  # Serialize UUIDs to strings
         )
         
         # Emit event for audit trail
-        self.event_emitter.emit(event)
+        await self.event_emitter.emit(event)
         
         return LocationResponse.model_validate(location)
     
-    def get_location(self, location_id: UUID) -> LocationResponse:
+    async def get_location(self, location_id: UUID) -> LocationResponse:
         """
         Get location by ID.
         
@@ -225,14 +225,14 @@ class LocationService:
         Raises:
             NotFoundException: If location not found
         """
-        location = self.repository.get_by_id(location_id)
+        location = await self.repository.get_by_id(location_id)
         
         if not location:
             raise NotFoundException(f"Location not found: {location_id}")
         
         return LocationResponse.model_validate(location)
     
-    def list_locations(
+    async def list_locations(
         self,
         city: Optional[str] = None,
         state: Optional[str] = None,
@@ -248,7 +248,7 @@ class LocationService:
         Returns:
             Tuple of (location list, total count)
         """
-        locations, total = self.repository.list(
+        locations, total = await self.repository.list(
             city=city,
             state=state,
             region=region,
@@ -260,7 +260,7 @@ class LocationService:
         
         return [LocationResponse.model_validate(loc) for loc in locations], total
     
-    def update_location(
+    async def update_location(
         self,
         location_id: UUID,
         data: LocationUpdate,
@@ -280,7 +280,7 @@ class LocationService:
         Raises:
             NotFoundException: If location not found
         """
-        location = self.repository.get_by_id(location_id)
+        location = await self.repository.get_by_id(location_id)
         
         if not location:
             raise NotFoundException(f"Location not found: {location_id}")
@@ -299,8 +299,8 @@ class LocationService:
             location.is_active = data.is_active
         
         location.updated_by = current_user_id
-        location = self.repository.update(location)
-        self.db.commit()
+        location = await self.repository.update(location)
+        await self.db.flush()
         
         # Emit event
         changes = {
@@ -319,11 +319,11 @@ class LocationService:
         )
         
         # Emit event for audit trail
-        self.event_emitter.emit(event)
+        await self.event_emitter.emit(event)
         
         return LocationResponse.model_validate(location)
     
-    def delete_location(self, location_id: UUID, current_user_id: UUID) -> dict:
+    async def delete_location(self, location_id: UUID, current_user_id: UUID) -> dict:
         """
         Soft delete a location (only if not referenced elsewhere).
         
@@ -338,22 +338,22 @@ class LocationService:
             NotFoundException: If location not found
             BadRequestException: If location is referenced by other entities
         """
-        location = self.repository.get_by_id(location_id)
+        location = await self.repository.get_by_id(location_id)
         
         if not location:
             raise NotFoundException(f"Location not found: {location_id}")
         
         # Check if location is referenced
-        ref_count = self.repository.count_references(location_id)
+        ref_count = await self.repository.count_references(location_id)
         if ref_count > 0:
             raise BadRequestException(
                 f"Cannot delete location. It is referenced by {ref_count} other entities."
             )
         
         # Soft delete
-        location = self.repository.soft_delete(location)
+        location = await self.repository.soft_delete(location)
         location.updated_by = current_user_id
-        self.db.commit()
+        await self.db.flush()
         
         # Emit event
         event = LocationDeletedEvent(
@@ -364,6 +364,6 @@ class LocationService:
         )
         
         # Emit event for audit trail
-        self.event_emitter.emit(event)
+        await self.event_emitter.emit(event)
         
         return {"message": f"Location '{location.name}' deleted successfully"}

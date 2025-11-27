@@ -32,7 +32,7 @@ class LocationCreatedEvent(BaseModel):
     user_id: UUID
     timestamp: datetime
     version: int = 1
-    data: LocationEventData
+    data: dict  # LocationEventData as dict
     metadata: Optional[dict] = None
 
 
