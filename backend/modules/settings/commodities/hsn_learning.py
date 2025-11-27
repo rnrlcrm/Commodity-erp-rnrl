@@ -352,4 +352,5 @@ class HSNLearningService:
             )
             self.db.add(entry)
         
-        await self.db.commit()
+        await self.db.flush()  # Flush instead of commit - let caller manage transaction
+

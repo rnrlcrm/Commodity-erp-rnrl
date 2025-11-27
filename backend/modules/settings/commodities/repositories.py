@@ -120,6 +120,14 @@ class CommodityVarietyRepository:
         )
         return list(result.scalars().all())
     
+    async def list_all(self, commodity_id: Optional[UUID] = None) -> List[CommodityVariety]:
+        """List all varieties, optionally filtered by commodity"""
+        query = select(CommodityVariety).order_by(CommodityVariety.name)
+        if commodity_id:
+            query = query.where(CommodityVariety.commodity_id == commodity_id)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+    
     async def update(self, variety_id: UUID, **kwargs) -> Optional[CommodityVariety]:
         """Update variety"""
         variety = await self.get_by_id(variety_id)
@@ -170,6 +178,14 @@ class CommodityParameterRepository:
             .where(CommodityParameter.commodity_id == commodity_id)
             .order_by(CommodityParameter.display_order, CommodityParameter.parameter_name)
         )
+        return list(result.scalars().all())
+    
+    async def list_all(self, commodity_id: Optional[UUID] = None) -> List[CommodityParameter]:
+        """List all parameters, optionally filtered by commodity"""
+        query = select(CommodityParameter).order_by(CommodityParameter.parameter_name)
+        if commodity_id:
+            query = query.where(CommodityParameter.commodity_id == commodity_id)
+        result = await self.db.execute(query)
         return list(result.scalars().all())
     
     async def update(self, parameter_id: UUID, **kwargs) -> Optional[CommodityParameter]:

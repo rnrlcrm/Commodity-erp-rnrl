@@ -109,7 +109,7 @@ class CommodityService:
                 data.gst_rate = enrichment["suggested_gst_rate"]
         
         # Create commodity
-        commodity = await self.repository.create(data)
+        commodity = await self.repository.create(**data.model_dump())
         
         # NEW: Learn from this commodity creation (AI self-improvement)
         if self.ai_helper.hsn_learning and data.hsn_code:
@@ -124,10 +124,9 @@ class CommodityService:
         # Emit event
         await self.event_emitter.emit(
             CommodityCreated(
-                entity_type="Commodity",
-                entity_id=commodity.id,
+                aggregate_id=commodity.id,
                 user_id=self.current_user_id,
-                payload={
+                data={
                     "name": commodity.name,
                     "category": commodity.category,
                     "hsn_code": commodity.hsn_code,
@@ -151,7 +150,7 @@ class CommodityService:
             return None
         
         # Update
-        commodity = await self.repository.update(commodity_id, data)
+        commodity = await self.repository.update(commodity_id, **data.model_dump(exclude_unset=True))
         if not commodity:
             return None
         
@@ -168,10 +167,9 @@ class CommodityService:
         
         await self.event_emitter.emit(
             CommodityUpdated(
-                entity_type="Commodity",
-                entity_id=commodity.id,
+                aggregate_id=commodity.id,
                 user_id=self.current_user_id,
-                payload={"changes": changes}
+                data={"changes": changes}
             )
         )
         
@@ -189,10 +187,9 @@ class CommodityService:
         if success:
             await self.event_emitter.emit(
                 CommodityDeleted(
-                    entity_type="Commodity",
-                    entity_id=commodity_id,
+                    aggregate_id=commodity_id,
                     user_id=self.current_user_id,
-                    payload={"name": commodity.name}
+                    data={"name": commodity.name}
                 )
             )
         
@@ -227,15 +224,14 @@ class CommodityVarietyService:
     async def add_variety(self, data: CommodityVarietyCreate) -> CommodityVariety:
         """Add variety to commodity"""
         
-        variety = await self.repository.create(data)
+        variety = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             CommodityVarietyAdded(
-                entity_type="CommodityVariety",
-                entity_id=variety.id,
+                aggregate_id=variety.commodity_id,
                 user_id=self.current_user_id,
-                payload={
-                    "commodity_id": str(variety.commodity_id),
+                data={
+                    "variety_id": str(variety.id),
                     "name": variety.name,
                     "code": variety.code
                 }
@@ -251,16 +247,15 @@ class CommodityVarietyService:
     ) -> Optional[CommodityVariety]:
         """Update variety"""
         
-        variety = await self.repository.update(variety_id, data)
+        variety = await self.repository.update(variety_id, **data.model_dump(exclude_unset=True))
         if not variety:
             return None
         
         await self.event_emitter.emit(
             CommodityVarietyUpdated(
-                entity_type="CommodityVariety",
-                entity_id=variety.id,
+                aggregate_id=variety.commodity_id,
                 user_id=self.current_user_id,
-                payload={"variety_name": variety.name}
+                data={"variety_id": str(variety.id), "variety_name": variety.name}
             )
         )
         
@@ -297,18 +292,17 @@ class CommodityParameterService:
         """Add quality parameter to commodity with AI learning"""
         
         # Create the parameter for this commodity
-        parameter = await self.repository.create(data)
+        parameter = await self.repository.create(**data.model_dump())
         
         # AI LEARNING: Check if this parameter should become a template
         await self._learn_parameter_template(parameter)
         
         await self.event_emitter.emit(
             CommodityParameterAdded(
-                entity_type="CommodityParameter",
-                entity_id=parameter.id,
+                aggregate_id=parameter.commodity_id,
                 user_id=self.current_user_id,
-                payload={
-                    "commodity_id": str(parameter.commodity_id),
+                data={
+                    "parameter_id": str(parameter.id),
                     "name": parameter.parameter_name,
                     "type": parameter.parameter_type
                 }
@@ -371,16 +365,15 @@ class CommodityParameterService:
     ) -> Optional[CommodityParameter]:
         """Update parameter"""
         
-        parameter = await self.repository.update(parameter_id, data)
+        parameter = await self.repository.update(parameter_id, **data.model_dump(exclude_unset=True))
         if not parameter:
             return None
         
         await self.event_emitter.emit(
             CommodityParameterUpdated(
-                entity_type="CommodityParameter",
-                entity_id=parameter.id,
+                aggregate_id=parameter.commodity_id,
                 user_id=self.current_user_id,
-                payload={"parameter_name": parameter.name}
+                data={"parameter_id": str(parameter.id), "parameter_name": parameter.parameter_name}
             )
         )
         
@@ -405,7 +398,7 @@ class SystemCommodityParameterService:
         data: SystemCommodityParameterCreate
     ) -> SystemCommodityParameter:
         """Create system parameter"""
-        return await self.repository.create(data)
+        return await self.repository.create(**data.model_dump())
     
     async def update_parameter(
         self,
@@ -413,7 +406,7 @@ class SystemCommodityParameterService:
         data: SystemCommodityParameterUpdate
     ) -> Optional[SystemCommodityParameter]:
         """Update system parameter"""
-        return await self.repository.update(parameter_id, data)
+        return await self.repository.update(parameter_id, **data.model_dump(exclude_unset=True))
     
     async def list_parameters(
         self,
@@ -439,14 +432,13 @@ class TradeTypeService:
     async def create_trade_type(self, data: TradeTypeCreate) -> TradeType:
         """Create trade type"""
         
-        trade_type = await self.repository.create(data)
+        trade_type = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             TradeTermsCreated(
-                entity_type="TradeType",
-                entity_id=trade_type.id,
+                aggregate_id=trade_type.id,
                 user_id=self.current_user_id,
-                payload={
+                data={
                     "term_type": "Trade Type",
                     "name": trade_type.name
                 }
@@ -462,16 +454,15 @@ class TradeTypeService:
     ) -> Optional[TradeType]:
         """Update trade type"""
         
-        trade_type = await self.repository.update(trade_type_id, data)
+        trade_type = await self.repository.update(trade_type_id, **data.model_dump(exclude_unset=True))
         if not trade_type:
             return None
         
         await self.event_emitter.emit(
             TradeTermsUpdated(
-                entity_type="TradeType",
-                entity_id=trade_type.id,
+                aggregate_id=trade_type.id,
                 user_id=self.current_user_id,
-                payload={
+                data={
                     "term_type": "Trade Type",
                     "name": trade_type.name
                 }
@@ -501,14 +492,13 @@ class BargainTypeService:
     async def create_bargain_type(self, data: BargainTypeCreate) -> BargainType:
         """Create bargain type"""
         
-        bargain_type = await self.repository.create(data)
+        bargain_type = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             TradeTermsCreated(
-                entity_type="BargainType",
-                entity_id=bargain_type.id,
+                aggregate_id=bargain_type.id,
                 user_id=self.current_user_id,
-                payload={
+                data={
                     "term_type": "Bargain Type",
                     "name": bargain_type.name
                 }
@@ -524,16 +514,15 @@ class BargainTypeService:
     ) -> Optional[BargainType]:
         """Update bargain type"""
         
-        bargain_type = await self.repository.update(bargain_type_id, data)
+        bargain_type = await self.repository.update(bargain_type_id, **data.model_dump(exclude_unset=True))
         if not bargain_type:
             return None
         
         await self.event_emitter.emit(
             TradeTermsUpdated(
-                entity_type="BargainType",
-                entity_id=bargain_type.id,
+                aggregate_id=bargain_type.id,
                 user_id=self.current_user_id,
-                payload={
+                data={
                     "term_type": "Bargain Type",
                     "name": bargain_type.name
                 }
@@ -562,14 +551,13 @@ class PassingTermService:
     
     async def create_passing_term(self, data: PassingTermCreate) -> PassingTerm:
         """Create passing term"""
-        term = await self.repository.create(data)
+        term = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             TradeTermsCreated(
-                entity_type="PassingTerm",
-                entity_id=term.id,
+                aggregate_id=term.id,
                 user_id=self.current_user_id,
-                payload={"term_type": "Passing", "name": term.name}
+                data={"term_type": "Passing", "name": term.name}
             )
         )
         
@@ -581,14 +569,13 @@ class PassingTermService:
         data: PassingTermUpdate
     ) -> Optional[PassingTerm]:
         """Update passing term"""
-        term = await self.repository.update(term_id, data)
+        term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
             await self.event_emitter.emit(
                 TradeTermsUpdated(
-                    entity_type="PassingTerm",
-                    entity_id=term.id,
+                    aggregate_id=term.id,
                     user_id=self.current_user_id,
-                    payload={"term_type": "Passing", "name": term.name}
+                    data={"term_type": "Passing", "name": term.name}
                 )
             )
         return term
@@ -616,14 +603,13 @@ class WeightmentTermService:
         data: WeightmentTermCreate
     ) -> WeightmentTerm:
         """Create weightment term"""
-        term = await self.repository.create(data)
+        term = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             TradeTermsCreated(
-                entity_type="WeightmentTerm",
-                entity_id=term.id,
+                aggregate_id=term.id,
                 user_id=self.current_user_id,
-                payload={"term_type": "Weightment", "name": term.name}
+                data={"term_type": "Weightment", "name": term.name}
             )
         )
         
@@ -635,14 +621,13 @@ class WeightmentTermService:
         data: WeightmentTermUpdate
     ) -> Optional[WeightmentTerm]:
         """Update weightment term"""
-        term = await self.repository.update(term_id, data)
+        term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
             await self.event_emitter.emit(
                 TradeTermsUpdated(
-                    entity_type="WeightmentTerm",
-                    entity_id=term.id,
+                    aggregate_id=term.id,
                     user_id=self.current_user_id,
-                    payload={"term_type": "Weightment", "name": term.name}
+                    data={"term_type": "Weightment", "name": term.name}
                 )
             )
         return term
@@ -667,14 +652,13 @@ class DeliveryTermService:
     
     async def create_delivery_term(self, data: DeliveryTermCreate) -> DeliveryTerm:
         """Create delivery term"""
-        term = await self.repository.create(data)
+        term = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             TradeTermsCreated(
-                entity_type="DeliveryTerm",
-                entity_id=term.id,
+                aggregate_id=term.id,
                 user_id=self.current_user_id,
-                payload={"term_type": "Delivery", "name": term.name}
+                data={"term_type": "Delivery", "name": term.name}
             )
         )
         
@@ -686,14 +670,13 @@ class DeliveryTermService:
         data: DeliveryTermUpdate
     ) -> Optional[DeliveryTerm]:
         """Update delivery term"""
-        term = await self.repository.update(term_id, data)
+        term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
             await self.event_emitter.emit(
                 TradeTermsUpdated(
-                    entity_type="DeliveryTerm",
-                    entity_id=term.id,
+                    aggregate_id=term.id,
                     user_id=self.current_user_id,
-                    payload={"term_type": "Delivery", "name": term.name}
+                    data={"term_type": "Delivery", "name": term.name}
                 )
             )
         return term
@@ -718,14 +701,13 @@ class PaymentTermService:
     
     async def create_payment_term(self, data: PaymentTermCreate) -> PaymentTerm:
         """Create payment term"""
-        term = await self.repository.create(data)
+        term = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             TradeTermsCreated(
-                entity_type="PaymentTerm",
-                entity_id=term.id,
+                aggregate_id=term.id,
                 user_id=self.current_user_id,
-                payload={"term_type": "Payment", "name": term.name}
+                data={"term_type": "Payment", "name": term.name}
             )
         )
         
@@ -737,14 +719,13 @@ class PaymentTermService:
         data: PaymentTermUpdate
     ) -> Optional[PaymentTerm]:
         """Update payment term"""
-        term = await self.repository.update(term_id, data)
+        term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
             await self.event_emitter.emit(
                 TradeTermsUpdated(
-                    entity_type="PaymentTerm",
-                    entity_id=term.id,
+                    aggregate_id=term.id,
                     user_id=self.current_user_id,
-                    payload={"term_type": "Payment", "name": term.name}
+                    data={"term_type": "Payment", "name": term.name}
                 )
             )
         return term
@@ -773,17 +754,16 @@ class CommissionStructureService:
     ) -> CommissionStructure:
         """Set commission structure for commodity"""
         
-        commission = await self.repository.create(data)
+        commission = await self.repository.create(**data.model_dump())
         
         await self.event_emitter.emit(
             CommissionStructureSet(
-                entity_type="CommissionStructure",
-                entity_id=commission.id,
+                aggregate_id=commission.commodity_id if commission.commodity_id else commission.trade_type_id,
                 user_id=self.current_user_id,
-                payload={
-                    "commodity_id": str(commission.commodity_id),
-                    "broker_commission": str(commission.broker_commission),
-                    "sub_broker_commission": str(commission.sub_broker_commission)
+                data={
+                    "commission_id": str(commission.id),
+                    "name": commission.name,
+                    "rate": str(commission.rate) if commission.rate else None
                 }
             )
         )
@@ -797,19 +777,18 @@ class CommissionStructureService:
     ) -> Optional[CommissionStructure]:
         """Update commission structure"""
         
-        commission = await self.repository.update(commission_id, data)
+        commission = await self.repository.update(commission_id, **data.model_dump(exclude_unset=True))
         if not commission:
             return None
         
         await self.event_emitter.emit(
             CommissionStructureSet(
-                entity_type="CommissionStructure",
-                entity_id=commission.id,
+                aggregate_id=commission.commodity_id if commission.commodity_id else commission.trade_type_id,
                 user_id=self.current_user_id,
-                payload={
-                    "commodity_id": str(commission.commodity_id),
-                    "broker_commission": str(commission.broker_commission),
-                    "sub_broker_commission": str(commission.sub_broker_commission)
+                data={
+                    "commission_id": str(commission.id),
+                    "name": commission.name,
+                    "rate": str(commission.rate) if commission.rate else None
                 }
             )
         )
@@ -823,3 +802,16 @@ class CommissionStructureService:
         """Get commission for commodity"""
         commissions = await self.repository.list_all(commodity_id=commodity_id)
         return commissions[0] if commissions else None
+    
+    async def list_commissions(
+        self,
+        commodity_id: Optional[UUID] = None,
+        trade_type_id: Optional[UUID] = None,
+        is_active: Optional[bool] = None
+    ) -> List[CommissionStructure]:
+        """List all commission structures with optional filters"""
+        return await self.repository.list_all(
+            commodity_id=commodity_id,
+            trade_type_id=trade_type_id,
+            is_active=is_active
+        )
