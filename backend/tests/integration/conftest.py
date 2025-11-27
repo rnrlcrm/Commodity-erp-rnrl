@@ -14,6 +14,7 @@ from sqlalchemy import text, create_engine, event, exc
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
+from testcontainers.redis import RedisContainer
 
 from backend.db.async_session import get_db
 
@@ -190,6 +191,20 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
     Starts once for all tests, provides real database.
     """
     container = PostgresContainer("postgres:15-alpine")
+    container.start()
+    
+    yield container
+    
+    container.stop()
+
+
+@pytest.fixture(scope="session")
+def redis_container() -> Generator[RedisContainer, None, None]:
+    """
+    Session-scoped Redis container.
+    Starts once for all tests, provides real Redis instance.
+    """
+    container = RedisContainer("redis:7-alpine")
     container.start()
     
     yield container
@@ -448,15 +463,18 @@ async def seed_payment_terms(db_session: AsyncSession):
 # ============================================
 
 @pytest_asyncio.fixture
-async def redis_client():
+async def redis_client(redis_container: RedisContainer):
     """
     Redis client for testing.
     Clears all test-related keys before each test to ensure isolation.
     """
     import redis.asyncio as redis
     
+    # Get Redis URL from container
+    redis_url = f"redis://{redis_container.get_container_host_ip()}:{redis_container.get_exposed_port(6379)}"
+    
     client = redis.from_url(
-        "redis://localhost:6379",
+        redis_url,
         encoding="utf-8",
         decode_responses=False
     )
