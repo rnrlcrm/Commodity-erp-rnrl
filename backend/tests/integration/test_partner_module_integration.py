@@ -329,7 +329,6 @@ class TestPartnerCRUD:
         org_id = seed_organization.id
         repo = BusinessPartnerRepository(db_session)
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Direct Create Partner",
             trade_name="Direct Partner",
             partner_type=PartnerType.BUYER,
@@ -355,13 +354,24 @@ class TestPartnerCRUD:
         org_id = seed_organization.id
         repo = BusinessPartnerRepository(db_session)
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Test Retrieval Partner",
             trade_name="Test Partner",
             partner_type=PartnerType.SELLER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Test Retrieval Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -382,12 +392,23 @@ class TestPartnerCRUD:
         # Create multiple partners
         partners = [
             BusinessPartner(
-                organization_id=org_id,
                 legal_name=f"Partner {i}",
                 partner_type=PartnerType.BUYER if i % 2 == 0 else PartnerType.SELLER,
                 country="India",
                 entity_class="business_entity",
                 status=PartnerStatus.APPROVED if i % 3 == 0 else PartnerStatus.PENDING,
+                bank_account_name=f"Partner {i}",
+                bank_name="HDFC Bank",
+                bank_account_number=f"12345678{i}",
+                bank_routing_code="HDFC0001234",
+                primary_address="123 Test St",
+                primary_city="Mumbai",
+                primary_postal_code="400001",
+                primary_country="India",
+                primary_contact_name="Test Contact",
+                primary_contact_email=f"test{i}@example.com",
+                primary_contact_phone=f"+9198765432{i:02d}",
+                primary_currency="INR",
             )
             for i in range(5)
         ]
@@ -398,7 +419,6 @@ class TestPartnerCRUD:
 
         # List approved partners
         result = await repo.list_partners(
-            organization_id=org_id,
             status=PartnerStatus.APPROVED
         )
 
@@ -411,13 +431,24 @@ class TestPartnerCRUD:
         org_id = seed_organization.id
         repo = BusinessPartnerRepository(db_session)
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Original Name",
             trade_name="Original Trade",
             partner_type=PartnerType.BUYER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Original Name",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="original@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -443,20 +474,42 @@ class TestPartnerCRUD:
         repo = BusinessPartnerRepository(db_session)
         partners = [
             BusinessPartner(
-                organization_id=org_id,
                 legal_name="Cotton Traders Pvt Ltd",
                 partner_type=PartnerType.TRADER,
                 country="India",
                 entity_class="business_entity",
                 status=PartnerStatus.APPROVED,
+                bank_account_name="Cotton Traders Pvt Ltd",
+                bank_name="HDFC Bank",
+                bank_account_number="1234567890",
+                bank_routing_code="HDFC0001234",
+                primary_address="123 Test St",
+                primary_city="Mumbai",
+                primary_postal_code="400001",
+                primary_country="India",
+                primary_contact_name="Test Contact",
+                primary_contact_email="cotton@example.com",
+                primary_contact_phone="+919876543210",
+                primary_currency="INR",
             ),
             BusinessPartner(
-                organization_id=org_id,
                 legal_name="Textile Buyers Association",
                 partner_type=PartnerType.BUYER,
                 country="India",
                 entity_class="business_entity",
                 status=PartnerStatus.APPROVED,
+                bank_account_name="Textile Buyers Association",
+                bank_name="HDFC Bank",
+                bank_account_number="9876543210",
+                bank_routing_code="HDFC0001234",
+                primary_address="456 Test St",
+                primary_city="Delhi",
+                primary_postal_code="110001",
+                primary_country="India",
+                primary_contact_name="Test Contact",
+                primary_contact_email="textile@example.com",
+                primary_contact_phone="+919876543211",
+                primary_currency="INR",
             ),
         ]
         
@@ -480,13 +533,23 @@ class TestPartnerAmendments:
         org_id = seed_organization.id
         user_id = seed_user.id        # Create partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Amendment Test Partner",
             partner_type=PartnerType.BUYER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Amendment Test Partner",
+            bank_name="Old Bank",
             bank_account_number="111111111111",
+            bank_routing_code="OLDB0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -497,7 +560,6 @@ class TestPartnerAmendments:
         repo = PartnerAmendmentRepository(db_session)
         amendment = PartnerAmendment(
             partner_id=partner.id,
-            organization_id=org_id,
             amendment_type=AmendmentType.CHANGE_BANK,
             requested_by=user_id,
             requested_at=datetime.utcnow(),
@@ -529,13 +591,23 @@ class TestPartnerAmendments:
         user_id = seed_user.id
         approver_id = uuid.uuid4()  # Different approver        # Create partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Amendment Approval Partner",
             partner_type=PartnerType.SELLER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
-            contact_email="old@email.com",
+            bank_account_name="Amendment Approval Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="old@email.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -545,7 +617,6 @@ class TestPartnerAmendments:
         # Create amendment
         amendment = PartnerAmendment(
             partner_id=partner.id,
-            organization_id=org_id,
             amendment_type=AmendmentType.UPDATE_CONTACT,
             requested_by=user_id,
             requested_at=datetime.utcnow(),
@@ -585,12 +656,23 @@ class TestPartnerLocations:
         """✅ Test: Add additional location/branch to partner."""  
         org_id = seed_organization.id        # Create partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Multi-Location Partner",
             partner_type=PartnerType.BUYER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Multi-Location Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -600,7 +682,6 @@ class TestPartnerLocations:
         # Add location
         location = PartnerLocation(
             partner_id=partner.id,
-            organization_id=org_id,
             location_name="Mumbai Branch",
             address="Andheri Industrial Estate",
             city="Mumbai",
@@ -623,12 +704,23 @@ class TestPartnerLocations:
         """✅ Test: List all locations for a partner."""  
         org_id = seed_organization.id        # Create partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Location Test Partner",
             partner_type=PartnerType.TRADER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Location Test Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -639,7 +731,6 @@ class TestPartnerLocations:
         locations = [
             PartnerLocation(
                 partner_id=partner.id,
-                organization_id=org_id,
                 location_name=f"Branch {i}",
                 address=f"Address {i}",
                 city=f"City {i}",
@@ -669,12 +760,23 @@ class TestPartnerEmployees:
         """✅ Test: Add employee to partner."""  
         org_id = seed_organization.id        # Create partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Employee Test Partner",
             partner_type=PartnerType.SELLER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Employee Test Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -684,7 +786,6 @@ class TestPartnerEmployees:
         # Add employee
         employee = PartnerEmployee(
             partner_id=partner.id,
-            organization_id=org_id,
             name="Ramesh Kumar",
             email="ramesh@partner.com",
             phone="+919876543214",
@@ -705,12 +806,23 @@ class TestPartnerEmployees:
         """✅ Test: List all employees for a partner."""  
         org_id = seed_organization.id        # Create partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Multi-Employee Partner",
             partner_type=PartnerType.BUYER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Multi-Employee Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -721,7 +833,6 @@ class TestPartnerEmployees:
         employees = [
             PartnerEmployee(
                 partner_id=partner.id,
-                organization_id=org_id,
                 name=f"Employee {i}",
                 email=f"emp{i}@partner.com",
                 phone=f"+9198765432{i:02d}",
@@ -751,13 +862,24 @@ class TestPartnerVehicles:
         """✅ Test: Add vehicle to transporter (lorry owner)."""  
         org_id = seed_organization.id        # Create transporter partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Transport Company",
             partner_type=PartnerType.TRANSPORTER,
             service_provider_type=ServiceProviderType.TRANSPORTER,
             country="India",
             entity_class="service_provider",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Transport Company",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -767,7 +889,6 @@ class TestPartnerVehicles:
         # Add vehicle
         vehicle = PartnerVehicle(
             partner_id=partner.id,
-            organization_id=org_id,
             registration_number="MH12AB1234",
             vehicle_type="Truck",
             owner_name="Transport Company",
@@ -793,13 +914,24 @@ class TestPartnerVehicles:
         """✅ Test: List all vehicles for transporter."""  
         org_id = seed_organization.id        # Create transporter
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Fleet Owner Transport",
             partner_type=PartnerType.TRANSPORTER,
             service_provider_type=ServiceProviderType.TRANSPORTER,
             country="India",
             entity_class="service_provider",
             status=PartnerStatus.APPROVED,
+            bank_account_name="Fleet Owner Transport",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -810,7 +942,6 @@ class TestPartnerVehicles:
         vehicles = [
             PartnerVehicle(
                 partner_id=partner.id,
-                organization_id=org_id,
                 registration_number=f"MH12XY{1000+i}",
                 vehicle_type="Truck",
                 capacity_tons=Decimal("10.0"),
@@ -839,7 +970,6 @@ class TestKYCRenewal:
         org_id = seed_organization.id
         user_id = seed_user.id        # Create partner with expiring KYC
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="KYC Expiring Partner",
             partner_type=PartnerType.BUYER,
             country="India",
@@ -847,6 +977,18 @@ class TestKYCRenewal:
             status=PartnerStatus.APPROVED,
             kyc_status=KYCStatus.VERIFIED,
             kyc_verified_at=datetime.utcnow() - timedelta(days=350),  # Almost 1 year old
+            bank_account_name="KYC Expiring Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -856,7 +998,6 @@ class TestKYCRenewal:
         # Initiate renewal
         renewal = PartnerKYCRenewal(
             partner_id=partner.id,
-            organization_id=org_id,
             initiated_by=user_id,
             initiated_at=datetime.utcnow(),
             due_date=(datetime.utcnow() + timedelta(days=15)).date(),
@@ -878,13 +1019,24 @@ class TestKYCRenewal:
         user_id = seed_user.id
         verifier_id = uuid.uuid4()  # Different verifier        # Create partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="KYC Renewal Partner",
             partner_type=PartnerType.SELLER,
             country="India",
             entity_class="business_entity",
             status=PartnerStatus.APPROVED,
             kyc_status=KYCStatus.RENEWAL_REQUIRED,
+            bank_account_name="KYC Renewal Partner",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -894,7 +1046,6 @@ class TestKYCRenewal:
         # Create renewal
         renewal = PartnerKYCRenewal(
             partner_id=partner.id,
-            organization_id=org_id,
             initiated_by=user_id,
             initiated_at=datetime.utcnow() - timedelta(days=10),
             due_date=datetime.utcnow().date(),
@@ -969,7 +1120,6 @@ class TestCDPSIntegration:
         """✅ Test: Indian partner gets domestic trading capabilities."""  
         org_id = seed_organization.id        # Create Indian partner with GST + PAN
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Indian Trader",
             partner_type=PartnerType.TRADER,
             country="India",
@@ -984,6 +1134,18 @@ class TestCDPSIntegration:
                 "domestic_sell_home_country": False,
                 "domestic_buy_home_country": False,
             },
+            bank_account_name="Indian Trader",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="test@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)
@@ -998,7 +1160,6 @@ class TestCDPSIntegration:
         """✅ Test: Foreign partner can only trade in home country, NOT India."""  
         org_id = seed_organization.id        # Create foreign partner
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="USA Cotton Exporter",
             partner_type=PartnerType.SELLER,
             country="USA",
@@ -1011,6 +1172,18 @@ class TestCDPSIntegration:
                 "domestic_sell_home_country": True,  # Can sell in USA
                 "domestic_buy_home_country": True,   # Can buy in USA
             },
+            bank_account_name="USA Cotton Exporter",
+            bank_name="Chase Bank",
+            bank_account_number="123456789",
+            bank_routing_code="CHASUS33",
+            primary_address="123 Main St",
+            primary_city="Dallas",
+            primary_postal_code="75201",
+            primary_country="USA",
+            primary_contact_name="John Smith",
+            primary_contact_email="john@usacotton.com",
+            primary_contact_phone="+12145551234",
+            primary_currency="USD",
         )
         
         db_session.add(partner)
@@ -1026,7 +1199,6 @@ class TestCDPSIntegration:
         """✅ Test: Service providers cannot trade."""  
         org_id = seed_organization.id        # Create service provider (broker)
         partner = BusinessPartner(
-            organization_id=org_id,
             legal_name="Trade Broker Services",
             partner_type=PartnerType.BROKER,
             service_provider_type=ServiceProviderType.BROKER,
@@ -1039,6 +1211,18 @@ class TestCDPSIntegration:
                 "domestic_sell_home_country": False,
                 "domestic_buy_home_country": False,
             },
+            bank_account_name="Trade Broker Services",
+            bank_name="HDFC Bank",
+            bank_account_number="123456789",
+            bank_routing_code="HDFC0001234",
+            primary_address="123 Test St",
+            primary_city="Mumbai",
+            primary_postal_code="400001",
+            primary_country="India",
+            primary_contact_name="Test Contact",
+            primary_contact_email="broker@example.com",
+            primary_contact_phone="+919876543210",
+            primary_currency="INR",
         )
         
         db_session.add(partner)

@@ -951,8 +951,8 @@ class PartnerService:
         
         # Calculate risk score
         business_age_months = (
-            (datetime.utcnow().date() - application.business_registration_date).days // 30
-            if application.business_registration_date
+            (datetime.utcnow().date() - application.registration_date).days // 30
+            if application.registration_date
             else 0
         )
         
@@ -960,7 +960,7 @@ class PartnerService:
         
         risk_assessment = await self.risk_service.calculate_risk_score(
             partner_type=application.partner_type,
-            entity_type=application.entity_type,
+            entity_type=application.business_entity_type,
             business_age_months=business_age_months,
             gst_turnover=gst_data.get("annual_turnover"),
             gst_compliance=gst_data.get("compliance_rating"),
