@@ -88,11 +88,13 @@ class BusinessPartner(Base, EventMixin):
         comment="Auto-generated: BP-IND-SEL-0001"
     )
     
+    # DEPRECATED: Will be removed after CDPS migration
+    # Use entity_class + capabilities instead
     partner_type = Column(
         String(20),
-        nullable=False,
+        nullable=True,  # Changed to nullable for migration
         index=True,
-        comment="seller, buyer, trader, broker, sub_broker, transporter, controller, financer, shipping_agent, importer, exporter"
+        comment="DEPRECATED: seller, buyer, trader, broker, sub_broker, transporter, controller, financer, shipping_agent, importer, exporter"
     )
     
     service_provider_type = Column(
@@ -101,10 +103,12 @@ class BusinessPartner(Base, EventMixin):
         comment="For service providers: broker, sub_broker, transporter, controller, financer, shipping_agent"
     )
     
+    # DEPRECATED: Will be removed after CDPS migration
+    # Use capabilities (domestic_buy_india, domestic_sell_india, import_allowed, export_allowed) instead
     trade_classification = Column(
         String(20),
         nullable=True,
-        comment="domestic, exporter (foreign selling to India), importer (foreign buying from India)"
+        comment="DEPRECATED: domestic, exporter (foreign selling to India), importer (foreign buying from India)"
     )
     
     # ============================================
@@ -120,6 +124,79 @@ class BusinessPartner(Base, EventMixin):
         comment="proprietorship, partnership, llp, private_limited, public_limited, corporation"
     )
     registration_date = Column(Date, nullable=True, comment="From tax registration")
+    
+    # ============================================
+    # CAPABILITY-DRIVEN PARTNER SYSTEM (CDPS)
+    # New fields for capability-based classification
+    # ============================================
+    
+    # Entity Classification (replaces partner_type after migration)
+    entity_class = Column(
+        String(20),
+        nullable=True,
+        index=True,
+        comment="business_entity (can trade) OR service_provider (cannot trade)"
+    )
+    
+    # Document-Driven Capabilities (CORE CDPS FIELD)
+    capabilities = Column(
+        JSON,
+        nullable=True,
+        server_default=text("'{}'::json"),
+        comment="""Auto-detected from verified documents:
+        {
+            "domestic_buy_india": bool,
+            "domestic_sell_india": bool,
+            "domestic_buy_home_country": bool,
+            "domestic_sell_home_country": bool,
+            "import_allowed": bool,
+            "export_allowed": bool,
+            "auto_detected": bool,
+            "detected_from_documents": ["GST", "PAN", "IEC", ...],
+            "detected_at": "ISO timestamp",
+            "manual_override": bool,
+            "override_reason": str | null
+        }
+        CRITICAL: Foreign entities can ONLY trade in home country (domestic_buy_india=false, domestic_sell_india=false)
+        """
+    )
+    
+    # Entity Hierarchy (for insider trading prevention)
+    master_entity_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("business_partners.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="If this is a branch/subsidiary, points to master entity"
+    )
+    
+    is_master_entity = Column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="True if this entity has branches/subsidiaries"
+    )
+    
+    corporate_group_id = Column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True,
+        comment="Entities in same group cannot trade with each other (insider trading prevention)"
+    )
+    
+    entity_hierarchy = Column(
+        JSON,
+        nullable=True,
+        comment="""Full entity hierarchy for compliance:
+        {
+            "ultimate_parent": "Company XYZ Ltd",
+            "parent_chain": ["Parent Corp", "Subsidiary A"],
+            "ownership_percentage": 75.5,
+            "group_structure": "vertical" | "horizontal",
+            "last_updated": "ISO timestamp"
+        }
+        """
+    )
     
     # ============================================
     # TAX REGISTRATION
@@ -306,6 +383,15 @@ class BusinessPartner(Base, EventMixin):
     employees = relationship("PartnerEmployee", back_populates="partner", cascade="all, delete-orphan")
     documents = relationship("PartnerDocument", back_populates="partner", cascade="all, delete-orphan")
     vehicles = relationship("PartnerVehicle", back_populates="partner", cascade="all, delete-orphan")
+    
+    # CDPS: Master-Branch hierarchy (for insider trading prevention)
+    # Branches/subsidiaries of this master entity
+    branches = relationship(
+        "BusinessPartner",
+        foreign_keys=[master_entity_id],
+        remote_side=[id],
+        backref="master_entity"
+    )
 
 
 class PartnerLocation(Base):
