@@ -504,20 +504,43 @@ class PartnerEmployeeRepository:
         return result.scalar_one()
     
     async def update(self, employee_id: UUID, **kwargs) -> Optional[PartnerEmployee]:
-        """Update employee"""
+        """Update employee - emits audit event for changes"""
         employee = await self.get_by_id(employee_id)
         if not employee:
             return None
         
+        # Track changes for audit
+        changes = {}
         for key, value in kwargs.items():
             if hasattr(employee, key):
+                old_value = getattr(employee, key)
+                if old_value != value:
+                    changes[key] = {"old": old_value, "new": value}
                 setattr(employee, key, value)
+        
+        # Emit audit event if there are changes
+        if changes:
+            from backend.core.context import get_current_user_id as get_user_ctx
+            current_user = get_user_ctx()
+            
+            employee.emit_event(
+                event_type="partner.employee.updated",
+                user_id=current_user if current_user else employee.user_id,
+                data={
+                    "employee_id": str(employee_id),
+                    "partner_id": str(employee.partner_id),
+                    "employee_name": employee.employee_name,
+                    "changes": changes,
+                    "permissions_changed": "permissions" in changes
+                }
+            )
+            await employee.flush_events(self.db)
         
         await self.db.flush()
         return employee
     
     async def soft_delete(self, employee_id: UUID, deleted_by: UUID) -> bool:
-        """Soft delete employee"""
+        """Soft delete employee - emits audit event"""
         employee = await self.get_by_id(employee_id)
         if not employee:
             return False
@@ -525,6 +548,21 @@ class PartnerEmployeeRepository:
         employee.is_deleted = True
         employee.deleted_at = datetime.utcnow()
         employee.deleted_by = deleted_by
+        
+        # Emit audit event
+        employee.emit_event(
+            event_type="partner.employee.deleted",
+            user_id=deleted_by,
+            data={
+                "employee_id": str(employee_id),
+                "partner_id": str(employee.partner_id),
+                "employee_name": employee.employee_name,
+                "employee_email": employee.employee_email,
+                "designation": employee.designation,
+                "deleted_by": str(deleted_by)
+            }
+        )
+        await employee.flush_events(self.db)
         
         await self.db.flush()
         return True

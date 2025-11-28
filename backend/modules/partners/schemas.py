@@ -527,12 +527,35 @@ class KYCRenewalResponse(BaseModel):
 # ============================================
 
 class EmployeeInvite(BaseModel):
-    """Invite employee"""
+    """Invite employee - requires corporate email (no generic providers)"""
     employee_name: str
     employee_email: EmailStr
     employee_phone: str
     designation: Optional[str] = None
     permissions: Optional[Dict[str, bool]] = None
+
+    @validator('employee_email')
+    def validate_corporate_email(cls, v):
+        """Block generic email providers - only allow corporate domains"""
+        if not v:
+            raise ValueError("Employee email is required")
+        
+        # Blocked generic email providers
+        blocked_domains = [
+            'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 
+            'rediffmail.com', 'ymail.com', 'live.com', 'aol.com',
+            'protonmail.com', 'zoho.com', 'icloud.com', 'mail.com'
+        ]
+        
+        email_lower = v.lower()
+        domain = email_lower.split('@')[-1] if '@' in email_lower else ''
+        
+        if domain in blocked_domains:
+            raise ValueError(
+                f"Generic email providers not allowed. Please use corporate email domain."
+            )
+        
+        return v
 
 
 class EmployeeResponse(BaseModel):

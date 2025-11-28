@@ -783,22 +783,40 @@ class TestPartnerEmployees:
         await db_session.commit()
         await db_session.refresh(partner)
 
+        # Create user account for employee
+        from backend.modules.settings.models import User
+        user = User(
+            email="ramesh@testpartner.com",
+            mobile_number="+919876543214",
+            full_name="Ramesh Kumar",
+            user_type="EXTERNAL",
+            business_partner_id=partner.id,
+            is_active=True,
+            is_verified=False
+        )
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+
         # Add employee
         employee = PartnerEmployee(
             partner_id=partner.id,
-            name="Ramesh Kumar",
-            email="ramesh@partner.com",
-            phone="+919876543214",
+            user_id=user.id,
+            employee_name="Ramesh Kumar",
+            employee_email="ramesh@testpartner.com",
+            employee_phone="+919876543214",
             designation="Sales Manager",
-            is_primary_contact=True,
+            role="employee",
+            status="active"
         )
         
         db_session.add(employee)
         await db_session.commit()
         await db_session.refresh(employee)
 
-        assert employee.name == "Ramesh Kumar"
-        assert employee.is_primary_contact is True
+        assert employee.employee_name == "Ramesh Kumar"
+        assert employee.employee_email == "ramesh@testpartner.com"
+        assert employee.designation == "Sales Manager"
         assert employee.partner_id == partner.id
 
     @pytest.mark.asyncio
@@ -829,29 +847,46 @@ class TestPartnerEmployees:
         await db_session.commit()
         await db_session.refresh(partner)
 
-        # Add employees
-        employees = [
-            PartnerEmployee(
-                partner_id=partner.id,
-                name=f"Employee {i}",
-                email=f"emp{i}@partner.com",
-                phone=f"+9198765432{i:02d}",
-                designation="Staff",
-                is_primary_contact=(i == 0),
+        # Add employees (testing unlimited - no max 2 restriction)
+        from backend.modules.settings.models import User
+        employees = []
+        for i in range(5):  # Testing 5 employees to prove no limit
+            # Create user account
+            user = User(
+                email=f"employee{i}@multipartner.com",
+                mobile_number=f"+9198765432{i:02d}",
+                full_name=f"Employee {i}",
+                user_type="EXTERNAL",
+                business_partner_id=partner.id,
+                is_active=True,
+                is_verified=False
             )
-            for i in range(4)
-        ]
+            db_session.add(user)
+            await db_session.flush()
+            
+            # Create employee record
+            employee = PartnerEmployee(
+                partner_id=partner.id,
+                user_id=user.id,
+                employee_name=f"Employee {i}",
+                employee_email=f"employee{i}@multipartner.com",
+                employee_phone=f"+9198765432{i:02d}",
+                designation="Staff",
+                role="employee",
+                status="active"
+            )
+            employees.append(employee)
+            db_session.add(employee)
         
-        for emp in employees:
-            db_session.add(emp)
         await db_session.commit()
 
         # List employees
         repo = PartnerEmployeeRepository(db_session)
-        result = await repo.list_by_partner(partner.id, org_id)
+        result = await repo.get_by_partner(partner.id)
 
-        assert len(result) == 4
-        assert sum(1 for emp in result if emp.is_primary_contact) == 1
+        # Should have 5 employees (proving no max 2 limit)
+        assert len(result) == 5
+        assert all(emp.employee_email.endswith("@multipartner.com") for emp in result)
 
 
 class TestPartnerVehicles:
