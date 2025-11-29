@@ -45,12 +45,14 @@ class AvailabilityCreateRequest(BaseModel):
     - commodity_id: What is being sold
     - location_id: Where it's available (seller can use ANY location)
     - total_quantity: How much is available
-    - quantity_unit: Unit of measurement (BALE, KG, CANDY, etc.)
     - quality_params: Quality parameters (commodity-specific, validated against CommodityParameter)
+    
+    AUTO-POPULATED FIELDS:
+    - quantity_unit: Auto-populated from commodity.trade_unit (BALE, KG, CANDY, etc.)
+    - price_unit: Auto-populated from commodity.rate_unit (per KG, per CANDY, etc.)
     
     OPTIONAL FIELDS:
     - base_price: Price is optional (can be negotiable/on-request)
-    - price_unit: Only needed if base_price provided
     - test_report_url: Optional lab test report
     - media_urls: Optional photos/videos for AI quality detection
     """
@@ -59,15 +61,23 @@ class AvailabilityCreateRequest(BaseModel):
     commodity_id: UUID = Field(..., description="Commodity UUID (REQUIRED)")
     location_id: UUID = Field(..., description="Location UUID - seller can use ANY location (REQUIRED)")
     total_quantity: Decimal = Field(..., gt=0, description="Total quantity available (REQUIRED)")
-    quantity_unit: str = Field(..., description="Unit: BALE, BAG, KG, MT, CANDY, QTL (REQUIRED)")
     quality_params: Dict[str, Any] = Field(
         ..., 
         description="Quality parameters - MANDATORY (validated against commodity parameters)"
     )
     
+    # ========== AUTO-POPULATED (DO NOT SEND FROM CLIENT) ==========
+    quantity_unit: Optional[str] = Field(
+        None, 
+        description="AUTO: Populated from commodity.trade_unit (BALE, CANDY, MT, QTL, KG). DO NOT send from client."
+    )
+    price_unit: Optional[str] = Field(
+        None, 
+        description="AUTO: Populated from commodity.rate_unit (per CANDY, per KG). DO NOT send from client."
+    )
+    
     # ========== OPTIONAL FIELDS ==========
     base_price: Optional[Decimal] = Field(None, gt=0, description="Base price (OPTIONAL - can be negotiable)")
-    price_unit: Optional[str] = Field(None, description="Unit for pricing: per KG, per CANDY (required if base_price)")
     price_matrix: Optional[Dict[str, Any]] = Field(None, description="Price matrix JSONB (for MATRIX type)")
     test_report_url: Optional[str] = Field(None, description="URL to test report PDF/Image")
     media_urls: Optional[Dict[str, List[str]]] = Field(
@@ -91,23 +101,13 @@ class AvailabilityCreateRequest(BaseModel):
             raise ValueError("quality_params cannot be empty - at least one parameter required")
         return v
     
-    @field_validator('price_unit')
-    @classmethod
-    def validate_price_unit_required_if_price(cls, v, info):
-        """If base_price provided, price_unit is required."""
-        if info.data.get('base_price') and not v:
-            raise ValueError("price_unit is required when base_price is provided")
-        return v
-    
     class Config:
         json_schema_extra = {
             "example": {
                 "commodity_id": "123e4567-e89b-12d3-a456-426614174000",
                 "location_id": "123e4567-e89b-12d3-a456-426614174001",
                 "total_quantity": 100.0,
-                "quantity_unit": "CANDY",
                 "base_price": 8000.0,
-                "price_unit": "per CANDY",
                 "quality_params": {
                     "length": 29.0,
                     "strength": 26.0,
@@ -130,9 +130,8 @@ class AvailabilityUpdateRequest(BaseModel):
     """Request schema for updating availability."""
     
     total_quantity: Optional[Decimal] = Field(None, gt=0)
-    quantity_unit: Optional[str] = None
     base_price: Optional[Decimal] = Field(None, gt=0)
-    price_unit: Optional[str] = None
+    # quantity_unit and price_unit are auto-populated from commodity master, cannot be updated
     price_matrix: Optional[Dict[str, Any]] = None
     quality_params: Optional[Dict[str, Any]] = None
     test_report_url: Optional[str] = None
@@ -150,7 +149,6 @@ class AvailabilityUpdateRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "base_price": 8200.0,
-                "price_unit": "per CANDY",
                 "market_visibility": "RESTRICTED"
             }
         }

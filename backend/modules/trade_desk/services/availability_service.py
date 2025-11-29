@@ -82,9 +82,9 @@ class AvailabilityService:
         commodity_id: UUID,
         location_id: UUID,
         total_quantity: Decimal,
-        quantity_unit: str,  # 🔥 NEW: BALE, KG, MT, CANDY
+        quantity_unit: Optional[str] = None,  # 🔥 AUTO-POPULATED from commodity.trade_unit
         base_price: Optional[Decimal] = None,
-        price_unit: Optional[str] = None,  # 🔥 NEW: per KG, per CANDY
+        price_unit: Optional[str] = None,  # 🔥 AUTO-POPULATED from commodity.rate_unit
         price_matrix: Optional[Dict[str, Any]] = None,
         quality_params: Optional[Dict[str, Any]] = None,
         test_report_url: Optional[str] = None,  # 🔥 NEW: Test report PDF/Image
@@ -102,6 +102,7 @@ class AvailabilityService:
         Create new availability with AI enhancements + Unit Conversion + Quality Validation.
         
         Workflow:
+        0. Auto-populate quantity_unit and price_unit from commodity master
         1. Validate seller location (ALL sellers can sell from ANY location)
         2. Validate commodity parameters (min/max/mandatory checking)
         3. Auto-convert quantity_unit → commodity base_unit (CANDY → 355.6222 KG)
@@ -120,10 +121,10 @@ class AvailabilityService:
             seller_id: Business partner UUID (SELLER or TRADER)
             commodity_id: Commodity UUID
             location_id: Location UUID (delivery location)
-            total_quantity: Total quantity available (in quantity_unit)
-            quantity_unit: Unit of quantity (BALE, KG, MT, CANDY, QTL)
+            total_quantity: Total quantity available (in trade_unit from commodity)
+            quantity_unit: AUTO-POPULATED from commodity.trade_unit (DO NOT SEND)
             base_price: Base price (for FIXED/NEGOTIABLE)
-            price_unit: Unit for pricing (per KG, per CANDY, per MT)
+            price_unit: AUTO-POPULATED from commodity.rate_unit (DO NOT SEND)
             price_matrix: Price matrix JSONB (for MATRIX type)
             quality_params: Quality parameters JSONB (manually entered)
             test_report_url: URL to test report PDF/Image (AI will extract parameters)
@@ -143,6 +144,33 @@ class AvailabilityService:
         Raises:
             ValueError: If validation fails (location, parameters, mandatory fields)
         """
+        # 0. AUTO-POPULATE UNITS FROM COMMODITY MASTER
+        from sqlalchemy import select
+        commodity_result = await self.db.execute(
+            select(Commodity).where(Commodity.id == commodity_id)
+        )
+        commodity = commodity_result.scalar_one_or_none()
+        if not commodity:
+            raise ValueError(f"Commodity {commodity_id} not found")
+        
+        # Auto-populate quantity_unit from commodity.trade_unit (fallback to base_unit)
+        if not quantity_unit:
+            quantity_unit = commodity.trade_unit or commodity.base_unit
+            if not quantity_unit:
+                raise ValueError(
+                    f"Commodity {commodity.name} has no trade_unit or base_unit configured. "
+                    "Please update commodity master data."
+                )
+        
+        # Auto-populate price_unit from commodity.rate_unit (fallback to trade_unit)
+        if base_price and not price_unit:
+            price_unit = commodity.rate_unit or commodity.trade_unit or commodity.base_unit
+            if not price_unit:
+                raise ValueError(
+                    f"Commodity {commodity.name} has no rate_unit configured. "
+                    "Please update commodity master data."
+                )
+        
         # 1. Validate seller location (business rule enforcement)
         await self._validate_seller_location(seller_id, location_id)
         
