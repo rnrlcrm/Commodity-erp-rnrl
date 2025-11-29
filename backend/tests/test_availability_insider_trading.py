@@ -25,8 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.modules.trade_desk.services.availability_service import AvailabilityService
 from backend.modules.partners.validators.insider_trading import InsiderTradingValidator, InsiderTradingError
 from backend.modules.partners.models import BusinessPartner
-from backend.modules.settings.models import Location
-from backend.modules.commodity_master.models import Commodity
+from backend.modules.settings.locations.models import Location
+from backend.modules.settings.commodities.models import Commodity
 from backend.modules.trade_desk.models import Availability
 
 
