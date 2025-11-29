@@ -1024,18 +1024,16 @@ class TestKYCRenewal:
         # Initiate renewal
         renewal = PartnerKYCRenewal(
             partner_id=partner.id,
-            initiated_by=user_id,
-            initiated_at=datetime.utcnow(),
-            due_date=(datetime.utcnow() + timedelta(days=15)).date(),
+            renewal_due_date=(datetime.utcnow() + timedelta(days=15)).date(),
+            renewal_requested_at=datetime.utcnow(),
             status="pending",
-            documents_required=["GST_CERTIFICATE", "PAN_CARD", "BANK_PROOF"],
         )
         
         db_session.add(renewal)
         await db_session.flush()
 
         assert renewal.status == "pending"
-        assert len(renewal.documents_required) == 3
+        assert renewal.renewal_due_date is not None
 
     @pytest.mark.asyncio
     async def test_complete_kyc_renewal(self, db_session: AsyncSession, seed_user, seed_organization):
@@ -1070,11 +1068,9 @@ class TestKYCRenewal:
         # Create renewal
         renewal = PartnerKYCRenewal(
             partner_id=partner.id,
-            initiated_by=user_id,
-            initiated_at=datetime.utcnow() - timedelta(days=10),
-            due_date=datetime.utcnow().date(),
+            renewal_requested_at=datetime.utcnow() - timedelta(days=10),
+            renewal_due_date=datetime.utcnow().date(),
             status="pending",
-            documents_required=["GST_CERTIFICATE"],
         )
         
         db_session.add(renewal)
@@ -1082,9 +1078,9 @@ class TestKYCRenewal:
 
         # Complete renewal
         renewal.status = "completed"
-        renewal.completed_at = datetime.utcnow()
-        renewal.verified_by = verifier_id
-        renewal.verification_notes = "All documents verified and updated"
+        renewal.renewal_completed_at = datetime.utcnow()
+        renewal.completed_by = verifier_id
+        renewal.notes = "All documents verified and updated"
         
         partner.kyc_status = KYCStatus.VERIFIED
         partner.kyc_verified_at = datetime.utcnow()
@@ -1112,8 +1108,8 @@ class TestRiskScoring:
             gst_compliance="High",
         )
 
-        assert assessment.risk_score >= 70  # Low risk threshold
-        assert assessment.risk_category == RiskCategory.LOW
+        assert assessment.total_score >= 70  # Low risk threshold
+        assert assessment.category == RiskCategory.LOW
         assert assessment.approval_route == "auto"
 
     @pytest.mark.asyncio
@@ -1130,8 +1126,8 @@ class TestRiskScoring:
             gst_compliance="Low",
         )
 
-        assert assessment.risk_score < 40  # High risk threshold
-        assert assessment.risk_category == RiskCategory.HIGH
+        assert assessment.total_score < 40  # High risk threshold
+        assert assessment.category == RiskCategory.HIGH
         assert assessment.approval_route == "director"
 
 
