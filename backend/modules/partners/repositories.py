@@ -491,13 +491,13 @@ class PartnerEmployeeRepository:
     
     async def get_by_partner(
         self,
-        partner_id: UUID,
-        is_active: Optional[bool] = None
+        partner_id: uuid.UUID,
+        status: Optional[str] = None
     ) -> List[PartnerEmployee]:
         """Get all employees for a partner"""
         query = select(PartnerEmployee).where(
             and_(
-                PartnerEmployee.business_partner_id == partner_id,
+                PartnerEmployee.partner_id == partner_id,
                 PartnerEmployee.is_deleted == False
             )
         )
@@ -656,10 +656,7 @@ class PartnerDocumentRepository:
     ) -> List[PartnerDocument]:
         """Get all documents for a partner"""
         query = select(PartnerDocument).where(
-            and_(
-                PartnerDocument.business_partner_id == partner_id,
-                PartnerDocument.is_deleted == False
-            )
+            PartnerDocument.partner_id == partner_id
         )
         
         if document_type:
@@ -750,14 +747,12 @@ class PartnerVehicleRepository:
     ) -> List[PartnerVehicle]:
         """Get all vehicles for a partner"""
         query = select(PartnerVehicle).where(
-            and_(
-                PartnerVehicle.business_partner_id == partner_id,
-                PartnerVehicle.is_deleted == False
-            )
+            PartnerVehicle.partner_id == partner_id
         )
         
         if is_active is not None:
-            query = query.where(PartnerVehicle.is_active == is_active)
+            active_status = "active" if is_active else "inactive"
+            query = query.where(PartnerVehicle.status == active_status)
         
         query = query.order_by(PartnerVehicle.created_at)
         
@@ -914,7 +909,7 @@ class PartnerAmendmentRepository:
     ) -> List[PartnerAmendment]:
         """Get all amendments for a partner"""
         query = select(PartnerAmendment).where(
-            PartnerAmendment.business_partner_id == partner_id
+            PartnerAmendment.partner_id == partner_id
         )
         
         if status:
@@ -966,7 +961,7 @@ class PartnerKYCRenewalRepository:
     ) -> List[PartnerKYCRenewal]:
         """Get all KYC renewals for a partner"""
         query = select(PartnerKYCRenewal).where(
-            PartnerKYCRenewal.business_partner_id == partner_id
+            PartnerKYCRenewal.partner_id == partner_id
         )
         
         if status:

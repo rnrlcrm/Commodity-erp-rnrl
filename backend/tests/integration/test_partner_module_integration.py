@@ -569,11 +569,11 @@ class TestPartnerAmendments:
             amendment_type=AmendmentType.CHANGE_BANK,
             requested_by=user_id,
             requested_at=datetime.utcnow(),
-            current_values={
+            old_value={
                 "bank_account_number": "111111111111",
                 "bank_name": "Old Bank",
             },
-            requested_values={
+            new_value={
                 "bank_account_number": "222222222222",
                 "bank_name": "New Bank",
                 "bank_routing_code": "NEWB0001234",
@@ -587,7 +587,7 @@ class TestPartnerAmendments:
 
         assert amendment.amendment_type == AmendmentType.CHANGE_BANK
         assert amendment.status == "pending"
-        assert amendment.requested_values["bank_account_number"] == "222222222222"
+        assert amendment.new_value["bank_account_number"] == "222222222222"
 
     @pytest.mark.asyncio
     async def test_approve_amendment(self, db_session: AsyncSession, seed_user, seed_organization):
@@ -624,8 +624,8 @@ class TestPartnerAmendments:
             amendment_type=AmendmentType.UPDATE_CONTACT,
             requested_by=user_id,
             requested_at=datetime.utcnow(),
-            current_values={"primary_contact_email": "old@email.com"},
-            requested_values={"primary_contact_email": "new@email.com"},
+            old_value={"primary_contact_email": "old@email.com"},
+            new_value={"primary_contact_email": "new@email.com"},
             reason="Email changed",
             status="pending",
         )
@@ -637,8 +637,6 @@ class TestPartnerAmendments:
         amendment.status = "approved"
         amendment.approved_by = approver_id
         amendment.approved_at = datetime.utcnow()
-        amendment.applied = True
-        amendment.applied_at = datetime.utcnow()
         
         # Apply changes to partner
         partner.primary_contact_email = "new@email.com"
@@ -647,7 +645,6 @@ class TestPartnerAmendments:
 
         assert partner.primary_contact_email == "new@email.com"
         assert amendment.status == "approved"
-        assert amendment.applied is True
 
 
 class TestPartnerLocations:
@@ -683,13 +680,13 @@ class TestPartnerLocations:
         # Add location
         location = PartnerLocation(
             partner_id=partner.id,
+            location_type="additional_same_state",
             location_name="Mumbai Branch",
             address="Andheri Industrial Estate",
             city="Mumbai",
             state="Maharashtra",
             postal_code="400053",
             country="India",
-            is_primary=False,
         )
         
         db_session.add(location)
@@ -697,7 +694,7 @@ class TestPartnerLocations:
 
         assert location.location_name == "Mumbai Branch"
         assert location.partner_id == partner.id
-        assert location.is_primary is False
+        assert location.location_type == "additional_same_state"
 
     @pytest.mark.asyncio
     async def test_list_partner_locations(self, db_session: AsyncSession, seed_organization):
@@ -730,11 +727,11 @@ class TestPartnerLocations:
         locations = [
             PartnerLocation(
                 partner_id=partner.id,
+                location_type="principal" if i == 0 else "additional_same_state",
                 location_name=f"Branch {i}",
                 address=f"Address {i}",
                 city=f"City {i}",
                 country="India",
-                is_primary=(i == 0),
             )
             for i in range(3)
         ]
@@ -748,7 +745,7 @@ class TestPartnerLocations:
         result = await repo.get_by_partner(partner.id)
 
         assert len(result) == 3
-        assert sum(1 for loc in result if loc.is_primary) == 1
+        assert sum(1 for loc in result if loc.location_type == "principal") == 1
 
 
 class TestPartnerEmployees:
@@ -782,7 +779,7 @@ class TestPartnerEmployees:
         await db_session.flush()
 
         # Create user account for employee
-        from backend.modules.settings.models import User
+        from backend.modules.settings.models.settings_models import User
         user = User(
             email="ramesh@testpartner.com",
             mobile_number="+919876543214",
@@ -843,7 +840,7 @@ class TestPartnerEmployees:
         await db_session.flush()
 
         # Add employees (testing unlimited - no max 2 restriction)
-        from backend.modules.settings.models import User
+        from backend.modules.settings.models.settings_models import User
         employees = []
         for i in range(5):  # Testing 5 employees to prove no limit
             # Create user account
