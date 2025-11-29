@@ -47,12 +47,7 @@ from backend.modules.partners.schemas import (
     PartnerVehicleResponse,
     VehicleData,
 )
-from backend.modules.partners.services import (
-    PartnerService,
-    ApprovalService,
-    KYCRenewalService,
-    DocumentProcessingService,
-)
+from backend.modules.partners import services as partner_services
 from backend.modules.partners.services.analytics import PartnerAnalyticsService
 from backend.modules.partners.services.documents import PartnerDocumentService
 from backend.modules.partners.repositories import (
@@ -154,7 +149,7 @@ async def upload_document(
     file_url = f"https://storage.example.com/{file.filename}"
     
     # Extract data using OCR
-    doc_service = DocumentProcessingService()
+    doc_service = partner_services.DocumentProcessingService()
     
     if document_type == "GST_CERTIFICATE":
         extracted_data = await doc_service.extract_gst_certificate(file_url)
@@ -273,7 +268,7 @@ async def approve_partner(
     """Approve partner application (manager/director only)"""
     # TODO: Check user has manager/director role
     
-    approval_service = ApprovalService(db, user_id)
+    approval_service = partner_services.ApprovalService(db, user_id)
     
     # Get application to fetch risk assessment
     app_repo = OnboardingApplicationRepository(db)
@@ -325,7 +320,7 @@ async def reject_partner(
     # Set approved=False
     decision.approved = False
     
-    approval_service = ApprovalService(db, user_id)
+    approval_service = partner_services.ApprovalService(db, user_id)
     app_repo = OnboardingApplicationRepository(db)
     application = await app_repo.get_by_id(application_id)
     
@@ -713,7 +708,7 @@ async def get_expiring_kyc_partners(
     organization_id: UUID = Depends(get_current_organization_id)
 ):
     """Get partners with KYC expiring soon"""
-    kyc_service = KYCRenewalService(db, UUID("00000000-0000-0000-0000-000000000000"))
+    kyc_service = partner_services.KYCRenewalService(db, UUID("00000000-0000-0000-0000-000000000000"))
     partners = await kyc_service.check_kyc_expiry(organization_id, days)
     return partners
 
@@ -729,7 +724,7 @@ async def initiate_kyc_renewal(
     user_id: UUID = Depends(get_current_user_id)
 ):
     """Initiate KYC renewal for partner"""
-    kyc_service = KYCRenewalService(db, user_id)
+    kyc_service = partner_services.KYCRenewalService(db, user_id)
     
     try:
         renewal = await kyc_service.initiate_kyc_renewal(partner_id)
@@ -759,7 +754,7 @@ async def complete_kyc_renewal(
     user_id: UUID = Depends(get_current_user_id)
 ):
     """Complete KYC renewal with new documents"""
-    kyc_service = KYCRenewalService(db, user_id)
+    kyc_service = partner_services.KYCRenewalService(db, user_id)
     
     try:
         partner = await kyc_service.complete_kyc_renewal(
