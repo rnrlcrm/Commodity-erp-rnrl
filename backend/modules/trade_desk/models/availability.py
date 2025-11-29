@@ -170,16 +170,6 @@ class Availability(Base, EventMixin):
     )
     
     # AI Enhancement Fields
-        comment='Auto-calculated price per commodity base_unit'
-    )
-    price_matrix = Column(JSONB, nullable=True)  # For MATRIX (quality tiers)
-    currency = Column(String(3), default="INR", nullable=False)
-    price_uom = Column(String(20), nullable=True)  # DEPRECATED: Use price_unit
-    
-    # Quality Parameters (JSONB for ANY commodity)
-    quality_params = Column(JSONB, nullable=True)
-    
-    # AI Enhancement Fields
     ai_score_vector = Column(JSONB, nullable=True)  # ML embeddings for matching
     ai_suggested_price = Column(Numeric(15, 2), nullable=True)
     ai_confidence_score = Column(Numeric(5, 4), nullable=True)  # 0.0000 to 1.0000
