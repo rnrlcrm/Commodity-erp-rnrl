@@ -22,6 +22,7 @@ Dependencies:
 """
 
 import asyncio
+import json
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Set
 from datetime import datetime, timedelta
@@ -29,8 +30,12 @@ from uuid import UUID
 from enum import Enum
 import logging
 
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
+
+from backend.core.outbox import OutboxRepository
+from backend.ai.orchestrators.factory import get_orchestrator
 
 from backend.modules.trade_desk.models.requirement import Requirement
 from backend.modules.trade_desk.models.availability import Availability
@@ -89,12 +94,21 @@ class MatchingService:
         db: AsyncSession,
         matching_engine: MatchingEngine,
         validator: MatchValidator,
-        config: MatchingConfig
+        config: MatchingConfig,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.db = db
         self.matching_engine = matching_engine
         self.validator = validator
         self.config = config
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
+        
+        # AI orchestrator for AI-enhanced matching
+        try:
+            self.ai_orchestrator = get_orchestrator()
+        except Exception:
+            self.ai_orchestrator = None  # Fallback to rule-based matching
         
         # Priority queue for match requests
         self._match_queue: asyncio.PriorityQueue = asyncio.PriorityQueue()

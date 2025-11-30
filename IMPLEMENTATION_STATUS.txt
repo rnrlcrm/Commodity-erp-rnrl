@@ -1,0 +1,30 @@
+INFRASTRUCTURE INTEGRATION STATUS
+=================================
+
+FIXED (5 operations):
+✅ PartnerService.approve_partner
+✅ PartnerService.reject_partner  
+✅ AvailabilityService.approve_availability
+✅ RequirementService.publish_requirement
+✅ RequirementService.cancel_requirement
+
+PATTERN ESTABLISHED:
+- OutboxRepository.add_event() for transactional events
+- Redis idempotency checking
+- db.commit() in services, not routers
+- idempotency_key passed from router→service
+
+REMAINING (109 operations):
+- All commodity CRUD (29 endpoints)
+- All organization CRUD (16 endpoints)
+- All locations CRUD (5 endpoints)
+- All settings/auth operations (17 endpoints)
+- Remaining partner operations (6 endpoints)
+- Remaining availability operations (4 endpoints)
+- Remaining requirement operations (4 endpoints)
+- Auth module (4 endpoints)
+- Risk engine (12 endpoints)
+- Matching engine (2 endpoints)
+- User onboarding (3 endpoints)
+
+WORK IN PROGRESS: Systematically applying pattern to ALL operations
