@@ -78,18 +78,21 @@ class OrganizationService:
         org = await self.repo.create(**data.model_dump())
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationCreated(
-                aggregate_id=org.id,
-                user_id=self.current_user_id,
-                data={
-                    "name": org.name,
-                    "type": org.type if org.type else None,
-                    "contact_email": org.contact_email,
-                    "contact_phone": org.contact_phone,
-                },
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=org.id,
+            aggregate_type="Organization",
+            event_type="OrganizationCreated",
+            payload={
+                "organization_id": str(org.id),
+                "name": org.name,
+                "type": org.type if org.type else None,
+                "contact_email": org.contact_email,
+                "contact_phone": org.contact_phone,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
@@ -122,12 +125,17 @@ class OrganizationService:
                 changes[key] = {"old": old_value, "new": new_value}
         
         if changes:
-            await self.events.emit(
-                OrganizationUpdated(
-                    aggregate_id=org.id,
-                    user_id=self.current_user_id,
-                    data={"changes": changes},
-                )
+            await self.outbox_repo.add_event(
+                aggregate_id=org.id,
+                aggregate_type="Organization",
+                event_type="OrganizationUpdated",
+                payload={
+                    "organization_id": str(org.id),
+                    "changes": changes,
+                    "updated_by": str(self.current_user_id)
+                },
+                topic_name="organization-events",
+                idempotency_key=None
             )
         
         await self.db.commit()
@@ -141,13 +149,18 @@ class OrganizationService:
         success = await self.repo.delete(org_id)
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationDeleted(
-                aggregate_id=org_id,
-                user_id=self.current_user_id,
-                data={"name": org.name},
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=org_id,
+            aggregate_type="Organization",
+            event_type="OrganizationDeleted",
+            payload={
+                "organization_id": str(org_id),
+                "name": org.name,
+                "deleted_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
@@ -169,18 +182,21 @@ class OrganizationService:
         gst = await self.gst_repo.create(**data.model_dump())
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationGSTAdded(
-                aggregate_id=gst.organization_id,
-                user_id=self.current_user_id,
-                data={
-                    "gst_id": str(gst.id),
-                    "gstin": gst.gstin,
-                    "state": gst.state,
-                    "is_primary": gst.is_primary,
-                },
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=gst.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationGSTAdded",
+            payload={
+                "gst_id": str(gst.id),
+                "organization_id": str(gst.organization_id),
+                "gstin": gst.gstin,
+                "state": gst.state,
+                "is_primary": gst.is_primary,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
@@ -211,22 +227,46 @@ class OrganizationService:
         gst = await self.gst_repo.update(gst_id, **update_data)
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationGSTUpdated(
-                aggregate_id=gst.organization_id,
-                user_id=self.current_user_id,
-                data={"gst_id": str(gst_id), "changes": update_data},
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=gst.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationGSTUpdated",
+            payload={
+                "gst_id": str(gst_id),
+                "organization_id": str(gst.organization_id),
+                "changes": update_data,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
         return OrganizationGSTResponse.model_validate(gst)
 
     async def delete_gst(self, gst_id: UUID) -> bool:
-        success = await self.gst_repo.delete(gst_id)
-        if not success:
+        gst = await self.gst_repo.get_by_id(gst_id)
+        if not gst:
             raise NotFoundException(f"GST record {gst_id} not found")
+        
+        success = await self.gst_repo.delete(gst_id)
+        
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=gst.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationGSTDeleted",
+            payload={
+                "gst_id": str(gst_id),
+                "organization_id": str(gst.organization_id),
+                "gstin": gst.gstin,
+                "deleted_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
+        )
+        
         await self.db.commit()
         return True
 
@@ -241,18 +281,21 @@ class OrganizationService:
         account = await self.bank_repo.create(**data.model_dump())
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationBankAccountAdded(
-                aggregate_id=account.organization_id,
-                user_id=self.current_user_id,
-                data={
-                    "account_id": str(account.id),
-                    "bank_name": account.bank_name,
-                    "account_number": account.account_number,
-                    "is_default": account.is_default,
-                },
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=account.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationBankAccountAdded",
+            payload={
+                "account_id": str(account.id),
+                "organization_id": str(account.organization_id),
+                "bank_name": account.bank_name,
+                "account_number": account.account_number,
+                "is_default": account.is_default,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
@@ -285,22 +328,46 @@ class OrganizationService:
         account = await self.bank_repo.update(account_id, **update_data)
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationBankAccountUpdated(
-                aggregate_id=account.organization_id,
-                user_id=self.current_user_id,
-                data={"account_id": str(account_id), "changes": update_data},
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=account.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationBankAccountUpdated",
+            payload={
+                "account_id": str(account_id),
+                "organization_id": str(account.organization_id),
+                "changes": update_data,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
         return OrganizationBankAccountResponse.model_validate(account)
 
     async def delete_bank_account(self, account_id: UUID) -> bool:
-        success = await self.bank_repo.delete(account_id)
-        if not success:
+        account = await self.bank_repo.get_by_id(account_id)
+        if not account:
             raise NotFoundException(f"Bank account {account_id} not found")
+        
+        success = await self.bank_repo.delete(account_id)
+        
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=account.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationBankAccountDeleted",
+            payload={
+                "account_id": str(account_id),
+                "organization_id": str(account.organization_id),
+                "bank_name": account.bank_name,
+                "deleted_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
+        )
+        
         await self.db.commit()
         return True
 
@@ -315,18 +382,21 @@ class OrganizationService:
         fy = await self.fy_repo.create(**data.model_dump())
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationFinancialYearAdded(
-                aggregate_id=fy.organization_id,
-                user_id=self.current_user_id,
-                data={
-                    "fy_id": str(fy.id),
-                    "start_date": fy.start_date.isoformat(),
-                    "end_date": fy.end_date.isoformat(),
-                    "is_active": fy.is_active,
-                },
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=fy.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationFinancialYearAdded",
+            payload={
+                "fy_id": str(fy.id),
+                "organization_id": str(fy.organization_id),
+                "start_date": fy.start_date.isoformat(),
+                "end_date": fy.end_date.isoformat(),
+                "is_active": fy.is_active,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
@@ -358,15 +428,50 @@ class OrganizationService:
         try:
             update_data = data.model_dump(exclude_unset=True)
             fy = await self.fy_repo.update(fy_id, **update_data)
+            
+            # Emit event through outbox (transactional)
+            await self.outbox_repo.add_event(
+                aggregate_id=fy.organization_id,
+                aggregate_type="Organization",
+                event_type="OrganizationFinancialYearUpdated",
+                payload={
+                    "fy_id": str(fy_id),
+                    "organization_id": str(fy.organization_id),
+                    "changes": update_data,
+                    "updated_by": str(self.current_user_id)
+                },
+                topic_name="organization-events",
+                idempotency_key=None
+            )
+            
             await self.db.commit()
             return OrganizationFinancialYearResponse.model_validate(fy)
         except ValueError as e:
             raise BadRequestException(str(e))
 
     async def delete_financial_year(self, fy_id: UUID) -> bool:
-        success = await self.fy_repo.delete(fy_id)
-        if not success:
+        fy = await self.fy_repo.get_by_id(fy_id)
+        if not fy:
             raise NotFoundException(f"Financial year {fy_id} not found")
+        
+        success = await self.fy_repo.delete(fy_id)
+        
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=fy.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationFinancialYearDeleted",
+            payload={
+                "fy_id": str(fy_id),
+                "organization_id": str(fy.organization_id),
+                "start_date": fy.start_date.isoformat(),
+                "end_date": fy.end_date.isoformat(),
+                "deleted_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
+        )
+        
         await self.db.commit()
         return True
 
@@ -386,18 +491,21 @@ class OrganizationService:
         series = await self.series_repo.create(**data.model_dump())
         await self.db.flush()
         
-        # Emit event
-        await self.events.emit(
-            OrganizationDocumentSeriesAdded(
-                aggregate_id=series.organization_id,
-                user_id=self.current_user_id,
-                data={
-                    "series_id": str(series.id),
-                    "document_type": series.document_type,
-                    "prefix": series.prefix,
-                    "current_number": series.current_number,
-                },
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=series.organization_id,
+            aggregate_type="Organization",
+            event_type="OrganizationDocumentSeriesAdded",
+            payload={
+                "series_id": str(series.id),
+                "organization_id": str(series.organization_id),
+                "document_type": series.document_type,
+                "prefix": series.prefix,
+                "current_number": series.current_number,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="organization-events",
+            idempotency_key=None
         )
         
         await self.db.commit()
