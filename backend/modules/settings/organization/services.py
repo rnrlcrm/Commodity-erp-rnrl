@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 from typing import Optional
 from uuid import UUID
 
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.errors.exceptions import BadRequestException, NotFoundException
 from backend.core.events.emitter import EventEmitter
+from backend.core.outbox import OutboxRepository
 from backend.modules.settings.organization.events import (
     OrganizationBankAccountAdded,
     OrganizationBankAccountUpdated,
@@ -53,9 +56,11 @@ from backend.modules.settings.organization.schemas import (
 
 
 class OrganizationService:
-    def __init__(self, db: AsyncSession, current_user_id: UUID):
+    def __init__(self, db: AsyncSession, current_user_id: UUID, redis_client: Optional[redis.Redis] = None):
         self.db = db
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
         self.repo = OrganizationRepository(db)
         self.gst_repo = OrganizationGSTRepository(db)
         self.bank_repo = OrganizationBankAccountRepository(db)

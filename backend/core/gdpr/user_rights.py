@@ -24,8 +24,10 @@ from sqlalchemy import Boolean, Column, DateTime, Enum as SQLEnum, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
+import redis.asyncio as redis
 
 from backend.db.session import Base
+from backend.core.outbox import OutboxRepository
 
 logger = logging.getLogger(__name__)
 
@@ -261,8 +263,10 @@ class DeletionService:
     - Audit trail
     """
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, redis_client: Optional[redis.Redis] = None):
         self.db = db
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
     
     async def create_deletion_request(
         self,

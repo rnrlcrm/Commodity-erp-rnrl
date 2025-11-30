@@ -6,14 +6,17 @@ Business logic for location management.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
+import redis.asyncio as redis
 from sqlalchemy.orm import Session
 
 from backend.core.errors.exceptions import BadRequestException, NotFoundException
 from backend.core.events.emitter import EventEmitter
+from backend.core.outbox import OutboxRepository
 from backend.modules.settings.locations.events import (
     LocationCreatedEvent,
     LocationDeletedEvent,
@@ -100,11 +103,13 @@ def map_state_to_region(state_code: Optional[str]) -> str:
 class LocationService:
     """Service for location management"""
     
-    def __init__(self, db: AsyncSession, event_emitter: EventEmitter):
+    def __init__(self, db: AsyncSession, event_emitter: EventEmitter, redis_client: Optional[redis.Redis] = None):
         self.db = db
         self.repository = LocationRepository(db)
         self.event_emitter = event_emitter
         self.google_maps = GoogleMapsService()
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
     
     async def search_google_places(self, query: str) -> List[GooglePlaceSuggestion]:
         """

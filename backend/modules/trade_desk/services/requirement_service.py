@@ -98,6 +98,7 @@ class RequirementService:
         self.db = db
         self.redis = redis_client
         self.repo = RequirementRepository(db)
+        self.outbox_repo = OutboxRepository(db)
         self.ws_service = ws_service  # Injected WebSocket service
         self.outbox_repo = OutboxRepository(db)
     

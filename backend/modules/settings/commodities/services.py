@@ -6,12 +6,15 @@ Business logic layer with event sourcing for commodity management.
 
 from __future__ import annotations
 
+import json
 from typing import List, Optional
 from uuid import UUID
 
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.events.emitter import EventEmitter
+from backend.core.outbox import OutboxRepository
 from backend.modules.settings.commodities.ai_helpers import CommodityAIHelper
 from backend.modules.settings.commodities.events import (
     CommodityCreated,
@@ -85,12 +88,16 @@ class CommodityService:
         session: AsyncSession,
         event_emitter: EventEmitter,
         ai_helper: CommodityAIHelper,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = CommodityRepository(session)
         self.event_emitter = event_emitter
         self.ai_helper = ai_helper
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_commodity(self, data: CommodityCreate) -> Commodity:
         """Create new commodity with AI enrichment and event emission"""

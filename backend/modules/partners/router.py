@@ -204,8 +204,6 @@ async def upload_document(
         uploaded_by=user_id
     )
     
-    await db.commit()
-    
     return document
 
 
@@ -385,13 +383,6 @@ async def reject_partner(
     except ValueError as e:
         # Rejection raises ValueError with message
         return {"message": str(e), "status": "rejected"}
-            risk_assessment,
-            decision
-        )
-        await db.commit()
-        return {"message": "Application rejected", "reason": decision.rejection_reason}
-    except ValueError as e:
-        return {"message": str(e)}
 
 
 # ===== PARTNER MANAGEMENT ENDPOINTS =====
@@ -595,7 +586,6 @@ async def add_partner_location(
         status="active"
     )
     
-    await db.commit()
     await db.refresh(location)
     
     # Emit event
@@ -817,7 +807,6 @@ async def complete_kyc_renewal(
             renewal.new_document_ids,
             verified=True
         )
-        await db.commit()
         
         return {
             "message": "KYC renewal completed successfully",
@@ -873,8 +862,6 @@ async def add_vehicle(
         is_active=True,
         created_by=user_id
     )
-    
-    await db.commit()
     
     return new_vehicle
 

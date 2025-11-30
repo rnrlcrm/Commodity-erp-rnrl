@@ -9,12 +9,15 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from typing import List, Optional, Set
+import json
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.auth.capabilities.models import Capability, RoleCapability, UserCapability
+from backend.core.outbox import OutboxRepository
 
 
 class CapabilityService:
@@ -28,8 +31,10 @@ class CapabilityService:
     - Get all capabilities for a user
     """
     
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, redis_client: Optional[redis.Redis] = None):
         self.session = session
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(session)
     
     async def user_has_capability(
         self,
