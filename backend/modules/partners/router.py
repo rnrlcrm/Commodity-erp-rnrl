@@ -204,8 +204,6 @@ async def upload_document(
         uploaded_by=user_id
     )
     
-    await db.commit()
-    
     return document
 
 
@@ -297,11 +295,9 @@ async def approve_partner(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_APPROVE)),
 ):
     """Approve partner application (manager/director only)"""
-    # TODO: Check user has manager/director role
-    
     approval_service = partner_services.ApprovalService(db, user_id)
     
-    # Get application to fetch risk assessment
+    # Get application
     app_repo = OnboardingApplicationRepository(db)
     application = await app_repo.get_by_id(application_id)
     
@@ -311,9 +307,7 @@ async def approve_partner(
             detail="Application not found"
         )
     
-    # Create risk assessment from application
-    from backend.modules.partners.schemas import RiskAssessment
-    
+    # Build risk assessment from application
     risk_assessment = RiskAssessment(
         risk_score=application.risk_score or 50,
         risk_category=application.risk_category,
@@ -323,12 +317,13 @@ async def approve_partner(
     )
     
     try:
+        # Service handles: business logic, event emission, commit, idempotency
         partner = await approval_service.process_approval(
             application_id,
             risk_assessment,
-            decision
+            decision,
+            idempotency_key=idempotency_key
         )
-        await db.commit()
         return partner
     except ValueError as e:
         raise HTTPException(
@@ -358,7 +353,6 @@ async def reject_partner(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_APPROVE)),
 ):
     """Reject partner application"""
-    # Set approved=False
     decision.approved = False
     
     approval_service = partner_services.ApprovalService(db, user_id)
@@ -371,8 +365,6 @@ async def reject_partner(
             detail="Application not found"
         )
     
-    from backend.modules.partners.schemas import RiskAssessment
-    
     risk_assessment = RiskAssessment(
         risk_score=application.risk_score or 0,
         risk_category=application.risk_category,
@@ -381,15 +373,16 @@ async def reject_partner(
     )
     
     try:
+        # Service handles: business logic, event emission, commit, idempotency
         await approval_service.process_approval(
             application_id,
             risk_assessment,
-            decision
+            decision,
+            idempotency_key=idempotency_key
         )
-        await db.commit()
-        return {"message": "Application rejected", "reason": decision.rejection_reason}
     except ValueError as e:
-        return {"message": str(e)}
+        # Rejection raises ValueError with message
+        return {"message": str(e), "status": "rejected"}
 
 
 # ===== PARTNER MANAGEMENT ENDPOINTS =====
@@ -593,7 +586,6 @@ async def add_partner_location(
         status="active"
     )
     
-    await db.commit()
     await db.refresh(location)
     
     # Emit event
@@ -715,48 +707,13 @@ async def invite_employee(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_CREATE)),
 ):
     """Invite employee to partner account"""
-    employee_repo = PartnerEmployeeRepository(db)
-    
-    # Get partner for event context
-    partner_repo = BusinessPartnerRepository(db)
-    partner = await partner_repo.get_by_id(partner_id)
-    if not partner:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Partner not found"
-        )
-    
-    # Create employee invitation
-    new_employee = await employee_repo.create(
+    # Service handles: employee creation, event emission, commit
+    service = PartnerService(db, get_event_emitter(), user_id, organization_id)
+    new_employee = await service.invite_employee(
         partner_id=partner_id,
-        organization_id=organization_id,
-        user_id=user_id,  # Will be updated when they accept
-        employee_name=employee.employee_name,
-        employee_email=employee.employee_email,
-        employee_phone=employee.employee_phone,
-        designation=employee.designation,
-        role="employee",
-        status="invited",
-        permissions=employee.permissions
+        employee_data=employee.dict(),
+        idempotency_key=idempotency_key
     )
-    
-    # Emit audit event
-    new_employee.emit_event(
-        event_type="partner.employee.invited",
-        user_id=user_id,
-        data={
-            "employee_id": str(new_employee.id),
-            "partner_id": str(partner_id),
-            "partner_name": partner.legal_name,
-            "employee_name": employee.employee_name,
-            "employee_email": employee.employee_email,
-            "designation": employee.designation,
-            "permissions": employee.permissions
-        }
-    )
-    await new_employee.flush_events(db)
-    
-    await db.commit()
     
     # TODO: Send invitation email with OTP/magic link
     
@@ -805,8 +762,8 @@ async def initiate_kyc_renewal(
     kyc_service = partner_services.KYCRenewalService(db, user_id)
     
     try:
+        # Service already handles commit
         renewal = await kyc_service.initiate_kyc_renewal(partner_id)
-        await db.commit()
         
         return {
             "message": "KYC renewal initiated",
@@ -850,7 +807,6 @@ async def complete_kyc_renewal(
             renewal.new_document_ids,
             verified=True
         )
-        await db.commit()
         
         return {
             "message": "KYC renewal completed successfully",
@@ -906,8 +862,6 @@ async def add_vehicle(
         is_active=True,
         created_by=user_id
     )
-    
-    await db.commit()
     
     return new_vehicle
 

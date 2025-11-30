@@ -17,14 +17,17 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
+import json
 
 from sqlalchemy import Boolean, Column, DateTime, Enum as SQLEnum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 from sqlalchemy import select
+import redis.asyncio as redis
 
 from backend.db.session import Base
+from backend.core.outbox import OutboxRepository
 
 
 class ConsentType(str, Enum):
@@ -130,8 +133,10 @@ class PrivacyService:
     - Audit trail
     """
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, redis_client: Optional[redis.Redis] = None):
         self.db = db
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
     
     async def get_active_consent_versions(self) -> dict[ConsentType, ConsentVersion]:
         """

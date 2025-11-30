@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 from datetime import datetime, timedelta, timezone
+import json
 
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.rbac.permissions import PermissionCodes
 from backend.core.auth.passwords import PasswordHasher
 from backend.core.auth.jwt import create_token
 from backend.core.settings.config import settings
+from backend.core.outbox import OutboxRepository
 from backend.modules.settings.models.settings_models import Permission, Role, RolePermission, User, UserRole, RefreshToken
 from backend.modules.settings.repositories.settings_repositories import (
 	OrganizationRepository,
@@ -26,8 +29,10 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 class RBACService:
-	def __init__(self, db: AsyncSession) -> None:
+	def __init__(self, db: AsyncSession, redis_client: Optional[redis.Redis] = None) -> None:
 		self.db = db
+		self.redis = redis_client
+		self.outbox_repo = OutboxRepository(db)
 
 	async def user_has_permissions(self, user_id, codes: Iterable[str]) -> bool:  # noqa: ANN001 - FastAPI dep compatibility
 		stmt = (
@@ -43,8 +48,10 @@ class RBACService:
 
 
 class SeedService:
-	def __init__(self, db: AsyncSession) -> None:
+	def __init__(self, db: AsyncSession, redis_client: Optional[redis.Redis] = None) -> None:
 		self.db = db
+		self.redis = redis_client
+		self.outbox_repo = OutboxRepository(db)
 		self.org_repo = OrganizationRepository(db)
 		self.user_repo = UserRepository(db)
 		self.role_repo = RoleRepository(db)
@@ -68,8 +75,10 @@ class SeedService:
 
 
 class AuthService:
-	def __init__(self, db: AsyncSession) -> None:
+	def __init__(self, db: AsyncSession, redis_client: Optional[redis.Redis] = None) -> None:
 		self.db = db
+		self.redis = redis_client
+		self.outbox_repo = OutboxRepository(db)
 		self.user_repo = UserRepository(db)
 		self.org_repo = OrganizationRepository(db)
 		self.hasher = PasswordHasher()

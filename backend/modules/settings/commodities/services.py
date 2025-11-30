@@ -6,12 +6,15 @@ Business logic layer with event sourcing for commodity management.
 
 from __future__ import annotations
 
+import json
 from typing import List, Optional
 from uuid import UUID
 
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.events.emitter import EventEmitter
+from backend.core.outbox import OutboxRepository
 from backend.modules.settings.commodities.ai_helpers import CommodityAIHelper
 from backend.modules.settings.commodities.events import (
     CommodityCreated,
@@ -85,12 +88,16 @@ class CommodityService:
         session: AsyncSession,
         event_emitter: EventEmitter,
         ai_helper: CommodityAIHelper,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = CommodityRepository(session)
         self.event_emitter = event_emitter
         self.ai_helper = ai_helper
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_commodity(self, data: CommodityCreate) -> Commodity:
         """Create new commodity with AI enrichment and event emission"""
@@ -121,18 +128,21 @@ class CommodityService:
                 user_id=self.current_user_id
             )
         
-        # Emit event
-        await self.event_emitter.emit(
-            CommodityCreated(
-                aggregate_id=commodity.id,
-                user_id=self.current_user_id,
-                data={
-                    "name": commodity.name,
-                    "category": commodity.category,
-                    "hsn_code": commodity.hsn_code,
-                    "gst_rate": str(commodity.gst_rate) if commodity.gst_rate else None
-                }
-            )
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=commodity.id,
+            aggregate_type="Commodity",
+            event_type="CommodityCreated",
+            payload={
+                "commodity_id": str(commodity.id),
+                "name": commodity.name,
+                "category": commodity.category,
+                "hsn_code": commodity.hsn_code,
+                "gst_rate": str(commodity.gst_rate) if commodity.gst_rate else None,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return commodity
@@ -165,12 +175,17 @@ class CommodityService:
                     "new": str(new_value) if new_value is not None else None
                 }
         
-        await self.event_emitter.emit(
-            CommodityUpdated(
-                aggregate_id=commodity.id,
-                user_id=self.current_user_id,
-                data={"changes": changes}
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=commodity.id,
+            aggregate_type="Commodity",
+            event_type="CommodityUpdated",
+            payload={
+                "commodity_id": str(commodity.id),
+                "changes": changes,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return commodity
@@ -185,12 +200,17 @@ class CommodityService:
         success = await self.repository.delete(commodity_id)
         
         if success:
-            await self.event_emitter.emit(
-                CommodityDeleted(
-                    aggregate_id=commodity_id,
-                    user_id=self.current_user_id,
-                    data={"name": commodity.name}
-                )
+            await self.outbox_repo.add_event(
+                aggregate_id=commodity_id,
+                aggregate_type="Commodity",
+                event_type="CommodityDeleted",
+                payload={
+                    "commodity_id": str(commodity_id),
+                    "name": commodity.name,
+                    "deleted_by": str(self.current_user_id)
+                },
+                topic_name="commodity-events",
+                idempotency_key=None
             )
         
         return success
@@ -215,27 +235,34 @@ class CommodityVarietyService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = CommodityVarietyRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def add_variety(self, data: CommodityVarietyCreate) -> CommodityVariety:
         """Add variety to commodity"""
         
         variety = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            CommodityVarietyAdded(
-                aggregate_id=variety.commodity_id,
-                user_id=self.current_user_id,
-                data={
-                    "variety_id": str(variety.id),
-                    "name": variety.name,
-                    "code": variety.code
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=variety.commodity_id,
+            aggregate_type="Commodity",
+            event_type="CommodityVarietyAdded",
+            payload={
+                "variety_id": str(variety.id),
+                "commodity_id": str(variety.commodity_id),
+                "name": variety.name,
+                "code": variety.code,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return variety
@@ -251,12 +278,18 @@ class CommodityVarietyService:
         if not variety:
             return None
         
-        await self.event_emitter.emit(
-            CommodityVarietyUpdated(
-                aggregate_id=variety.commodity_id,
-                user_id=self.current_user_id,
-                data={"variety_id": str(variety.id), "variety_name": variety.name}
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=variety.commodity_id,
+            aggregate_type="Commodity",
+            event_type="CommodityVarietyUpdated",
+            payload={
+                "variety_id": str(variety.id),
+                "commodity_id": str(variety.commodity_id),
+                "variety_name": variety.name,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return variety
@@ -276,7 +309,8 @@ class CommodityParameterService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = CommodityParameterRepository(session)
         self.system_param_repository = SystemCommodityParameterRepository(session)
@@ -284,6 +318,9 @@ class CommodityParameterService:
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
         self.session = session
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def add_parameter(
         self,
@@ -297,16 +334,19 @@ class CommodityParameterService:
         # AI LEARNING: Check if this parameter should become a template
         await self._learn_parameter_template(parameter)
         
-        await self.event_emitter.emit(
-            CommodityParameterAdded(
-                aggregate_id=parameter.commodity_id,
-                user_id=self.current_user_id,
-                data={
-                    "parameter_id": str(parameter.id),
-                    "name": parameter.parameter_name,
-                    "type": parameter.parameter_type
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=parameter.commodity_id,
+            aggregate_type="Commodity",
+            event_type="CommodityParameterAdded",
+            payload={
+                "parameter_id": str(parameter.id),
+                "commodity_id": str(parameter.commodity_id),
+                "name": parameter.parameter_name,
+                "type": parameter.parameter_type,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return parameter
@@ -369,12 +409,18 @@ class CommodityParameterService:
         if not parameter:
             return None
         
-        await self.event_emitter.emit(
-            CommodityParameterUpdated(
-                aggregate_id=parameter.commodity_id,
-                user_id=self.current_user_id,
-                data={"parameter_id": str(parameter.id), "parameter_name": parameter.parameter_name}
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=parameter.commodity_id,
+            aggregate_type="Commodity",
+            event_type="CommodityParameterUpdated",
+            payload={
+                "parameter_id": str(parameter.id),
+                "commodity_id": str(parameter.commodity_id),
+                "parameter_name": parameter.parameter_name,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return parameter
@@ -423,26 +469,33 @@ class TradeTypeService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = TradeTypeRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_trade_type(self, data: TradeTypeCreate) -> TradeType:
         """Create trade type"""
         
         trade_type = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            TradeTermsCreated(
-                aggregate_id=trade_type.id,
-                user_id=self.current_user_id,
-                data={
-                    "term_type": "Trade Type",
-                    "name": trade_type.name
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=trade_type.id,
+            aggregate_type="TradeType",
+            event_type="TradeTermsCreated",
+            payload={
+                "term_type": "Trade Type",
+                "trade_type_id": str(trade_type.id),
+                "name": trade_type.name,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return trade_type
@@ -458,15 +511,18 @@ class TradeTypeService:
         if not trade_type:
             return None
         
-        await self.event_emitter.emit(
-            TradeTermsUpdated(
-                aggregate_id=trade_type.id,
-                user_id=self.current_user_id,
-                data={
-                    "term_type": "Trade Type",
-                    "name": trade_type.name
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=trade_type.id,
+            aggregate_type="TradeType",
+            event_type="TradeTermsUpdated",
+            payload={
+                "term_type": "Trade Type",
+                "trade_type_id": str(trade_type.id),
+                "name": trade_type.name,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return trade_type
@@ -483,26 +539,33 @@ class BargainTypeService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = BargainTypeRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_bargain_type(self, data: BargainTypeCreate) -> BargainType:
         """Create bargain type"""
         
         bargain_type = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            TradeTermsCreated(
-                aggregate_id=bargain_type.id,
-                user_id=self.current_user_id,
-                data={
-                    "term_type": "Bargain Type",
-                    "name": bargain_type.name
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=bargain_type.id,
+            aggregate_type="BargainType",
+            event_type="TradeTermsCreated",
+            payload={
+                "term_type": "Bargain Type",
+                "bargain_type_id": str(bargain_type.id),
+                "name": bargain_type.name,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return bargain_type
@@ -518,15 +581,18 @@ class BargainTypeService:
         if not bargain_type:
             return None
         
-        await self.event_emitter.emit(
-            TradeTermsUpdated(
-                aggregate_id=bargain_type.id,
-                user_id=self.current_user_id,
-                data={
-                    "term_type": "Bargain Type",
-                    "name": bargain_type.name
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=bargain_type.id,
+            aggregate_type="BargainType",
+            event_type="TradeTermsUpdated",
+            payload={
+                "term_type": "Bargain Type",
+                "bargain_type_id": str(bargain_type.id),
+                "name": bargain_type.name,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return bargain_type
@@ -543,22 +609,32 @@ class PassingTermService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = PassingTermRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_passing_term(self, data: PassingTermCreate) -> PassingTerm:
         """Create passing term"""
         term = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            TradeTermsCreated(
-                aggregate_id=term.id,
-                user_id=self.current_user_id,
-                data={"term_type": "Passing", "name": term.name}
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=term.id,
+            aggregate_type="PassingTerm",
+            event_type="TradeTermsCreated",
+            payload={
+                "term_type": "Passing",
+                "term_id": str(term.id),
+                "name": term.name,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return term
@@ -571,12 +647,18 @@ class PassingTermService:
         """Update passing term"""
         term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
-            await self.event_emitter.emit(
-                TradeTermsUpdated(
-                    aggregate_id=term.id,
-                    user_id=self.current_user_id,
-                    data={"term_type": "Passing", "name": term.name}
-                )
+            await self.outbox_repo.add_event(
+                aggregate_id=term.id,
+                aggregate_type="PassingTerm",
+                event_type="TradeTermsUpdated",
+                payload={
+                    "term_type": "Passing",
+                    "term_id": str(term.id),
+                    "name": term.name,
+                    "updated_by": str(self.current_user_id)
+                },
+                topic_name="commodity-events",
+                idempotency_key=None
             )
         return term
     
@@ -592,11 +674,15 @@ class WeightmentTermService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = WeightmentTermRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_weightment_term(
         self,
@@ -605,12 +691,18 @@ class WeightmentTermService:
         """Create weightment term"""
         term = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            TradeTermsCreated(
-                aggregate_id=term.id,
-                user_id=self.current_user_id,
-                data={"term_type": "Weightment", "name": term.name}
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=term.id,
+            aggregate_type="WeightmentTerm",
+            event_type="TradeTermsCreated",
+            payload={
+                "term_type": "Weightment",
+                "term_id": str(term.id),
+                "name": term.name,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return term
@@ -623,12 +715,18 @@ class WeightmentTermService:
         """Update weightment term"""
         term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
-            await self.event_emitter.emit(
-                TradeTermsUpdated(
-                    aggregate_id=term.id,
-                    user_id=self.current_user_id,
-                    data={"term_type": "Weightment", "name": term.name}
-                )
+            await self.outbox_repo.add_event(
+                aggregate_id=term.id,
+                aggregate_type="WeightmentTerm",
+                event_type="TradeTermsUpdated",
+                payload={
+                    "term_type": "Weightment",
+                    "term_id": str(term.id),
+                    "name": term.name,
+                    "updated_by": str(self.current_user_id)
+                },
+                topic_name="commodity-events",
+                idempotency_key=None
             )
         return term
     
@@ -644,22 +742,32 @@ class DeliveryTermService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = DeliveryTermRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_delivery_term(self, data: DeliveryTermCreate) -> DeliveryTerm:
         """Create delivery term"""
         term = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            TradeTermsCreated(
-                aggregate_id=term.id,
-                user_id=self.current_user_id,
-                data={"term_type": "Delivery", "name": term.name}
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=term.id,
+            aggregate_type="DeliveryTerm",
+            event_type="TradeTermsCreated",
+            payload={
+                "term_type": "Delivery",
+                "term_id": str(term.id),
+                "name": term.name,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return term
@@ -672,12 +780,18 @@ class DeliveryTermService:
         """Update delivery term"""
         term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
-            await self.event_emitter.emit(
-                TradeTermsUpdated(
-                    aggregate_id=term.id,
-                    user_id=self.current_user_id,
-                    data={"term_type": "Delivery", "name": term.name}
-                )
+            await self.outbox_repo.add_event(
+                aggregate_id=term.id,
+                aggregate_type="DeliveryTerm",
+                event_type="TradeTermsUpdated",
+                payload={
+                    "term_type": "Delivery",
+                    "term_id": str(term.id),
+                    "name": term.name,
+                    "updated_by": str(self.current_user_id)
+                },
+                topic_name="commodity-events",
+                idempotency_key=None
             )
         return term
     
@@ -693,22 +807,32 @@ class PaymentTermService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = PaymentTermRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def create_payment_term(self, data: PaymentTermCreate) -> PaymentTerm:
         """Create payment term"""
         term = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            TradeTermsCreated(
-                aggregate_id=term.id,
-                user_id=self.current_user_id,
-                data={"term_type": "Payment", "name": term.name}
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=term.id,
+            aggregate_type="PaymentTerm",
+            event_type="TradeTermsCreated",
+            payload={
+                "term_type": "Payment",
+                "term_id": str(term.id),
+                "name": term.name,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return term
@@ -721,12 +845,18 @@ class PaymentTermService:
         """Update payment term"""
         term = await self.repository.update(term_id, **data.model_dump(exclude_unset=True))
         if term:
-            await self.event_emitter.emit(
-                TradeTermsUpdated(
-                    aggregate_id=term.id,
-                    user_id=self.current_user_id,
-                    data={"term_type": "Payment", "name": term.name}
-                )
+            await self.outbox_repo.add_event(
+                aggregate_id=term.id,
+                aggregate_type="PaymentTerm",
+                event_type="TradeTermsUpdated",
+                payload={
+                    "term_type": "Payment",
+                    "term_id": str(term.id),
+                    "name": term.name,
+                    "updated_by": str(self.current_user_id)
+                },
+                topic_name="commodity-events",
+                idempotency_key=None
             )
         return term
     
@@ -742,11 +872,15 @@ class CommissionStructureService:
         self,
         session: AsyncSession,
         event_emitter: EventEmitter,
-        current_user_id: UUID
+        current_user_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.repository = CommissionStructureRepository(session)
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
+        self.redis = redis_client
+        self.db = session
+        self.outbox_repo = OutboxRepository(session)
     
     async def set_commission(
         self,
@@ -756,16 +890,20 @@ class CommissionStructureService:
         
         commission = await self.repository.create(**data.model_dump())
         
-        await self.event_emitter.emit(
-            CommissionStructureSet(
-                aggregate_id=commission.commodity_id if commission.commodity_id else commission.trade_type_id,
-                user_id=self.current_user_id,
-                data={
-                    "commission_id": str(commission.id),
-                    "name": commission.name,
-                    "rate": str(commission.rate) if commission.rate else None
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=commission.commodity_id if commission.commodity_id else commission.trade_type_id,
+            aggregate_type="CommissionStructure",
+            event_type="CommissionStructureSet",
+            payload={
+                "commission_id": str(commission.id),
+                "commodity_id": str(commission.commodity_id) if commission.commodity_id else None,
+                "trade_type_id": str(commission.trade_type_id) if commission.trade_type_id else None,
+                "name": commission.name,
+                "rate": str(commission.rate) if commission.rate else None,
+                "created_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return commission
@@ -781,16 +919,20 @@ class CommissionStructureService:
         if not commission:
             return None
         
-        await self.event_emitter.emit(
-            CommissionStructureSet(
-                aggregate_id=commission.commodity_id if commission.commodity_id else commission.trade_type_id,
-                user_id=self.current_user_id,
-                data={
-                    "commission_id": str(commission.id),
-                    "name": commission.name,
-                    "rate": str(commission.rate) if commission.rate else None
-                }
-            )
+        await self.outbox_repo.add_event(
+            aggregate_id=commission.commodity_id if commission.commodity_id else commission.trade_type_id,
+            aggregate_type="CommissionStructure",
+            event_type="CommissionStructureSet",
+            payload={
+                "commission_id": str(commission.id),
+                "commodity_id": str(commission.commodity_id) if commission.commodity_id else None,
+                "trade_type_id": str(commission.trade_type_id) if commission.trade_type_id else None,
+                "name": commission.name,
+                "rate": str(commission.rate) if commission.rate else None,
+                "updated_by": str(self.current_user_id)
+            },
+            topic_name="commodity-events",
+            idempotency_key=None
         )
         
         return commission

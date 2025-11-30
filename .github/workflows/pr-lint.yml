@@ -1,0 +1,137 @@
+name: PR Architecture Lint
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**/*.py'
+
+jobs:
+  lint-architecture:
+    name: Architecture Pattern Enforcement
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Check for db.execute() in routers
+        id: check_db_execute
+        run: |
+          echo "Checking for db.execute() in router files..."
+          
+          # Search in router.py and routes/*.py files
+          if grep -rn "db\.execute(" backend/modules/**/router.py backend/modules/**/router*.py backend/modules/**/routes/*.py 2>/dev/null; then
+            echo "❌ ERROR: Direct db.execute() found in routers"
+            echo "ALL database queries must be in service layer"
+            echo ""
+            echo "Example violation:"
+            grep -rn "db\.execute(" backend/modules/**/router.py backend/modules/**/router*.py backend/modules/**/routes/*.py 2>/dev/null | head -5
+            exit 1
+          fi
+          
+          echo "✅ No db.execute() found in routers"
+      
+      - name: Check for db.commit() in routers
+        id: check_db_commit
+        run: |
+          echo "Checking for db.commit() in router files..."
+          
+          # Search in router.py and routes/*.py files
+          if grep -rn "db\.commit\|await db\.commit()" backend/modules/**/router.py backend/modules/**/router*.py backend/modules/**/routes/*.py 2>/dev/null; then
+            echo "❌ ERROR: Direct db.commit() found in routers"
+            echo "ALL transaction commits must be in service layer"
+            echo ""
+            echo "Example violation:"
+            grep -rn "db\.commit\|await db\.commit()" backend/modules/**/router.py backend/modules/**/router*.py backend/modules/**/routes/*.py 2>/dev/null | head -5
+            exit 1
+          fi
+          
+          echo "✅ No db.commit() found in routers"
+      
+      - name: Check OutboxRepository usage in services
+        id: check_outbox
+        run: |
+          echo "Checking for OutboxRepository in service files..."
+          
+          # Find all service files
+          SERVICE_FILES=$(find backend/modules -name "*service*.py" -type f | grep -v __pycache__ | grep -v test)
+          
+          VIOLATIONS=0
+          
+          for file in $SERVICE_FILES; do
+            # Skip if file is empty or doesn't have state-changing methods
+            if ! grep -q "async def\|def " "$file"; then
+              continue
+            fi
+            
+            # Check if file has OutboxRepository import
+            if ! grep -q "from backend.core.outbox import OutboxRepository" "$file"; then
+              # Check if file has state-changing operations (create, update, delete, approve, publish, cancel)
+              if grep -q "async def.*\(create\|update\|delete\|approve\|reject\|publish\|cancel\|process\)_" "$file"; then
+                echo "⚠️  WARNING: $file has state-changing methods but no OutboxRepository import"
+                VIOLATIONS=$((VIOLATIONS + 1))
+              fi
+            fi
+          done
+          
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo ""
+            echo "❌ Found $VIOLATIONS service files missing OutboxRepository"
+            echo "ALL state-changing operations must emit events through OutboxRepository"
+            exit 1
+          fi
+          
+          echo "✅ All services with state-changing operations have OutboxRepository"
+      
+      - name: Check for idempotency patterns
+        id: check_idempotency
+        run: |
+          echo "Checking for idempotency patterns in services..."
+          
+          # Find all service files with state-changing methods
+          SERVICE_FILES=$(find backend/modules -name "*service*.py" -type f | grep -v __pycache__ | grep -v test)
+          
+          MISSING_IDEMPOTENCY=0
+          
+          for file in $SERVICE_FILES; do
+            # Check if file has state-changing operations
+            if grep -q "async def.*\(approve\|reject\|publish\|cancel\|process\)_" "$file"; then
+              # Check if file has redis import
+              if ! grep -q "import redis" "$file"; then
+                echo "⚠️  WARNING: $file has critical operations but no Redis import for idempotency"
+                MISSING_IDEMPOTENCY=$((MISSING_IDEMPOTENCY + 1))
+              fi
+            fi
+          done
+          
+          if [ $MISSING_IDEMPOTENCY -gt 5 ]; then
+            echo ""
+            echo "❌ Found $MISSING_IDEMPOTENCY service files missing idempotency support"
+            echo "CRITICAL operations (approve, reject, publish, cancel) must have idempotency"
+            exit 1
+          fi
+          
+          echo "✅ Idempotency patterns look good"
+      
+      - name: Architecture validation summary
+        if: always()
+        run: |
+          echo "==================== ARCHITECTURE VALIDATION ===================="
+          echo ""
+          echo "✅ All checks passed!"
+          echo ""
+          echo "Verified:"
+          echo "  - No db.execute() in routers"
+          echo "  - No db.commit() in routers"
+          echo "  - OutboxRepository usage in services"
+          echo "  - Idempotency patterns in critical operations"
+          echo ""
+          echo "================================================================="

@@ -47,12 +47,16 @@ Architecture:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
+
+from backend.core.outbox import OutboxRepository
 
 from backend.modules.trade_desk.enums import (
     IntentType,
@@ -82,17 +86,21 @@ class RequirementService:
     - Cross-commodity matching
     """
     
-    def __init__(self, db: AsyncSession, ws_service=None):
+    def __init__(self, db: AsyncSession, ws_service=None, redis_client: Optional[redis.Redis] = None):
         """
         Initialize service.
         
         Args:
             db: Async SQLAlchemy session
             ws_service: Optional WebSocket service for real-time broadcasts
+            redis_client: Redis client for idempotency
         """
         self.db = db
+        self.redis = redis_client
         self.repo = RequirementRepository(db)
+        self.outbox_repo = OutboxRepository(db)
         self.ws_service = ws_service  # Injected WebSocket service
+        self.outbox_repo = OutboxRepository(db)
     
     # ========================================================================
     # 🚀 12-STEP AI PIPELINE: CREATE REQUIREMENT
@@ -663,7 +671,8 @@ class RequirementService:
     async def publish_requirement(
         self,
         requirement_id: UUID,
-        published_by: UUID
+        published_by: UUID,
+        idempotency_key: Optional[str] = None
     ) -> Optional[Requirement]:
         """
         Publish requirement (DRAFT → ACTIVE).
@@ -671,10 +680,17 @@ class RequirementService:
         Args:
             requirement_id: Requirement UUID
             published_by: User UUID who published it
+            idempotency_key: Idempotency key for deduplication
         
         Returns:
             Published requirement or None if not found
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
+        
         requirement = await self.repo.get_by_id(requirement_id)
         if not requirement:
             return None
@@ -682,9 +698,36 @@ class RequirementService:
         requirement.publish(published_by)
         requirement = await self.repo.update(requirement)
         
-        await requirement.flush_events(self.db)
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=requirement.id,
+            aggregate_type="Requirement",
+            event_type="RequirementPublished",
+            payload={
+                "requirement_id": str(requirement.id),
+                "buyer_id": str(requirement.buyer_partner_id),
+                "commodity_id": str(requirement.commodity_id),
+                "quantity_min": float(requirement.min_quantity),
+                "quantity_max": float(requirement.max_quantity),
+                "budget_per_unit": float(requirement.max_budget_per_unit),
+                "intent_type": requirement.intent_type,
+                "published_by": str(published_by),
+                "published_at": datetime.now(timezone.utc).isoformat()
+            },
+            topic_name="requirement-events",
+            metadata={"user_id": str(published_by)},
+            idempotency_key=idempotency_key
+        )
         
-        # 🚀 WebSocket: Broadcast requirement.published (triggers intent routing)
+        # Commit transaction
+        await self.db.commit()
+        
+        # Cache result for idempotency
+        if idempotency_key and self.redis:
+            result_dict = {"id": str(requirement.id), "status": requirement.status}
+            await self.redis.setex(f"idempotency:{idempotency_key}", 86400, json.dumps(result_dict))
+        
+        # WebSocket broadcast (after commit)
         if self.ws_service:
             await self.ws_service.broadcast_requirement_published(
                 requirement_id=requirement.id,
@@ -701,7 +744,7 @@ class RequirementService:
                 }
             )
         
-        # 🚀 Intent-based routing
+        # Intent-based routing
         await self._route_by_intent(requirement)
         
         return requirement
@@ -710,7 +753,8 @@ class RequirementService:
         self,
         requirement_id: UUID,
         cancelled_by: UUID,
-        reason: str
+        reason: str,
+        idempotency_key: Optional[str] = None
     ) -> Optional[Requirement]:
         """
         Cancel requirement.
@@ -719,10 +763,17 @@ class RequirementService:
             requirement_id: Requirement UUID
             cancelled_by: User UUID who cancelled it
             reason: Cancellation reason
+            idempotency_key: Idempotency key for deduplication
         
         Returns:
             Cancelled requirement or None if not found
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
+        
         requirement = await self.repo.get_by_id(requirement_id)
         if not requirement:
             return None
@@ -730,9 +781,32 @@ class RequirementService:
         requirement.cancel(cancelled_by, reason)
         requirement = await self.repo.update(requirement)
         
-        await requirement.flush_events(self.db)
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
+            aggregate_id=requirement.id,
+            aggregate_type="Requirement",
+            event_type="RequirementCancelled",
+            payload={
+                "requirement_id": str(requirement.id),
+                "buyer_id": str(requirement.buyer_partner_id),
+                "reason": reason,
+                "cancelled_by": str(cancelled_by),
+                "cancelled_at": datetime.now(timezone.utc).isoformat()
+            },
+            topic_name="requirement-events",
+            metadata={"user_id": str(cancelled_by)},
+            idempotency_key=idempotency_key
+        )
         
-        # 🚀 WebSocket: Broadcast requirement.cancelled
+        # Commit transaction
+        await self.db.commit()
+        
+        # Cache result for idempotency
+        if idempotency_key and self.redis:
+            result_dict = {"id": str(requirement.id), "status": requirement.status}
+            await self.redis.setex(f"idempotency:{idempotency_key}", 86400, json.dumps(result_dict))
+        
+        # WebSocket broadcast
         if self.ws_service:
             await self.ws_service.broadcast_requirement_cancelled(
                 requirement_id=requirement.id,

@@ -6,14 +6,17 @@ Business logic for location management.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
+import redis.asyncio as redis
 from sqlalchemy.orm import Session
 
 from backend.core.errors.exceptions import BadRequestException, NotFoundException
 from backend.core.events.emitter import EventEmitter
+from backend.core.outbox import OutboxRepository
 from backend.modules.settings.locations.events import (
     LocationCreatedEvent,
     LocationDeletedEvent,
@@ -100,11 +103,13 @@ def map_state_to_region(state_code: Optional[str]) -> str:
 class LocationService:
     """Service for location management"""
     
-    def __init__(self, db: AsyncSession, event_emitter: EventEmitter):
+    def __init__(self, db: AsyncSession, event_emitter: EventEmitter, redis_client: Optional[redis.Redis] = None):
         self.db = db
         self.repository = LocationRepository(db)
         self.event_emitter = event_emitter
         self.google_maps = GoogleMapsService()
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
     
     async def search_google_places(self, query: str) -> List[GooglePlaceSuggestion]:
         """
@@ -190,25 +195,24 @@ class LocationService:
         await self.db.flush()
         
         # Emit event
-        event_data = LocationEventData(
-            location_id=location.id,
-            name=location.name,
-            google_place_id=location.google_place_id,
-            city=location.city,
-            state=location.state,
-            region=location.region,
-            is_active=location.is_active
-        )
-        
-        event = LocationCreatedEvent(
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
             aggregate_id=location.id,
-            user_id=current_user_id,
-            timestamp=datetime.utcnow(),
-            data=event_data.model_dump(mode='json')  # Serialize UUIDs to strings
+            aggregate_type="Location",
+            event_type="LocationCreated",
+            payload={
+                "location_id": str(location.id),
+                "name": location.name,
+                "google_place_id": location.google_place_id,
+                "city": location.city,
+                "state": location.state,
+                "region": location.region,
+                "is_active": location.is_active,
+                "created_by": str(current_user_id)
+            },
+            topic_name="location-events",
+            idempotency_key=None
         )
-        
-        # Emit event for audit trail
-        await self.event_emitter.emit(event)
         
         return LocationResponse.model_validate(location)
     
@@ -302,7 +306,7 @@ class LocationService:
         location = await self.repository.update(location)
         await self.db.flush()
         
-        # Emit event
+        # Emit event through outbox (transactional)
         changes = {
             "before": old_data,
             "after": {
@@ -311,15 +315,18 @@ class LocationService:
             }
         }
         
-        event = LocationUpdatedEvent(
+        await self.outbox_repo.add_event(
             aggregate_id=location.id,
-            user_id=current_user_id,
-            timestamp=datetime.utcnow(),
-            data=changes
+            aggregate_type="Location",
+            event_type="LocationUpdated",
+            payload={
+                "location_id": str(location.id),
+                "changes": changes,
+                "updated_by": str(current_user_id)
+            },
+            topic_name="location-events",
+            idempotency_key=None
         )
-        
-        # Emit event for audit trail
-        await self.event_emitter.emit(event)
         
         return LocationResponse.model_validate(location)
     
@@ -355,15 +362,18 @@ class LocationService:
         location.updated_by = current_user_id
         await self.db.flush()
         
-        # Emit event
-        event = LocationDeletedEvent(
+        # Emit event through outbox (transactional)
+        await self.outbox_repo.add_event(
             aggregate_id=location.id,
-            user_id=current_user_id,
-            timestamp=datetime.utcnow(),
-            data={"location_id": str(location.id), "name": location.name}
+            aggregate_type="Location",
+            event_type="LocationDeleted",
+            payload={
+                "location_id": str(location.id),
+                "name": location.name,
+                "deleted_by": str(current_user_id)
+            },
+            topic_name="location-events",
+            idempotency_key=None
         )
-        
-        # Emit event for audit trail
-        await self.event_emitter.emit(event)
         
         return {"message": f"Location '{location.name}' deleted successfully"}

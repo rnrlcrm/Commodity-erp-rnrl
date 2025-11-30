@@ -16,15 +16,18 @@ Services:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.events.emitter import EventEmitter
 from backend.core.resilience.circuit_breaker import api_circuit_breaker
+from backend.core.outbox import OutboxRepository
 from backend.modules.partners.enums import (
     AmendmentType,
     BusinessEntityType,
@@ -611,17 +614,20 @@ class ApprovalService:
     Auto-approve low risk, route to manager/director for higher risk.
     """
     
-    def __init__(self, db: AsyncSession, current_user_id: UUID):
+    def __init__(self, db: AsyncSession, current_user_id: UUID, redis_client: Optional[redis.Redis] = None):
         self.db = db
         self.current_user_id = current_user_id
+        self.redis = redis_client
         self.bp_repo = BusinessPartnerRepository(db)
         self.app_repo = OnboardingApplicationRepository(db)
+        self.outbox_repo = OutboxRepository(db)
     
     async def process_approval(
         self,
         application_id: UUID,
         risk_assessment: RiskAssessment,
-        decision: ApprovalDecision
+        decision: ApprovalDecision,
+        idempotency_key: Optional[str] = None
     ) -> BusinessPartner:
         """
         Process approval decision.
@@ -630,10 +636,17 @@ class ApprovalService:
             application_id: Application ID
             risk_assessment: Risk assessment result
             decision: Approval decision
+            idempotency_key: Idempotency key for deduplication
         
         Returns:
             Approved BusinessPartner
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
+        
         # Get application
         application = await self.app_repo.get_by_id(application_id)
         if not application:
@@ -691,6 +704,40 @@ class ApprovalService:
                 approved_by=self.current_user_id
             )
             
+            # Emit event through outbox (transactional)
+            await self.outbox_repo.add_event(
+                aggregate_id=partner.id,
+                aggregate_type="Partner",
+                event_type="PartnerApproved",
+                payload={
+                    "partner_id": str(partner.id),
+                    "partner_type": partner.partner_type,
+                    "legal_name": partner.legal_name,
+                    "credit_limit": float(partner.credit_limit),
+                    "approved_by": str(self.current_user_id),
+                    "approved_at": partner.approved_at.isoformat()
+                },
+                topic_name="partner-events",
+                metadata={"user_id": str(self.current_user_id)},
+                idempotency_key=idempotency_key
+            )
+            
+            # Commit transaction
+            await self.db.commit()
+            
+            # Cache result for idempotency
+            if idempotency_key and self.redis:
+                partner_dict = {
+                    "id": str(partner.id),
+                    "legal_name": partner.legal_name,
+                    "status": partner.status
+                }
+                await self.redis.setex(
+                    f"idempotency:{idempotency_key}",
+                    86400,
+                    json.dumps(partner_dict)
+                )
+            
             return partner
         elif decision.decision == "reject":
             # Rejection
@@ -701,6 +748,24 @@ class ApprovalService:
                 rejected_by=self.current_user_id,
                 rejection_reason=decision.notes
             )
+            
+            # Emit rejection event
+            await self.outbox_repo.add_event(
+                aggregate_id=application_id,
+                aggregate_type="PartnerApplication",
+                event_type="PartnerApplicationRejected",
+                payload={
+                    "application_id": str(application_id),
+                    "reason": decision.notes,
+                    "rejected_by": str(self.current_user_id),
+                    "rejected_at": datetime.utcnow().isoformat()
+                },
+                topic_name="partner-events",
+                metadata={"user_id": str(self.current_user_id)},
+                idempotency_key=idempotency_key
+            )
+            
+            await self.db.commit()
             
             raise ValueError(f"Application rejected: {decision.notes}")
         else:
@@ -1048,3 +1113,198 @@ class PartnerService:
                 "estimated_time": "24-48 hours" if risk_assessment.approval_route == "manager" else "3-5 business days",
                 "message": f"Application submitted for {risk_assessment.approval_route} review."
             }
+    
+    async def upload_document(
+        self,
+        application_id: UUID,
+        document_type: str,
+        file_url: str,
+        file_name: str,
+        file_size: int,
+        mime_type: str,
+        extracted_data: Dict,
+        idempotency_key: Optional[str] = None
+    ) -> PartnerDocument:
+        """Upload and process document for application"""
+        # Get application
+        application = await self.app_repo.get_by_id(application_id, self.organization_id)
+        if not application:
+            raise ValueError("Application not found")
+        
+        # Create document
+        document = await self.document_repo.create(
+            partner_id=application.id,
+            organization_id=self.organization_id,
+            document_type=document_type,
+            file_url=file_url,
+            file_name=file_name,
+            file_size=file_size,
+            mime_type=mime_type,
+            ocr_extracted_data=extracted_data,
+            ocr_confidence=extracted_data.get("confidence", 0),
+            uploaded_by=self.current_user_id
+        )
+        
+        # Emit event
+        document.emit_event(
+            event_type="partner.document.uploaded",
+            user_id=self.current_user_id,
+            data={
+                "document_id": str(document.id),
+                "application_id": str(application_id),
+                "document_type": document_type
+            }
+        )
+        await document.flush_events(self.db)
+        
+        await self.db.commit()
+        return document
+    
+    async def add_location(
+        self,
+        partner_id: UUID,
+        location_data: Dict,
+        idempotency_key: Optional[str] = None
+    ) -> PartnerLocation:
+        """Add location to partner with geocoding"""
+        # Get partner
+        partner = await self.bp_repo.get_by_id(partner_id)
+        if not partner:
+            raise ValueError("Partner not found")
+        
+        # Geocode address
+        full_address = f"{location_data.get('address')}, {location_data.get('city')}, {location_data.get('state')}, {location_data.get('postal_code')}"
+        geocode_result = await self.geocoding_service.geocode_address(full_address)
+        
+        # Create location
+        location = await self.location_repo.create(
+            partner_id=partner_id,
+            organization_id=partner.organization_id,
+            location_type=location_data.get('location_type'),
+            location_name=location_data.get('location_name'),
+            gstin_for_location=location_data.get('gstin_for_location'),
+            address=location_data.get('address'),
+            city=location_data.get('city'),
+            state=location_data.get('state'),
+            postal_code=location_data.get('postal_code'),
+            country=location_data.get('country'),
+            contact_person=location_data.get('contact_person'),
+            contact_phone=location_data.get('contact_phone'),
+            requires_gst=location_data.get('requires_gst'),
+            latitude=geocode_result.get("latitude"),
+            longitude=geocode_result.get("longitude"),
+            geocoded=True,
+            geocode_confidence=geocode_result.get("confidence", 0),
+            status="active"
+        )
+        
+        # Emit event
+        location.emit_event(
+            event_type="partner.location.added",
+            user_id=self.current_user_id,
+            data={
+                "location_id": str(location.id),
+                "partner_id": str(partner_id),
+                "location_type": location_data.get('location_type')
+            }
+        )
+        await location.flush_events(self.db)
+        
+        await self.db.commit()
+        return location
+    
+    async def invite_employee(
+        self,
+        partner_id: UUID,
+        employee_data: Dict,
+        idempotency_key: Optional[str] = None
+    ) -> PartnerEmployee:
+        """Invite employee to partner account"""
+        # Get partner
+        partner = await self.bp_repo.get_by_id(partner_id)
+        if not partner:
+            raise ValueError("Partner not found")
+        
+        # Create employee invitation
+        employee = await self.employee_repo.create(
+            partner_id=partner_id,
+            organization_id=partner.organization_id,
+            user_id=self.current_user_id,
+            employee_name=employee_data.get('employee_name'),
+            employee_email=employee_data.get('employee_email'),
+            employee_phone=employee_data.get('employee_phone'),
+            designation=employee_data.get('designation'),
+            role="employee",
+            status="invited",
+            permissions=employee_data.get('permissions', {})
+        )
+        
+        # Emit event
+        employee.emit_event(
+            event_type="partner.employee.invited",
+            user_id=self.current_user_id,
+            data={
+                "employee_id": str(employee.id),
+                "partner_id": str(partner_id),
+                "employee_email": employee_data.get('employee_email')
+            }
+        )
+        await employee.flush_events(self.db)
+        
+        await self.db.commit()
+        return employee
+    
+    async def add_vehicle(
+        self,
+        partner_id: UUID,
+        vehicle_data: Dict,
+        idempotency_key: Optional[str] = None
+    ) -> PartnerVehicle:
+        """Add vehicle to transporter partner"""
+        # Get partner
+        partner = await self.bp_repo.get_by_id(partner_id)
+        if not partner:
+            raise ValueError("Partner not found")
+        
+        if partner.partner_type != PartnerType.SERVICE_PROVIDER:
+            raise ValueError("Only transporter partners can add vehicles")
+        
+        # Verify with RTO if registration number provided
+        rto_data = None
+        if vehicle_data.get('registration_number'):
+            try:
+                rto_result = await self.rto_service.verify_vehicle(
+                    vehicle_data['registration_number']
+                )
+                if rto_result.get("verified"):
+                    rto_data = rto_result
+            except Exception:
+                pass  # Continue without RTO verification
+        
+        # Create vehicle
+        vehicle = await self.vehicle_repo.create(
+            partner_id=partner_id,
+            organization_id=partner.organization_id,
+            registration_number=vehicle_data.get('registration_number'),
+            vehicle_type=vehicle_data.get('vehicle_type'),
+            capacity_mt=vehicle_data.get('capacity_mt'),
+            owner_name=rto_data.get('owner_name') if rto_data else vehicle_data.get('owner_name'),
+            fitness_expiry=rto_data.get('fitness_expiry') if rto_data else vehicle_data.get('fitness_expiry'),
+            insurance_expiry=rto_data.get('insurance_expiry') if rto_data else vehicle_data.get('insurance_expiry'),
+            status="active"
+        )
+        
+        # Emit event
+        vehicle.emit_event(
+            event_type="partner.vehicle.added",
+            user_id=self.current_user_id,
+            data={
+                "vehicle_id": str(vehicle.id),
+                "partner_id": str(partner_id),
+                "registration_number": vehicle_data.get('registration_number')
+            }
+        )
+        await vehicle.flush_events(self.db)
+        
+        await self.db.commit()
+        return vehicle

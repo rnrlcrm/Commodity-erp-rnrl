@@ -7,17 +7,23 @@ Integrates with:
 - WebSocket manager (risk alert broadcasting)
 """
 
+"""
+
+import json
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 from uuid import UUID
 
+import redis.asyncio as redis
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.outbox import OutboxRepository
 from backend.modules.risk.risk_engine import RiskEngine
 from backend.modules.trade_desk.models.requirement import Requirement
 from backend.modules.trade_desk.models.availability import Availability
 from backend.core.websocket.manager import ConnectionManager
+from backend.ai.orchestrators.factory import get_orchestrator
 
 
 class RiskService:
@@ -26,11 +32,20 @@ class RiskService:
     def __init__(
         self,
         db: AsyncSession,
-        ws_manager: Optional[ConnectionManager] = None
+        ws_manager: Optional[ConnectionManager] = None,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.db = db
         self.ws_manager = ws_manager
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
         self.risk_engine = RiskEngine(db)
+        
+        # AI orchestrator for AI-enhanced risk scoring
+        try:
+            self.ai_orchestrator = get_orchestrator()
+        except Exception:
+            self.ai_orchestrator = None  # Fallback to rule-based only
     
     # ============================================================================
     # REQUIREMENT RISK ASSESSMENT
@@ -39,7 +54,8 @@ class RiskService:
     async def assess_requirement_risk(
         self,
         requirement_id: UUID,
-        user_id: UUID
+        user_id: UUID,
+        idempotency_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Assess risk for a requirement and broadcast alerts if needed.
@@ -47,10 +63,17 @@ class RiskService:
         Args:
             requirement_id: Requirement UUID
             user_id: User performing assessment
+            idempotency_key: Optional idempotency key
             
         Returns:
             Risk assessment result
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
+        
         # Get requirement
         stmt = select(Requirement).where(Requirement.id == requirement_id)
         result = await self.db.execute(stmt)
@@ -80,8 +103,31 @@ class RiskService:
                 assessment=assessment
             )
         
+        # Emit event to outbox (transactional)
+        await self.outbox_repo.add_event(
+            event_type="risk.requirement_assessed",
+            aggregate_type="requirement",
+            aggregate_id=str(requirement_id),
+            payload={
+                "requirement_id": str(requirement_id),
+                "buyer_partner_id": str(requirement.buyer_partner_id),
+                "assessment": assessment,
+                "user_id": str(user_id),
+                "status": assessment["status"]
+            },
+            user_id=user_id
+        )
+        
         # Commit changes to database
         await self.db.commit()
+        
+        # Cache result for idempotency
+        if idempotency_key and self.redis:
+            await self.redis.setex(
+                f"idempotency:{idempotency_key}",
+                86400,  # 24 hours
+                json.dumps(assessment)
+            )
         
         return assessment
     
@@ -92,7 +138,8 @@ class RiskService:
     async def assess_availability_risk(
         self,
         availability_id: UUID,
-        user_id: UUID
+        user_id: UUID,
+        idempotency_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Assess risk for an availability and broadcast alerts if needed.
@@ -100,10 +147,17 @@ class RiskService:
         Args:
             availability_id: Availability UUID
             user_id: User performing assessment
+            idempotency_key: Optional idempotency key
             
         Returns:
             Risk assessment result
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
+        
         # Get availability
         stmt = select(Availability).where(Availability.id == availability_id)
         result = await self.db.execute(stmt)
@@ -133,8 +187,31 @@ class RiskService:
                 assessment=assessment
             )
         
+        # Emit event to outbox
+        await self.outbox_repo.add_event(
+            event_type="risk.availability_assessed",
+            aggregate_type="availability",
+            aggregate_id=str(availability_id),
+            payload={
+                "availability_id": str(availability_id),
+                "seller_id": str(availability.seller_id),
+                "assessment": assessment,
+                "user_id": str(user_id),
+                "status": assessment["status"]
+            },
+            user_id=user_id
+        )
+        
         # Commit changes to database
         await self.db.commit()
+        
+        # Cache for idempotency
+        if idempotency_key and self.redis:
+            await self.redis.setex(
+                f"idempotency:{idempotency_key}",
+                86400,
+                json.dumps(assessment)
+            )
         
         return assessment
     
@@ -148,7 +225,8 @@ class RiskService:
         availability_id: UUID,
         trade_quantity: Decimal,
         trade_price: Decimal,
-        user_id: UUID
+        user_id: UUID,
+        idempotency_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Assess bilateral risk for a proposed trade.
@@ -159,10 +237,16 @@ class RiskService:
             trade_quantity: Proposed quantity
             trade_price: Proposed price per unit
             user_id: User performing assessment
+            idempotency_key: Optional idempotency key
             
         Returns:
             Bilateral risk assessment
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
         # Get requirement and availability
         req_stmt = select(Requirement).where(Requirement.id == requirement_id)
         avail_stmt = select(Availability).where(Availability.id == availability_id)
@@ -201,6 +285,34 @@ class RiskService:
                 assessment=assessment
             )
         
+        # Emit event to outbox
+        await self.outbox_repo.add_event(
+            event_type="risk.trade_assessed",
+            aggregate_type="trade",
+            aggregate_id=f"{requirement_id}_{availability_id}",
+            payload={
+                "requirement_id": str(requirement_id),
+                "availability_id": str(availability_id),
+                "trade_quantity": str(trade_quantity),
+                "trade_price": str(trade_price),
+                "assessment": assessment,
+                "user_id": str(user_id),
+                "overall_status": assessment["overall_status"]
+            },
+            user_id=user_id
+        )
+        
+        # Commit changes
+        await self.db.commit()
+        
+        # Cache for idempotency
+        if idempotency_key and self.redis:
+            await self.redis.setex(
+                f"idempotency:{idempotency_key}",
+                86400,
+                json.dumps(assessment)
+            )
+        
         return assessment
     
     # ============================================================================
@@ -210,7 +322,8 @@ class RiskService:
     async def assess_partner_risk(
         self,
         partner_id: UUID,
-        partner_type: str
+        partner_type: str,
+        idempotency_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Assess overall counterparty risk for a partner.
@@ -218,10 +331,16 @@ class RiskService:
         Args:
             partner_id: Partner UUID
             partner_type: "BUYER" or "SELLER"
+            idempotency_key: Optional idempotency key
             
         Returns:
             Counterparty risk assessment
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
         if partner_type == "BUYER":
             partner_data = await self._get_buyer_data(partner_id)
             performance_score = partner_data["payment_performance"]
@@ -245,6 +364,29 @@ class RiskService:
             average_trade_value=trade_history["average_trade_value"]
         )
         
+        # Emit event
+        await self.outbox_repo.add_event(
+            event_type="risk.partner_assessed",
+            aggregate_type="partner",
+            aggregate_id=str(partner_id),
+            payload={
+                "partner_id": str(partner_id),
+                "partner_type": partner_type,
+                "assessment": assessment
+            }
+        )
+        
+        # Commit
+        await self.db.commit()
+        
+        # Cache for idempotency
+        if idempotency_key and self.redis:
+            await self.redis.setex(
+                f"idempotency:{idempotency_key}",
+                86400,
+                json.dumps(assessment)
+            )
+        
         return assessment
     
     # ============================================================================
@@ -253,17 +395,24 @@ class RiskService:
     
     async def monitor_partner_exposure(
         self,
-        partner_id: UUID
+        partner_id: UUID,
+        idempotency_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Monitor partner exposure and generate alerts.
         
         Args:
             partner_id: Partner UUID
+            idempotency_key: Optional idempotency key
             
         Returns:
             Exposure monitoring result with alerts
         """
+        # Check idempotency
+        if idempotency_key and self.redis:
+            cached = await self.redis.get(f"idempotency:{idempotency_key}")
+            if cached:
+                return json.loads(cached)
         # Get partner data
         partner_data = await self._get_buyer_data(partner_id)
         
@@ -279,6 +428,29 @@ class RiskService:
             await self._broadcast_exposure_alert(
                 partner_id=partner_id,
                 monitoring=monitoring
+            )
+        
+        # Emit event
+        await self.outbox_repo.add_event(
+            event_type="risk.exposure_monitored",
+            aggregate_type="partner",
+            aggregate_id=str(partner_id),
+            payload={
+                "partner_id": str(partner_id),
+                "monitoring": monitoring,
+                "alert_level": monitoring["alert_level"]
+            }
+        )
+        
+        # Commit
+        await self.db.commit()
+        
+        # Cache for idempotency
+        if idempotency_key and self.redis:
+            await self.redis.setex(
+                f"idempotency:{idempotency_key}",
+                86400,
+                json.dumps(monitoring)
             )
         
         return monitoring

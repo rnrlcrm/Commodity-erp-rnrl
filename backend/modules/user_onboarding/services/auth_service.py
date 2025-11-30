@@ -7,19 +7,24 @@ Handles user creation, profile completion, and JWT token generation
 from datetime import datetime
 from typing import Dict, Optional
 from uuid import UUID
+import json
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.jwt import create_access_token
+from backend.core.outbox import OutboxRepository
 
 
 class UserAuthService:
     """Handle user authentication and profile management"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, redis_client: Optional[redis.Redis] = None):
         self.db = db
+        self.redis = redis_client
+        self.outbox_repo = OutboxRepository(db)
     
     async def get_or_create_user(self, mobile_number: str) -> Dict:
         """
