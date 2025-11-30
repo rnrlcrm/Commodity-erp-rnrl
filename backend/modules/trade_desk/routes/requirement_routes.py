@@ -280,6 +280,7 @@ async def publish_requirement(
     requirement_id: UUID,
     current_user=Depends(get_current_user),
     service: RequirementService = Depends(get_requirement_service),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
     _check: None = Depends(RequireCapability(Capabilities.REQUIREMENT_UPDATE))
 ):
     """
@@ -307,9 +308,11 @@ async def publish_requirement(
         )
     
     try:
+        # Service handles: event emission, commit, idempotency
         requirement = await service.publish_requirement(
             requirement_id=requirement_id,
-            published_by=current_user.id
+            published_by=current_user.id,
+            idempotency_key=idempotency_key
         )
         
         if not requirement:
@@ -338,6 +341,7 @@ async def cancel_requirement(
     request: CancelRequirementRequest,
     current_user=Depends(get_current_user),
     service: RequirementService = Depends(get_requirement_service),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
     _check: None = Depends(RequireCapability(Capabilities.REQUIREMENT_CANCEL))
 ):
     """Cancel requirement. Requires REQUIREMENT_CANCEL capability."""
@@ -359,10 +363,12 @@ async def cancel_requirement(
         )
     
     try:
+        # Service handles: event emission, commit, idempotency
         requirement = await service.cancel_requirement(
             requirement_id=requirement_id,
             cancelled_by=current_user.id,
-            reason=request.reason
+            reason=request.reason,
+            idempotency_key=idempotency_key
         )
         
         if not requirement:
