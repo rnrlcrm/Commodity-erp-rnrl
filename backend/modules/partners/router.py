@@ -717,48 +717,13 @@ async def invite_employee(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_CREATE)),
 ):
     """Invite employee to partner account"""
-    employee_repo = PartnerEmployeeRepository(db)
-    
-    # Get partner for event context
-    partner_repo = BusinessPartnerRepository(db)
-    partner = await partner_repo.get_by_id(partner_id)
-    if not partner:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Partner not found"
-        )
-    
-    # Create employee invitation
-    new_employee = await employee_repo.create(
+    # Service handles: employee creation, event emission, commit
+    service = PartnerService(db, get_event_emitter(), user_id, organization_id)
+    new_employee = await service.invite_employee(
         partner_id=partner_id,
-        organization_id=organization_id,
-        user_id=user_id,  # Will be updated when they accept
-        employee_name=employee.employee_name,
-        employee_email=employee.employee_email,
-        employee_phone=employee.employee_phone,
-        designation=employee.designation,
-        role="employee",
-        status="invited",
-        permissions=employee.permissions
+        employee_data=employee.dict(),
+        idempotency_key=idempotency_key
     )
-    
-    # Emit audit event
-    new_employee.emit_event(
-        event_type="partner.employee.invited",
-        user_id=user_id,
-        data={
-            "employee_id": str(new_employee.id),
-            "partner_id": str(partner_id),
-            "partner_name": partner.legal_name,
-            "employee_name": employee.employee_name,
-            "employee_email": employee.employee_email,
-            "designation": employee.designation,
-            "permissions": employee.permissions
-        }
-    )
-    await new_employee.flush_events(db)
-    
-    await db.commit()
     
     # TODO: Send invitation email with OTP/magic link
     
@@ -807,8 +772,8 @@ async def initiate_kyc_renewal(
     kyc_service = partner_services.KYCRenewalService(db, user_id)
     
     try:
+        # Service already handles commit
         renewal = await kyc_service.initiate_kyc_renewal(partner_id)
-        await db.commit()
         
         return {
             "message": "KYC renewal initiated",
