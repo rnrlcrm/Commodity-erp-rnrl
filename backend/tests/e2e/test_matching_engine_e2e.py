@@ -18,7 +18,7 @@ Run with: pytest backend/tests/e2e/test_matching_engine_e2e.py -v
 """
 
 import pytest
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4, UUID
 from unittest.mock import AsyncMock, Mock, patch, MagicMock
@@ -50,10 +50,10 @@ class MockRequirement:
     quality_params: Dict[str, Any] = field(default_factory=dict)
     status: str = "ACTIVE"
     intent_type: str = "DIRECT_BUY"
-    valid_from: datetime = field(default_factory=datetime.utcnow)
-    valid_until: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(days=30))
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    valid_from: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    valid_until: datetime = field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=30))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     buyer_branch_id: UUID = field(default_factory=uuid4)
     blocked_internal_trades: bool = False
     commodity: Any = None
@@ -80,8 +80,8 @@ class MockAvailability:
     status: str = "AVAILABLE"
     risk_precheck_status: str = "PASS"
     risk_precheck_score: int = 85
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     seller_branch_id: UUID = field(default_factory=uuid4)
     blocked_for_branches: List[UUID] = field(default_factory=list)
     seller: Any = None
@@ -106,7 +106,7 @@ class MockMatchResult:
     risk_details: Dict[str, Any] = field(default_factory=dict)
     location_filter_passed: bool = True
     duplicate_detection_key: str = None
-    matched_at: datetime = field(default_factory=datetime.utcnow)
+    matched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     requirement: Any = None
     availability: Any = None
 
@@ -504,7 +504,7 @@ class MockRiskEngine:
             "block_violations": [v for v in violations if v["severity"] == "BLOCK"],
             "warn_violations": [v for v in violations if v["severity"] == "WARN"],
             "recommended_action": "REJECT" if max_severity == "BLOCK" else "REVIEW" if max_severity == "WARN" else "APPROVE",
-            "checked_at": datetime.utcnow().isoformat()
+            "checked_at": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -555,7 +555,7 @@ def sample_requirement(sample_commodity_id, sample_location_id, sample_buyer_id)
     """Create a sample buyer requirement using mock dataclass."""
     return MockRequirement(
         id=uuid4(),
-        requirement_number=f"REQ-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-001",
+        requirement_number=f"REQ-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-001",
         buyer_partner_id=sample_buyer_id,
         commodity_id=sample_commodity_id,
         min_quantity=Decimal("50.0"),
@@ -580,8 +580,8 @@ def sample_requirement(sample_commodity_id, sample_location_id, sample_buyer_id)
         },
         status="ACTIVE",
         intent_type="DIRECT_BUY",
-        valid_from=datetime.utcnow(),
-        valid_until=datetime.utcnow() + timedelta(days=30)
+        valid_from=datetime.now(timezone.utc),
+        valid_until=datetime.now(timezone.utc) + timedelta(days=30)
     )
 
 
@@ -590,7 +590,7 @@ def sample_availability(sample_commodity_id, sample_location_id, sample_seller_i
     """Create a sample seller availability using mock dataclass."""
     return MockAvailability(
         id=uuid4(),
-        availability_number=f"AVL-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-001",
+        availability_number=f"AVL-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-001",
         seller_id=sample_seller_id,
         commodity_id=sample_commodity_id,
         location_id=sample_location_id,
