@@ -354,21 +354,328 @@ def calculate_eod_cutoff(location_timezone: str) -> datetime:
 
 ---
 
-## 📊 SUMMARY
+### **ISSUE #9: Buyer Preference Saving (Payment/Delivery/Weighment Terms)** ❌
 
-**Total Issues:** 8 critical  
-**Estimated Fix Time:** 5-6 hours  
-**Files to Modify:** 12 files  
-**Database Changes:** 3 columns added + 1 migration  
+**Current State:**
+- Buyer selects terms every time creating requirement
+- No option to save preferences
 
-**Priority:**
-1. 🔴 HIGH: Capability-based auth (#1)
-2. 🔴 HIGH: EOD square-off (#2, #3)
-3. 🟡 MEDIUM: Circular trading logic (#4)
-4. 🟡 MEDIUM: Mandatory payment terms (#5)
-5. 🟢 LOW: Naming/UX (#6, #7)
-6. 🟢 LOW: Timezone (#8)
+**Expected State:**
+- System asks: "Save these terms as default preferences?"
+- Buyer can save commonly used terms
+- Auto-populate on next requirement creation
+
+**Implementation:**
+```python
+# New table: buyer_preferences
+CREATE TABLE buyer_preferences (
+    id UUID PRIMARY KEY,
+    buyer_partner_id UUID REFERENCES business_partners(id),
+    
+    # Default terms
+    default_payment_terms JSONB,  # Array of term UUIDs
+    default_delivery_terms JSONB,  # Array of term UUIDs
+    default_weighment_terms JSONB,  # Array of term UUIDs
+    
+    # Quick-use presets
+    preset_name VARCHAR(100),  # "Standard Purchase", "Urgent Buy", etc.
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    UNIQUE(buyer_partner_id, preset_name)
+);
+
+# In RequirementCreateRequest:
+class RequirementCreateRequest(BaseModel):
+    # ... existing fields ...
+    
+    save_as_preference: bool = Field(
+        default=False,
+        description="Save these terms as default preference"
+    )
+    
+    preference_preset_name: Optional[str] = Field(
+        None,
+        description="Name for this preference preset (e.g., 'Standard Purchase')"
+    )
+    
+    load_from_preference: bool = Field(
+        default=False,
+        description="Load terms from saved preferences"
+    )
+
+# Service logic:
+async def create_requirement(self, ...):
+    # Load preferences if requested
+    if request.load_from_preference:
+        prefs = await self.get_buyer_preferences(buyer_id)
+        if prefs:
+            request.payment_terms = prefs.default_payment_terms
+            request.delivery_terms = prefs.default_delivery_terms
+            request.weighment_terms = prefs.default_weighment_terms
+    
+    # ... create requirement ...
+    
+    # Save preferences if requested
+    if request.save_as_preference:
+        await self.save_buyer_preferences(
+            buyer_id=buyer_id,
+            payment_terms=request.payment_terms,
+            delivery_terms=request.delivery_terms,
+            weighment_terms=request.weighment_terms,
+            preset_name=request.preference_preset_name
+        )
+```
 
 ---
 
-**Ready for implementation approval?**
+### **ISSUE #10: Commodity Parameter Validation Missing** ❌
+
+**Current State:**
+- Availability & Requirement accept ANY quality parameters in JSONB
+- No validation against Commodity Master's CommodityParameter table
+- min_value/max_value defined but not enforced
+
+**Expected State:**
+- Validate quality_params against commodity's registered parameters
+- Enforce min/max ranges from CommodityParameter table
+- Reject invalid parameters
+
+**Implementation:**
+```python
+# In AvailabilityService.create_availability():
+async def _validate_quality_parameters(
+    self,
+    commodity_id: UUID,
+    quality_params: dict
+) -> None:
+    """
+    Validate quality parameters against commodity master.
+    
+    Rules:
+    1. Check if parameter is registered in CommodityParameter
+    2. Validate min/max ranges
+    3. Check mandatory parameters are present
+    """
+    # Get commodity's registered parameters
+    registered_params = await self.db.execute(
+        select(CommodityParameter)
+        .where(CommodityParameter.commodity_id == commodity_id)
+    )
+    params_list = registered_params.scalars().all()
+    
+    # Build validation map
+    param_map = {p.parameter_name: p for p in params_list}
+    
+    # Check each provided parameter
+    for param_name, param_value in quality_params.items():
+        if param_name not in param_map:
+            raise ValueError(
+                f"Parameter '{param_name}' is not registered for this commodity. "
+                f"Registered parameters: {list(param_map.keys())}"
+            )
+        
+        registered = param_map[param_name]
+        
+        # Validate NUMERIC type with min/max
+        if registered.parameter_type == "NUMERIC":
+            value = Decimal(str(param_value))
+            
+            if registered.min_value and value < registered.min_value:
+                raise ValueError(
+                    f"{param_name}: {value} is below minimum {registered.min_value}"
+                )
+            
+            if registered.max_value and value > registered.max_value:
+                raise ValueError(
+                    f"{param_name}: {value} exceeds maximum {registered.max_value}"
+                )
+        
+        # Validate RANGE type
+        if registered.parameter_type == "RANGE":
+            if not isinstance(param_value, dict) or 'min' not in param_value or 'max' not in param_value:
+                raise ValueError(
+                    f"{param_name}: RANGE type requires {{min: X, max: Y}} format"
+                )
+    
+    # Check mandatory parameters are present
+    mandatory_params = [p.parameter_name for p in params_list if p.is_mandatory]
+    missing = set(mandatory_params) - set(quality_params.keys())
+    
+    if missing:
+        raise ValueError(
+            f"Missing mandatory parameters: {list(missing)}"
+        )
+```
+
+---
+
+### **ISSUE #11: Unit Conversion Not Validated** ❌
+
+**Current State:**
+- Availability/Requirement accept any quantity_unit
+- No validation against commodity's base_unit/trade_unit
+- Conversion happens but not validated upfront
+
+**Expected State:**
+- Validate quantity_unit is compatible with commodity's base_unit
+- Auto-convert using unit_converter.py
+- Reject incompatible units (e.g., KG for METER-based commodity)
+
+**Implementation:**
+```python
+# In AvailabilityService.create_availability():
+async def _validate_and_convert_units(
+    self,
+    commodity_id: UUID,
+    quantity: Decimal,
+    quantity_unit: str
+) -> dict:
+    """
+    Validate unit compatibility and convert to base unit.
+    
+    Returns:
+        {
+            "quantity": original quantity,
+            "quantity_unit": original unit,
+            "quantity_in_base_unit": converted quantity,
+            "base_unit": commodity's base unit,
+            "conversion_factor": factor used
+        }
+    """
+    # Get commodity
+    commodity_result = await self.db.execute(
+        select(Commodity).where(Commodity.id == commodity_id)
+    )
+    commodity = commodity_result.scalar_one_or_none()
+    
+    if not commodity:
+        raise ValueError(f"Commodity {commodity_id} not found")
+    
+    # Get unit info from catalog
+    from backend.modules.settings.commodities.unit_converter import UnitConverter
+    from backend.modules.settings.commodities.unit_catalog import get_unit_info
+    
+    unit_info = get_unit_info(quantity_unit)
+    if not unit_info:
+        raise ValueError(
+            f"Unknown unit: {quantity_unit}. "
+            f"Please use standard units like BALE, KG, MT, CANDY, QUINTAL"
+        )
+    
+    # Validate unit is compatible with commodity's base_unit
+    if unit_info["base_unit"] != commodity.base_unit:
+        raise ValueError(
+            f"Unit '{quantity_unit}' (base: {unit_info['base_unit']}) is incompatible "
+            f"with commodity's base unit '{commodity.base_unit}'. "
+            f"Please use units based on {commodity.base_unit}."
+        )
+    
+    # Convert to base unit
+    quantity_in_base = UnitConverter.convert_to_base(
+        quantity=quantity,
+        from_unit=quantity_unit,
+        base_unit=commodity.base_unit
+    )
+    
+    return {
+        "quantity": quantity,
+        "quantity_unit": quantity_unit,
+        "quantity_in_base_unit": quantity_in_base,
+        "base_unit": commodity.base_unit,
+        "conversion_factor": unit_info["conversion_factor"]
+    }
+
+# Call in create_availability():
+unit_validation = await self._validate_and_convert_units(
+    commodity_id=commodity_id,
+    quantity=total_quantity,
+    quantity_unit=quantity_unit
+)
+
+# Store in availability
+availability.quantity_in_base_unit = unit_validation["quantity_in_base_unit"]
+```
+
+---
+
+## 📊 SUMMARY (UPDATED)
+
+**Total Issues:** 11 critical  
+**Estimated Fix Time:** 7-8 hours  
+**Files to Modify:** 16 files  
+**Database Changes:** 4 columns added + 1 new table + 1 migration  
+
+**Priority:**
+1. 🔴 HIGH: Capability-based auth (#1)
+2. 🔴 HIGH: EOD square-off (#2, #3, #8 - timezone)
+3. 🔴 HIGH: Parameter validation (#10)
+4. 🔴 HIGH: Unit conversion validation (#11)
+5. 🟡 MEDIUM: Circular trading logic (#4)
+6. 🟡 MEDIUM: Mandatory payment terms (#5)
+7. 🟡 MEDIUM: Buyer preferences (#9)
+8. 🟢 LOW: Naming/UX (#6, #7)
+
+---
+
+## ✅ FINAL IMPLEMENTATION CHECKLIST
+
+### Phase 1: Database (1 hour)
+- [ ] Add `eod_cutoff` to `availabilities` table
+- [ ] Add `eod_cutoff` to `requirements` table
+- [ ] Add `timezone` to `settings_locations` table
+- [ ] Create `buyer_preferences` table
+- [ ] Create migration script
+
+### Phase 2: Models (1 hour)
+- [ ] Update `Availability` model
+- [ ] Update `Requirement` model
+- [ ] Create `BuyerPreference` model
+- [ ] Add timezone handling
+
+### Phase 3: Validation Logic (2 hours)
+- [ ] Add commodity parameter validation
+- [ ] Add unit conversion validation
+- [ ] Update circular trading logic (check CURRENT open positions)
+- [ ] Add capability checks
+
+### Phase 4: Schemas (1 hour)
+- [ ] Make payment/delivery/weighment terms MANDATORY
+- [ ] Add buyer preference fields
+- [ ] Rename pricing fields
+- [ ] Add validation schemas
+
+### Phase 5: Services (2 hours)
+- [ ] Remove role-based helpers
+- [ ] Add parameter validation in AvailabilityService
+- [ ] Add unit validation in AvailabilityService
+- [ ] Add parameter validation in RequirementService
+- [ ] Add unit validation in RequirementService
+- [ ] Add buyer preference service methods
+- [ ] Update timezone-aware EOD calculation
+
+### Phase 6: Routes (1 hour)
+- [ ] Add `@RequireCapability` to all endpoints
+- [ ] Update availability routes
+- [ ] Update requirement routes
+- [ ] Add buyer preference endpoints
+
+### Phase 7: Cron Jobs (30 mins)
+- [ ] Create EOD expiry job for availabilities
+- [ ] Create EOD expiry job for requirements
+- [ ] Schedule jobs
+
+### Phase 8: Testing (1 hour)
+- [ ] Test capability-based auth
+- [ ] Test parameter validation
+- [ ] Test unit conversion validation
+- [ ] Test buyer preferences
+- [ ] Test EOD expiry
+- [ ] Test circular trading
+
+---
+
+**🎯 READY FOR FINAL APPROVAL?**
+
+Type **"APPROVED"** to begin implementation.
