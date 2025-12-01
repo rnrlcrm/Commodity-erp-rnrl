@@ -62,18 +62,15 @@ class RequireCapability:
             for cap in self.capabilities
         ]
         
-        # Public capabilities that don't require authentication
-        public_capabilities = [
+        # Public capabilities that don't require authentication (using enum values only)
+        public_capability_values = {
             Capabilities.PUBLIC_ACCESS.value,
             Capabilities.AUTH_LOGIN.value,
             Capabilities.AUTH_CREATE_ACCOUNT.value,
-            "PUBLIC_ACCESS",
-            "AUTH_LOGIN",
-            "AUTH_CREATE_ACCOUNT",
-        ]
+        }
         
         # Check if all requested capabilities are public (don't require auth)
-        if all(cap in public_capabilities for cap in cap_codes):
+        if all(cap in public_capability_values for cap in cap_codes):
             # Public endpoint - no authentication required
             return
         
@@ -89,7 +86,7 @@ class RequireCapability:
         for capability in self.capabilities:
             # Skip public capabilities in the check
             cap_code = capability.value if isinstance(capability, Capabilities) else capability
-            if cap_code in public_capabilities:
+            if cap_code in public_capability_values:
                 continue
                 
             has_capability = await capability_service.user_has_capability(

@@ -520,8 +520,6 @@ async def add_partner_location(
     """
     from backend.modules.partners.partner_services import GeocodingService, GSTVerificationService
     
-    from backend.modules.partners.partner_services import GeocodingService, GSTVerificationService
-    
     # Verify partner exists
     partner = await partner_service.get_partner_by_id(partner_id)
     if not partner:
@@ -610,21 +608,22 @@ async def add_partner_location(
         status="active"
     )
     
-    # Emit event
-    location.emit_event(
-        event_type="partner.location.added",
-        user_id=current_user.id,
-        data={
-            "location_id": str(location.id),
-            "partner_id": str(partner_id),
-            "location_type": location_data.location_type,
-            "location_name": location_data.location_name,
-            "google_maps_tagged": True,
-            "latitude": location.latitude,
-            "longitude": location.longitude
-        }
-    )
-    await location.flush_events(db)
+    # TODO: PartnerLocation doesn't have EventMixin - event emission disabled
+    # Once EventMixin is added to PartnerLocation model, uncomment:
+    # location.emit_event(
+    #     event_type="partner.location.added",
+    #     user_id=current_user.id,
+    #     data={
+    #         "location_id": str(location.id),
+    #         "partner_id": str(partner_id),
+    #         "location_type": location_data.location_type,
+    #         "location_name": location_data.location_name,
+    #         "google_maps_tagged": True,
+    #         "latitude": location.latitude,
+    #         "longitude": location.longitude
+    #     }
+    # )
+    # await location.flush_events(db)
     
     return location
 
