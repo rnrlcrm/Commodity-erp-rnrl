@@ -166,7 +166,11 @@ class AvailabilityCreateRequest(BaseModel):
                             "length": 29.0,
                             "strength": 26.0,
                             "micronaire": 4.5
-                        }
+                        },
+                        "market_visibility": "PUBLIC",
+                        "allow_partial_order": True,
+                        "min_order_quantity": 10.0,
+                        "delivery_terms": "Ex-gin"
                     }
                 }
             ]
