@@ -119,45 +119,116 @@ async def expire_availabilities_eod():
 
 ---
 
-### **ISSUE #4: Circular Trading Check is Full-Day, Not Intraday** ❌
+### **ISSUE #4: Circular Trading Logic is Wrong** ❌
 
 **Current State:**
 ```python
 # In risk_engine.py:
-func.date(Availability.created_at) == trade_date  # ❌ Full day check
+func.date(Availability.created_at) == trade_date  # ❌ Blocks same-day
 ```
-This blocks: "Buy at 9 AM, Sell at 3 PM same day" (legitimate day trading)
+This blocks legitimate intraday trading: "Buy complete → Sell same commodity"
+
+**CORRECT Business Logic:**
+```
+ALLOWED ✅:
+- 9 AM: BUY 100 bales (trade COMPLETED/SETTLED)
+- 3 PM: SELL 100 bales (now you own it, can sell)
+
+BLOCKED ❌:
+- 9 AM: CREATE requirement to BUY 100 bales (status=ACTIVE, not settled yet)
+- 10 AM: CREATE availability to SELL same 100 bales (can't sell what you don't own)
+
+KEY RULE: Can only SELL commodity if you:
+1. Already OWN it (completed BUY trade), OR
+2. Don't have OPEN/PENDING BUY requirement for same commodity
+```
 
 **Expected State:**
-- Allow intraday buy/sell of same commodity
-- Only block if CURRENTLY have OPEN position
-- Check: Active positions RIGHT NOW, not "created today"
+- Block if partner has UNSETTLED/PENDING positions (not yet completed trades)
+- Allow once trade is COMPLETED/SETTLED (ownership transferred)
+- Check: Do they have OPEN requirement/availability? (not settled)
 
 **Fix:**
 ```python
-# BEFORE (blocks entire day):
-query = select(Availability).where(
-    and_(
-        Availability.seller_id == partner_id,
-        Availability.commodity_id == commodity_id,
-        Availability.status.in_(['AVAILABLE', 'PARTIALLY_SOLD']),
-        func.date(Availability.created_at) == trade_date  # ❌
-    )
-)
-
-# AFTER (only blocks if currently open):
-query = select(Availability).where(
-    and_(
-        Availability.seller_id == partner_id,
-        Availability.commodity_id == commodity_id,
-        Availability.status.in_(['ACTIVE', 'AVAILABLE', 'PARTIALLY_SOLD']),  # ✅ Currently open
-        # No date filter - check if CURRENTLY open
-    )
-)
-
-# Message: "You currently have OPEN SELL positions for this commodity. 
-#          Close them first before creating BUY requirement."
+# CORRECT LOGIC:
+async def check_circular_trading(
+    self,
+    partner_id: UUID,
+    commodity_id: UUID,
+    transaction_type: str,  # "BUY" or "SELL"
+) -> Dict[str, Any]:
+    """
+    Prevent circular trading: Can't sell what you don't own.
+    
+    Rules:
+    - SELL: Blocked if you have OPEN BUY requirement (not settled yet)
+    - BUY: Blocked if you have OPEN SELL availability (not settled yet)
+    
+    Settlement happens when trade status = COMPLETED/DELIVERED
+    """
+    if transaction_type == "SELL":
+        # User wants to SELL - check if they have UNSETTLED BUY
+        query = select(Requirement).where(
+            and_(
+                Requirement.buyer_partner_id == partner_id,
+                Requirement.commodity_id == commodity_id,
+                Requirement.status.in_([
+                    'DRAFT', 'ACTIVE', 'PENDING_APPROVAL'
+                ]),  # ✅ Not settled yet
+                # NO date filter - check if position is OPEN (not completed)
+            )
+        )
+        
+        result = await self.db.execute(query)
+        open_buys = result.scalars().all()
+        
+        if open_buys:
+            return {
+                "blocked": True,
+                "reason": (
+                    f"Cannot SELL: You have {len(open_buys)} OPEN/PENDING BUY "
+                    f"requirement(s) for this commodity. Wait for settlement or cancel BUY first."
+                ),
+                "violation_type": "UNSETTLED_BUY_EXISTS",
+                "recommendation": "Wait for BUY trade to complete/settle before creating SELL"
+            }
+    
+    elif transaction_type == "BUY":
+        # User wants to BUY - check if they have UNSETTLED SELL
+        query = select(Availability).where(
+            and_(
+                Availability.seller_partner_id == partner_id,
+                Availability.commodity_id == commodity_id,
+                Availability.status.in_([
+                    'DRAFT', 'ACTIVE', 'AVAILABLE', 'PARTIALLY_SOLD'
+                ]),  # ✅ Not settled yet
+            )
+        )
+        
+        result = await self.db.execute(query)
+        open_sells = result.scalars().all()
+        
+        if open_sells:
+            return {
+                "blocked": True,
+                "reason": (
+                    f"Cannot BUY: You have {len(open_sells)} OPEN SELL "
+                    f"availability(ies) for this commodity. Settle or cancel SELL first."
+                ),
+                "violation_type": "UNSETTLED_SELL_EXISTS",
+                "recommendation": "Wait for SELL trade to complete/settle before creating BUY"
+            }
+    
+    # No circular trading - positions are settled or don't exist
+    return {
+        "blocked": False,
+        "reason": "No unsettled positions - validation passed"
+    }
 ```
+
+**Summary:**
+- ❌ OLD: Blocks same-day buy/sell (wrong - prevents legitimate trading)
+- ✅ NEW: Blocks UNSETTLED positions (correct - can't sell what you don't own yet)
 
 ---
 
