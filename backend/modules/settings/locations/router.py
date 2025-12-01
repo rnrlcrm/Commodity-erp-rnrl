@@ -11,11 +11,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.events.emitter import EventEmitter
 from backend.db.session import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.settings.locations.schemas import (
     FetchDetailsRequest,
     GooglePlaceDetails,
@@ -39,10 +41,11 @@ async def get_event_emitter(db: AsyncSession = Depends(get_db)) -> EventEmitter:
 
 async def get_location_service(
     db: AsyncSession = Depends(get_db),
-    event_emitter: EventEmitter = Depends(get_event_emitter)
+    event_emitter: EventEmitter = Depends(get_event_emitter),
+    redis_client: redis.Redis = Depends(get_redis)
 ) -> LocationService:
     """Dependency to get LocationService instance"""
-    return LocationService(db, event_emitter)
+    return LocationService(db, event_emitter, redis_client=redis_client)
 
 
 # ==================== Google Maps Integration Endpoints ====================

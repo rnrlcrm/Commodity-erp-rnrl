@@ -3,10 +3,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.db.session import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.settings.organization.schemas import (
     NextDocumentNumberResponse,
     OrganizationBankAccountCreate,
@@ -40,9 +42,10 @@ def get_current_user_id() -> UUID:
 
 async def get_service(
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
+    redis_client: redis.Redis = Depends(get_redis)
 ) -> OrganizationService:
-    return OrganizationService(db, user_id)
+    return OrganizationService(db, user_id, redis_client=redis_client)
 
 
 # Organization endpoints

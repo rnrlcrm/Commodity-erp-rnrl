@@ -17,11 +17,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.auth.dependencies import get_current_user, require_permissions
 from backend.db.async_session import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.trade_desk.schemas.requirement_schemas import (
     AIAdjustmentRequest,
     AIAdjustmentResponse,
@@ -46,10 +48,11 @@ router = APIRouter(prefix="/requirements", tags=["Requirement Engine"])
 
 def get_requirement_service(
     db: AsyncSession = Depends(get_db),
-    ws_service = Depends(get_requirement_ws_service)
+    ws_service = Depends(get_requirement_ws_service),
+    redis_client: redis.Redis = Depends(get_redis)
 ) -> RequirementService:
     """Dependency to get RequirementService with WebSocket support"""
-    return RequirementService(db, ws_service=ws_service)
+    return RequirementService(db, ws_service=ws_service, redis_client=redis_client)
 
 
 def get_buyer_id_from_user(user) -> UUID:
