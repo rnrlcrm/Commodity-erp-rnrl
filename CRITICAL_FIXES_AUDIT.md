@@ -126,27 +126,33 @@ async def expire_availabilities_eod():
 # In risk_engine.py:
 func.date(Availability.created_at) == trade_date  # ❌ Blocks same-day
 ```
-This blocks legitimate intraday trading: "Buy complete → Sell same commodity"
 
 **CORRECT Business Logic:**
 ```
+SCENARIO 1: Own Position Check
 ALLOWED ✅:
-- 9 AM: BUY 100 bales (trade COMPLETED/SETTLED)
-- 3 PM: SELL 100 bales (now you own it, can sell)
+- 9 AM: Manjeet BUYS from Party A (trade COMPLETED/SETTLED)
+- 3 PM: Manjeet SELLS to Party B (different party, owns commodity now)
 
 BLOCKED ❌:
-- 9 AM: CREATE requirement to BUY 100 bales (status=ACTIVE, not settled yet)
-- 10 AM: CREATE availability to SELL same 100 bales (can't sell what you don't own)
+- 9 AM: Manjeet creates BUY requirement (status=ACTIVE, not settled)
+- 10 AM: Manjeet creates SELL availability (can't sell what he doesn't own yet)
 
-KEY RULE: Can only SELL commodity if you:
-1. Already OWN it (completed BUY trade), OR
-2. Don't have OPEN/PENDING BUY requirement for same commodity
+SCENARIO 2: Same Counter-Party (WASH TRADING)
+BLOCKED ❌:
+- 9 AM: Manjeet BUYS from Harman (100 bales cotton)
+- 10 AM: Manjeet SELLS to Harman (same 100 bales, same day, same commodity)
+         ↑ This is CIRCULAR/WASH TRADING - BLOCKED!
+
+KEY RULES:
+1. Can't sell commodity you don't own yet (unsettled BUY)
+2. Can't buy/sell SAME commodity with SAME party on SAME DAY (circular trading)
 ```
 
 **Expected State:**
-- Block if partner has UNSETTLED/PENDING positions (not yet completed trades)
-- Allow once trade is COMPLETED/SETTLED (ownership transferred)
-- Check: Do they have OPEN requirement/availability? (not settled)
+- Block UNSETTLED positions (can't sell what you don't own)
+- Block same-day BUY from Party A → SELL to Party A (wash trading)
+- Allow: BUY from Party A → SELL to Party B (legitimate trading)
 
 **Fix:**
 ```python
@@ -156,79 +162,128 @@ async def check_circular_trading(
     partner_id: UUID,
     commodity_id: UUID,
     transaction_type: str,  # "BUY" or "SELL"
+    counter_party_id: Optional[UUID] = None  # 🔥 NEW: Who they're trading with
 ) -> Dict[str, Any]:
     """
-    Prevent circular trading: Can't sell what you don't own.
+    Prevent circular trading:
+    1. Can't sell what you don't own (unsettled positions)
+    2. Can't buy/sell same commodity with same party same day (wash trading)
     
     Rules:
-    - SELL: Blocked if you have OPEN BUY requirement (not settled yet)
-    - BUY: Blocked if you have OPEN SELL availability (not settled yet)
-    
-    Settlement happens when trade status = COMPLETED/DELIVERED
+    - SELL: Blocked if (a) OPEN BUY exists, OR (b) BUY from this counter-party today
+    - BUY: Blocked if (a) OPEN SELL exists, OR (b) SELL to this counter-party today
     """
+    today = datetime.now().date()
+    
     if transaction_type == "SELL":
-        # User wants to SELL - check if they have UNSETTLED BUY
-        query = select(Requirement).where(
-            and_(
-                Requirement.buyer_partner_id == partner_id,
-                Requirement.commodity_id == commodity_id,
-                Requirement.status.in_([
-                    'DRAFT', 'ACTIVE', 'PENDING_APPROVAL'
-                ]),  # ✅ Not settled yet
-                # NO date filter - check if position is OPEN (not completed)
+        # Check 1: Do they have UNSETTLED BUY?
+        unsettled_buys = await self.db.execute(
+            select(Requirement).where(
+                and_(
+                    Requirement.buyer_partner_id == partner_id,
+                    Requirement.commodity_id == commodity_id,
+                    Requirement.status.in_(['DRAFT', 'ACTIVE', 'PENDING_APPROVAL'])
+                )
             )
         )
         
-        result = await self.db.execute(query)
-        open_buys = result.scalars().all()
-        
-        if open_buys:
+        if unsettled_buys.scalars().first():
             return {
                 "blocked": True,
-                "reason": (
-                    f"Cannot SELL: You have {len(open_buys)} OPEN/PENDING BUY "
-                    f"requirement(s) for this commodity. Wait for settlement or cancel BUY first."
-                ),
-                "violation_type": "UNSETTLED_BUY_EXISTS",
-                "recommendation": "Wait for BUY trade to complete/settle before creating SELL"
+                "reason": "Cannot SELL: You have OPEN BUY position(s) for this commodity. Settle first.",
+                "violation_type": "UNSETTLED_BUY_EXISTS"
             }
+        
+        # Check 2: Did they BUY from this counter-party TODAY?
+        if counter_party_id:
+            # Find completed trades today where they BOUGHT from counter_party
+            todays_buys = await self.db.execute(
+                select(Trade).where(
+                    and_(
+                        Trade.buyer_partner_id == partner_id,
+                        Trade.seller_partner_id == counter_party_id,
+                        Trade.commodity_id == commodity_id,
+                        func.date(Trade.created_at) == today,
+                        Trade.status.in_(['PENDING', 'CONFIRMED', 'IN_PROGRESS'])
+                    )
+                )
+            )
+            
+            if todays_buys.scalars().first():
+                return {
+                    "blocked": True,
+                    "reason": (
+                        f"WASH TRADING BLOCKED: You bought this commodity from this party TODAY. "
+                        f"Cannot sell back to same party on same day."
+                    ),
+                    "violation_type": "SAME_DAY_REVERSE_TRADE",
+                    "recommendation": "Wait until tomorrow or sell to different party"
+                }
     
     elif transaction_type == "BUY":
-        # User wants to BUY - check if they have UNSETTLED SELL
-        query = select(Availability).where(
-            and_(
-                Availability.seller_partner_id == partner_id,
-                Availability.commodity_id == commodity_id,
-                Availability.status.in_([
-                    'DRAFT', 'ACTIVE', 'AVAILABLE', 'PARTIALLY_SOLD'
-                ]),  # ✅ Not settled yet
+        # Check 1: Do they have UNSETTLED SELL?
+        unsettled_sells = await self.db.execute(
+            select(Availability).where(
+                and_(
+                    Availability.seller_partner_id == partner_id,
+                    Availability.commodity_id == commodity_id,
+                    Availability.status.in_(['DRAFT', 'ACTIVE', 'AVAILABLE', 'PARTIALLY_SOLD'])
+                )
             )
         )
         
-        result = await self.db.execute(query)
-        open_sells = result.scalars().all()
-        
-        if open_sells:
+        if unsettled_sells.scalars().first():
             return {
                 "blocked": True,
-                "reason": (
-                    f"Cannot BUY: You have {len(open_sells)} OPEN SELL "
-                    f"availability(ies) for this commodity. Settle or cancel SELL first."
-                ),
-                "violation_type": "UNSETTLED_SELL_EXISTS",
-                "recommendation": "Wait for SELL trade to complete/settle before creating BUY"
+                "reason": "Cannot BUY: You have OPEN SELL position(s) for this commodity. Settle first.",
+                "violation_type": "UNSETTLED_SELL_EXISTS"
             }
+        
+        # Check 2: Did they SELL to this counter-party TODAY?
+        if counter_party_id:
+            # Find completed trades today where they SOLD to counter_party
+            todays_sells = await self.db.execute(
+                select(Trade).where(
+                    and_(
+                        Trade.seller_partner_id == partner_id,
+                        Trade.buyer_partner_id == counter_party_id,
+                        Trade.commodity_id == commodity_id,
+                        func.date(Trade.created_at) == today,
+                        Trade.status.in_(['PENDING', 'CONFIRMED', 'IN_PROGRESS'])
+                    )
+                )
+            )
+            
+            if todays_sells.scalars().first():
+                return {
+                    "blocked": True,
+                    "reason": (
+                        f"WASH TRADING BLOCKED: You sold this commodity to this party TODAY. "
+                        f"Cannot buy back from same party on same day."
+                    ),
+                    "violation_type": "SAME_DAY_REVERSE_TRADE",
+                    "recommendation": "Wait until tomorrow or buy from different party"
+                }
     
-    # No circular trading - positions are settled or don't exist
+    # No circular trading detected
     return {
         "blocked": False,
-        "reason": "No unsettled positions - validation passed"
+        "reason": "No circular trading detected"
     }
+
+# USAGE in Availability/Requirement creation:
+circular_check = await risk_engine.check_circular_trading(
+    partner_id=seller_id,
+    commodity_id=commodity_id,
+    transaction_type="SELL",
+    counter_party_id=buyer_id  # 🔥 Pass the counter-party for wash trading check
+)
 ```
 
 **Summary:**
-- ❌ OLD: Blocks same-day buy/sell (wrong - prevents legitimate trading)
-- ✅ NEW: Blocks UNSETTLED positions (correct - can't sell what you don't own yet)
+- ✅ Blocks UNSETTLED positions (can't sell what you don't own)
+- ✅ Blocks same-day reverse trades with SAME party (Manjeet ↔ Harman circular)
+- ✅ Allows legitimate trading (Manjeet buys from Harman, sells to Different Party)
 
 ---
 
