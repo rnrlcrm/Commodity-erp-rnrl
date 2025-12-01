@@ -13,11 +13,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.events.emitter import EventEmitter
 from backend.db.session import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.settings.commodities.ai_helpers import CommodityAIHelper
 from backend.modules.settings.commodities.bulk_operations import (
     BulkOperationService,
@@ -115,10 +117,11 @@ def create_commodity(
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    redis_client: redis.Redis = Depends(get_redis),
     _check: None = Depends(RequireCapability(Capabilities.COMMODITY_CREATE))
 ):
     """Create new commodity with AI enrichment. Requires COMMODITY_CREATE capability. Supports idempotency."""
-    service = CommodityService(db, event_emitter, ai_helper, user_id)
+    service = CommodityService(db, event_emitter, ai_helper, user_id, redis_client=redis_client)
     commodity = service.create_commodity(data)
     return commodity
 
@@ -129,10 +132,11 @@ def get_commodity(
     db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
+    redis_client: redis.Redis = Depends(get_redis)
 ):
     """Get commodity by ID"""
-    service = CommodityService(db, event_emitter, ai_helper, user_id)
+    service = CommodityService(db, event_emitter, ai_helper, user_id, redis_client=redis_client)
     commodity = service.get_commodity(commodity_id)
     if not commodity:
         raise HTTPException(
@@ -149,10 +153,11 @@ def list_commodities(
     db: AsyncSession = Depends(get_db),
     event_emitter: EventEmitter = Depends(get_event_emitter),
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
+    redis_client: redis.Redis = Depends(get_redis)
 ):
     """List commodities with optional filters"""
-    service = CommodityService(db, event_emitter, ai_helper, user_id)
+    service = CommodityService(db, event_emitter, ai_helper, user_id, redis_client=redis_client)
     commodities = service.list_commodities(category=category, is_active=is_active)
     return commodities
 
@@ -166,10 +171,11 @@ def update_commodity(
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    redis_client: redis.Redis = Depends(get_redis),
     _check: None = Depends(RequireCapability(Capabilities.COMMODITY_UPDATE))
 ):
     """Update commodity. Requires COMMODITY_UPDATE capability. Supports idempotency."""
-    service = CommodityService(db, event_emitter, ai_helper, user_id)
+    service = CommodityService(db, event_emitter, ai_helper, user_id, redis_client=redis_client)
     commodity = service.update_commodity(commodity_id, data)
     if not commodity:
         raise HTTPException(
@@ -187,10 +193,11 @@ def delete_commodity(
     ai_helper: CommodityAIHelper = Depends(get_ai_helper),
     user_id: UUID = Depends(get_current_user_id),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    redis_client: redis.Redis = Depends(get_redis),
     _check: None = Depends(RequireCapability(Capabilities.COMMODITY_DELETE))
 ):
     """Delete commodity. Requires COMMODITY_DELETE capability. Supports idempotency."""
-    service = CommodityService(db, event_emitter, ai_helper, user_id)
+    service = CommodityService(db, event_emitter, ai_helper, user_id, redis_client=redis_client)
     success = service.delete_commodity(commodity_id)
     if not success:
         raise HTTPException(
@@ -830,7 +837,8 @@ def advanced_search_commodities(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
+    redis_client: redis.Redis = Depends(get_redis)
 ):
     """
     Advanced search with multiple filters.
@@ -854,7 +862,7 @@ def advanced_search_commodities(
         limit=limit
     )
     
-    service = CommodityService(db, event_emitter=EventEmitter(db), user_id=user_id)
+    service = CommodityService(db, event_emitter=EventEmitter(db), user_id=user_id, redis_client=redis_client)
     commodities = service.search_commodities(filter_criteria)
     return commodities
 
@@ -866,7 +874,8 @@ async def calculate_conversion(
     commodity_id: UUID,
     request: ConversionCalculationRequest,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id)
+    user_id: UUID = Depends(get_current_user_id),
+    redis_client: redis.Redis = Depends(get_redis)
 ):
     """
     Calculate theoretical billing amount with complete conversion breakdown.
@@ -887,7 +896,7 @@ async def calculate_conversion(
     """
     from backend.modules.settings.commodities.unit_converter import UnitConverter
     
-    service = CommodityService(db, event_emitter=EventEmitter(db), user_id=user_id)
+    service = CommodityService(db, event_emitter=EventEmitter(db), user_id=user_id, redis_client=redis_client)
     commodity = await service.get(commodity_id)
     
     if not commodity:

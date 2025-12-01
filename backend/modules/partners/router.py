@@ -25,11 +25,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.deps import get_current_user
 from backend.core.auth.capabilities import Capabilities, RequireCapability
 from backend.core.events.emitter import EventEmitter
 from backend.db.session import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.partners.enums import PartnerStatus, PartnerType, KYCStatus, RiskCategory
 from backend.modules.partners.schemas import (
     AmendmentRequest,
@@ -114,10 +116,11 @@ async def start_onboarding(
     user_id: UUID = Depends(get_current_user_id),
     organization_id: UUID = Depends(get_current_organization_id),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    redis_client: redis.Redis = Depends(get_redis),
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_CREATE)),
 ):
     """Start partner onboarding with GST verification and geocoding"""
-    service = PartnerService(db, event_emitter, user_id, organization_id)
+    service = PartnerService(db, event_emitter, user_id, organization_id, redis_client=redis_client)
     
     try:
         application = await service.start_onboarding(data)
@@ -236,7 +239,7 @@ async def submit_for_approval(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_CREATE)),
 ):
     """Submit application for approval with risk-based routing"""
-    service = PartnerService(db, event_emitter, user_id, organization_id)
+    service = PartnerService(db, event_emitter, user_id, organization_id, redis_client=redis_client)
     
     try:
         result = await service.submit_for_approval(application_id)
@@ -295,7 +298,7 @@ async def approve_partner(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_APPROVE)),
 ):
     """Approve partner application (manager/director only)"""
-    approval_service = partner_services.ApprovalService(db, user_id)
+    approval_service = partner_services.ApprovalService(db, user_id, redis_client=redis_client)
     
     # Get application
     app_repo = OnboardingApplicationRepository(db)
@@ -355,7 +358,7 @@ async def reject_partner(
     """Reject partner application"""
     decision.approved = False
     
-    approval_service = partner_services.ApprovalService(db, user_id)
+    approval_service = partner_services.ApprovalService(db, user_id, redis_client=redis_client)
     app_repo = OnboardingApplicationRepository(db)
     application = await app_repo.get_by_id(application_id)
     
@@ -708,7 +711,7 @@ async def invite_employee(
 ):
     """Invite employee to partner account"""
     # Service handles: employee creation, event emission, commit
-    service = PartnerService(db, get_event_emitter(), user_id, organization_id)
+    service = PartnerService(db, get_event_emitter(), user_id, organization_id, redis_client=redis_client)
     new_employee = await service.invite_employee(
         partner_id=partner_id,
         employee_data=employee.dict(),
@@ -734,7 +737,7 @@ async def get_expiring_kyc_partners(
     organization_id: UUID = Depends(get_current_organization_id)
 ):
     """Get partners with KYC expiring soon"""
-    kyc_service = partner_services.KYCRenewalService(db, UUID("00000000-0000-0000-0000-000000000000"))
+    kyc_service = partner_services.KYCRenewalService(db, UUID("00000000-0000-0000-0000-000000000000"), redis_client=redis_client)
     partners = await kyc_service.check_kyc_expiry(organization_id, days)
     return partners
 
@@ -759,7 +762,7 @@ async def initiate_kyc_renewal(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_UPDATE)),
 ):
     """Initiate KYC renewal for partner"""
-    kyc_service = partner_services.KYCRenewalService(db, user_id)
+    kyc_service = partner_services.KYCRenewalService(db, user_id, redis_client=redis_client)
     
     try:
         # Service already handles commit
@@ -799,7 +802,7 @@ async def complete_kyc_renewal(
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_UPDATE)),
 ):
     """Complete KYC renewal with new documents"""
-    kyc_service = partner_services.KYCRenewalService(db, user_id)
+    kyc_service = partner_services.KYCRenewalService(db, user_id, redis_client=redis_client)
     
     try:
         partner = await kyc_service.complete_kyc_renewal(

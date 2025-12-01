@@ -17,6 +17,7 @@ import redis.asyncio as redis
 from backend.core.auth.deps import get_current_user
 from backend.core.capabilities import Capabilities, RequireCapability
 from backend.db import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.user_onboarding.schemas.auth_schemas import (
     AuthTokenResponse,
     CompleteProfileRequest,
@@ -29,26 +30,6 @@ from backend.modules.user_onboarding.services.auth_service import UserAuthServic
 from backend.modules.user_onboarding.services.otp_service import OTPService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
-
-
-# ===== DEPENDENCIES =====
-
-async def get_redis() -> AsyncGenerator[redis.Redis, None]:
-    """
-    Get Redis client for OTP storage
-    
-    TODO: Configure Redis connection from settings
-    For now using localhost defaults
-    """
-    redis_client = redis.from_url(
-        "redis://localhost:6379",
-        encoding="utf-8",
-        decode_responses=False
-    )
-    try:
-        yield redis_client
-    finally:
-        await redis_client.aclose()
 
 
 # ===== ENDPOINTS =====
@@ -152,7 +133,7 @@ async def verify_otp(
 ):
     """Verify OTP and return JWT token with session. Requires PUBLIC_ACCESS capability (unauthenticated endpoint)."""
     otp_service = OTPService(redis_client)
-    user_service = UserAuthService(db)
+    user_service = UserAuthService(db, redis_client=redis_client)
     
     # Verify OTP
     await otp_service.verify_otp(request.mobile_number, request.otp)
@@ -242,10 +223,11 @@ async def complete_profile(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    redis_client: redis.Redis = Depends(get_redis),
     _check: None = Depends(RequireCapability(Capabilities.AUTH_UPDATE_PROFILE))
 ):
     """Complete user profile after OTP verification. Requires AUTH_UPDATE_PROFILE capability."""
-    user_service = UserAuthService(db)
+    user_service = UserAuthService(db, redis_client=redis_client)
     
     user = await user_service.complete_profile(
         user_id=current_user.id,

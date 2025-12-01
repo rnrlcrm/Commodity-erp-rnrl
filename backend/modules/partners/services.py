@@ -785,11 +785,13 @@ class KYCRenewalService:
     KYC expires 1 year from approval date.
     """
     
-    def __init__(self, db: AsyncSession, current_user_id: UUID):
+    def __init__(self, db: AsyncSession, current_user_id: UUID, redis_client: Optional[redis.Redis] = None):
         self.db = db
         self.current_user_id = current_user_id
+        self.redis = redis_client
         self.bp_repo = BusinessPartnerRepository(db)
         self.kyc_repo = PartnerKYCRenewalRepository(db)
+        self.outbox_repo = OutboxRepository(db)
     
     async def check_kyc_expiry(self, organization_id: UUID, days_threshold: int = 30) -> List[BusinessPartner]:
         """
@@ -903,12 +905,14 @@ class PartnerService:
         db: AsyncSession,
         event_emitter: EventEmitter,
         current_user_id: UUID,
-        organization_id: UUID
+        organization_id: UUID,
+        redis_client: Optional[redis.Redis] = None
     ):
         self.db = db
         self.event_emitter = event_emitter
         self.current_user_id = current_user_id
         self.organization_id = organization_id
+        self.redis = redis_client
         
         # Initialize repositories
         self.bp_repo = BusinessPartnerRepository(db)
@@ -917,6 +921,7 @@ class PartnerService:
         self.employee_repo = PartnerEmployeeRepository(db)
         self.document_repo = PartnerDocumentRepository(db)
         self.vehicle_repo = PartnerVehicleRepository(db)
+        self.outbox_repo = OutboxRepository(db)
         
         # Initialize services
         self.gst_service = GSTVerificationService()
@@ -924,8 +929,8 @@ class PartnerService:
         self.rto_service = RTOVerificationService()
         self.doc_service = DocumentProcessingService()
         self.risk_service = RiskScoringService()
-        self.approval_service = ApprovalService(db, current_user_id)
-        self.kyc_service = KYCRenewalService(db, current_user_id)
+        self.approval_service = ApprovalService(db, current_user_id, redis_client)
+        self.kyc_service = KYCRenewalService(db, current_user_id, redis_client)
     
     async def start_onboarding(
         self,

@@ -13,11 +13,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.auth.dependencies import get_current_user, require_permissions
 from backend.db.async_session import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.trade_desk.schemas import (
     ApprovalRequest,
     AvailabilityCreateRequest,
@@ -87,7 +89,8 @@ async def create_availability(
     request: AvailabilityCreateRequest,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    redis_client: redis.Redis = Depends(get_redis)
 ):
     """
     Create new availability posting.
@@ -110,7 +113,7 @@ async def create_availability(
     Returns: Created availability with AI enhancements
     """
     seller_id = get_seller_id_from_user(current_user)
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     try:
         availability = await service.create_availability(
@@ -155,6 +158,7 @@ async def search_availabilities(
     request: AvailabilitySearchRequest,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
+    redis_client: redis.Redis = Depends(get_redis)
 ):
     """
     AI-powered smart search for compatible availabilities.
@@ -168,7 +172,7 @@ async def search_availabilities(
     - Ranked by match score (0.0 to 1.0)
     """
     buyer_id = get_buyer_id_from_user(current_user)
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     results = await service.search_availabilities(
         buyer_id=buyer_id,
@@ -223,7 +227,7 @@ async def get_my_availabilities(
 ):
     """Get seller's inventory list."""
     seller_id = get_seller_id_from_user(current_user)
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     availabilities = await service.get_seller_availabilities(
         seller_id=seller_id,
@@ -247,7 +251,7 @@ async def get_availability(
     db: AsyncSession = Depends(get_db)
 ):
     """Get single availability by ID."""
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     availability = await service.repo.get_by_id(availability_id, load_relationships=True)
     
     if not availability:
@@ -274,7 +278,7 @@ async def update_availability(
 ):
     """Update availability (seller only). Requires AVAILABILITY_UPDATE capability.""""
     seller_id = get_seller_id_from_user(current_user)
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     # Verify ownership
     existing = await service.repo.get_by_id(availability_id)
@@ -315,7 +319,7 @@ async def approve_availability(
     _check: None = Depends(RequireCapability(Capabilities.AVAILABILITY_APPROVE))
 ):
     """Approve availability for public listing (CRITICAL). Requires AVAILABILITY_APPROVE capability.""""
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     try:
         # Service handles: event emission, commit, idempotency
@@ -354,7 +358,7 @@ async def reserve_quantity(
     _check: None = Depends(RequireCapability(Capabilities.AVAILABILITY_RESERVE))
 ):
     """Reserve quantity for negotiation (internal API). Requires AVAILABILITY_RESERVE capability."""
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     try:
         availability = await service.reserve_availability(
@@ -388,7 +392,7 @@ async def release_quantity(
     _check: None = Depends(RequireCapability(Capabilities.AVAILABILITY_RELEASE))
 ):
     """Release reserved quantity (internal API). Requires AVAILABILITY_RELEASE capability.""""
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     try:
         availability = await service.release_availability(
@@ -421,7 +425,7 @@ async def mark_as_sold(
     _check: None = Depends(RequireCapability(Capabilities.AVAILABILITY_MARK_SOLD))
 ):
     """Mark quantity as sold (internal API). Requires AVAILABILITY_MARK_SOLD capability."""
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     try:
         availability = await service.mark_as_sold(
@@ -456,7 +460,7 @@ async def get_negotiation_readiness(
     db: AsyncSession = Depends(get_db)
 ):
     """Get negotiation readiness score."""
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     availability = await service.repo.get_by_id(availability_id, load_relationships=True)
     if not availability:
@@ -488,7 +492,7 @@ async def get_similar_commodities(
     db: AsyncSession = Depends(get_db)
 ):
     """Get similar commodity suggestions."""
-    service = AvailabilityService(db)
+    service = AvailabilityService(db, redis_client=redis_client)
     
     availability = await service.repo.get_by_id(availability_id, load_relationships=True)
     if not availability:

@@ -21,11 +21,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.auth.dependencies import get_current_user
 from backend.db.async_session import get_db
+from backend.app.dependencies import get_redis
 from backend.modules.risk.risk_service import RiskService
 from backend.modules.risk.ml_risk_model import MLRiskModel
 from backend.modules.risk.schemas import (
@@ -56,9 +58,10 @@ router = APIRouter(prefix="/risk", tags=["Risk Engine"])
 
 def get_risk_service(
     db: AsyncSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis)
 ) -> RiskService:
     """Dependency to get RiskService instance."""
-    return RiskService(db=db)
+    return RiskService(db=db, redis_client=redis_client)
 
 
 def get_ml_model() -> MLRiskModel:
