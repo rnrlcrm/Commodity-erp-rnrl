@@ -12,22 +12,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from modules.common.schemas.auth import TokenResponse
+
 
 class RefreshTokenRequest(BaseModel):
     """Request to refresh access token"""
     refresh_token: str = Field(..., description="Refresh token from login")
-
-
-class TokenResponse(BaseModel):
-    """Token response (login or refresh)"""
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    access_token_expires_at: datetime
-    refresh_token_expires_at: datetime
-    device_info: Optional[dict] = None
-    is_suspicious: bool = False
-    suspicious_reason: Optional[str] = None
 
 
 class SessionInfo(BaseModel):

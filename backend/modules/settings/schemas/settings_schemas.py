@@ -6,6 +6,8 @@ import re
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from modules.common.schemas.auth import TokenResponse, SendOTPRequest, VerifyOTPRequest, OTPResponse
+
 
 class SignupRequest(BaseModel):
 	email: EmailStr
@@ -16,13 +18,6 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
 	email: EmailStr
 	password: str
-
-
-class TokenResponse(BaseModel):
-	access_token: str
-	refresh_token: str
-	token_type: str = "Bearer"
-	expires_in: int
 
 
 class UserOut(BaseModel):
@@ -89,32 +84,6 @@ class LoginWith2FAResponse(BaseModel):
 	two_fa_required: bool
 	message: str
 	email: EmailStr
-
-
-class SendOTPRequest(BaseModel):
-	"""Request to send OTP to mobile number for EXTERNAL user login."""
-	mobile_number: str = Field(
-		pattern=r'^\+[1-9]\d{1,14}$',
-		description="Mobile number in E.164 format (e.g., +919876543210)"
-	)
-	country_code: str = Field(default="+91")
-
-
-class VerifyOTPRequest(BaseModel):
-	"""Request to verify OTP for EXTERNAL user login."""
-	mobile_number: str = Field(
-		pattern=r'^\+[1-9]\d{1,14}$',
-		description="Mobile number in E.164 format (e.g., +919876543210)"
-	)
-	otp: str = Field(min_length=6, max_length=6, pattern=r'^\d+$')
-
-
-class OTPResponse(BaseModel):
-	"""Response after sending OTP."""
-	success: bool
-	message: str
-	otp_sent_at: Optional[datetime] = None
-	expires_in_seconds: int = 300
 
 
 class InternalUserSignupRequest(BaseModel):

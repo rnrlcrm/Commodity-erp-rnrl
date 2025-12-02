@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from modules.common.schemas.responses import ErrorResponse
+
 # Import Requirement schemas
 from backend.modules.trade_desk.schemas.requirement_schemas import (
     AIAdjustmentRequest,
@@ -544,17 +546,4 @@ class SimilarCommodityResponse(BaseModel):
             }
         }
 
-
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-    
-    detail: str
-    error_code: Optional[str] = None
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "detail": "Availability not found",
-                "error_code": "AVAILABILITY_NOT_FOUND"
-            }
-        }
+# ErrorResponse imported from modules.common.schemas.responses

@@ -10,41 +10,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, EmailStr
 
-
-class SendOTPRequest(BaseModel):
-    """Request to send OTP to mobile number"""
-    mobile_number: str = Field(
-        ...,
-        min_length=10,
-        max_length=15,
-        pattern=r"^\+?[1-9]\d{9,14}$",
-        description="Mobile number in international format"
-    )
-    country_code: str = Field(
-        default="+91",
-        pattern=r"^\+\d{1,3}$",
-        description="Country code (default: India +91)"
-    )
-
-
-class VerifyOTPRequest(BaseModel):
-    """Request to verify OTP"""
-    mobile_number: str = Field(..., min_length=10, max_length=15)
-    otp: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+from modules.common.schemas.auth import SendOTPRequest, VerifyOTPRequest, OTPResponse
 
 
 class CompleteProfileRequest(BaseModel):
     """Complete user profile for new users"""
     full_name: str = Field(..., min_length=2, max_length=200)
     email: Optional[EmailStr] = None
-
-
-class OTPResponse(BaseModel):
-    """Response after sending OTP"""
-    success: bool
-    message: str
-    otp_sent_at: datetime
-    expires_in_seconds: int = 300  # 5 minutes
 
 
 class AuthTokenResponse(BaseModel):
