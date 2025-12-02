@@ -41,26 +41,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_hsn_knowledge_base_commodity_category'), 'hsn_knowledge_base', ['commodity_category'], unique=False)
     op.create_index(op.f('ix_hsn_knowledge_base_commodity_name'), 'hsn_knowledge_base', ['commodity_name'], unique=False)
     op.create_index(op.f('ix_hsn_knowledge_base_hsn_code'), 'hsn_knowledge_base', ['hsn_code'], unique=False)
-    op.drop_index('ix_user_sessions_device_fingerprint', table_name='user_sessions')
-    op.drop_index('ix_user_sessions_is_active', table_name='user_sessions')
-    op.drop_index('ix_user_sessions_last_active_at', table_name='user_sessions')
-    op.drop_index('ix_user_sessions_refresh_token_expires_at', table_name='user_sessions')
-    op.drop_index('ix_user_sessions_refresh_token_jti', table_name='user_sessions')
-    op.drop_index('ix_user_sessions_user_id', table_name='user_sessions')
-    op.drop_table('user_sessions')
-    # Drop user_consents first (has FK to consent_versions)
-    op.drop_index('ix_user_consents_consent_type', table_name='user_consents')
-    op.drop_index('ix_user_consents_given', table_name='user_consents')
-    op.drop_index('ix_user_consents_user_id', table_name='user_consents')
-    op.drop_table('user_consents')
-    # Now drop consent_versions
-    op.drop_index('ix_consent_versions_consent_type', table_name='consent_versions')
-    op.drop_index('ix_consent_versions_is_active', table_name='consent_versions')
-    op.drop_table('consent_versions')
-    op.drop_index('ix_data_retention_policies_data_category', table_name='data_retention_policies')
-    op.drop_table('data_retention_policies')
-    op.drop_index('ix_user_right_requests_user_id', table_name='user_right_requests')
-    op.drop_table('user_right_requests')
+    # REMOVED: Drop statements for user_sessions, user_consents, consent_versions, data_retention_policies, user_right_requests
+    # These were auto-generated conflicts - the tables are managed by other migrations
     op.add_column('business_partners', sa.Column('partner_code', sa.String(length=50), nullable=True, comment='Auto-generated: BP-IND-SEL-0001'))
     op.add_column('business_partners', sa.Column('legal_name', sa.String(length=500), nullable=False))
     op.add_column('business_partners', sa.Column('country', sa.String(length=100), nullable=False))
@@ -872,97 +854,8 @@ def downgrade() -> None:
     op.drop_column('business_partners', 'country')
     op.drop_column('business_partners', 'legal_name')
     op.drop_column('business_partners', 'partner_code')
-    op.create_table('user_consents',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('user_id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('consent_type', postgresql.ENUM('ESSENTIAL', 'FUNCTIONAL', 'ANALYTICS', 'MARKETING', 'DATA_SHARING', 'PROFILING', name='consenttype'), autoincrement=False, nullable=False),
-    sa.Column('consent_version_id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('given', sa.BOOLEAN(), server_default=sa.text('false'), autoincrement=False, nullable=False),
-    sa.Column('given_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=True),
-    sa.Column('withdrawn_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=True),
-    sa.Column('ip_address', sa.VARCHAR(length=45), autoincrement=False, nullable=True),
-    sa.Column('user_agent', sa.TEXT(), autoincrement=False, nullable=True),
-    sa.Column('method', sa.VARCHAR(length=50), autoincrement=False, nullable=True),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=False),
-    sa.ForeignKeyConstraint(['consent_version_id'], ['consent_versions.id'], name='user_consents_consent_version_id_fkey', ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id', name='user_consents_pkey')
-    )
-    op.create_index('ix_user_consents_user_id', 'user_consents', ['user_id'], unique=False)
-    op.create_index('ix_user_consents_given', 'user_consents', ['given'], unique=False)
-    op.create_index('ix_user_consents_consent_type', 'user_consents', ['consent_type'], unique=False)
-    op.create_table('user_right_requests',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('user_id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('request_type', postgresql.ENUM('ACCESS', 'RECTIFICATION', 'ERASURE', 'RESTRICTION', 'PORTABILITY', 'OBJECTION', name='userrighttype'), autoincrement=False, nullable=False),
-    sa.Column('status', postgresql.ENUM('PENDING', 'IN_PROGRESS', 'COMPLETED', 'REJECTED', name='requeststatus'), server_default=sa.text("'PENDING'::requeststatus"), autoincrement=False, nullable=False),
-    sa.Column('requested_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=False),
-    sa.Column('completed_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=True),
-    sa.Column('rejected_reason', sa.TEXT(), autoincrement=False, nullable=True),
-    sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name='user_right_requests_pkey')
-    )
-    op.create_index('ix_user_right_requests_user_id', 'user_right_requests', ['user_id'], unique=False)
-    op.create_table('data_retention_policies',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('data_category', postgresql.ENUM('USER_ACCOUNT', 'TRANSACTION', 'AUDIT_LOG', 'SESSION', 'CONSENT', 'COMMUNICATION', 'ANALYTICS', 'BACKUP', name='datacategory'), autoincrement=False, nullable=False),
-    sa.Column('retention_days', sa.INTEGER(), autoincrement=False, nullable=False),
-    sa.Column('description', sa.TEXT(), autoincrement=False, nullable=False),
-    sa.Column('legal_basis', sa.TEXT(), autoincrement=False, nullable=True),
-    sa.Column('auto_delete', sa.BOOLEAN(), server_default=sa.text('true'), autoincrement=False, nullable=False),
-    sa.Column('is_active', sa.BOOLEAN(), server_default=sa.text('true'), autoincrement=False, nullable=False),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=False),
-    sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name='data_retention_policies_pkey'),
-    sa.UniqueConstraint('data_category', name='uq_data_category')
-    )
-    op.create_index('ix_data_retention_policies_data_category', 'data_retention_policies', ['data_category'], unique=False)
-    op.create_table('consent_versions',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('consent_type', postgresql.ENUM('ESSENTIAL', 'FUNCTIONAL', 'ANALYTICS', 'MARKETING', 'DATA_SHARING', 'PROFILING', name='consenttype'), autoincrement=False, nullable=False),
-    sa.Column('version', sa.VARCHAR(length=50), autoincrement=False, nullable=False),
-    sa.Column('title', sa.VARCHAR(length=200), autoincrement=False, nullable=False),
-    sa.Column('description', sa.TEXT(), autoincrement=False, nullable=False),
-    sa.Column('effective_date', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.Column('is_active', sa.BOOLEAN(), server_default=sa.text('true'), autoincrement=False, nullable=False),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=False),
-    sa.PrimaryKeyConstraint('id', name='consent_versions_pkey'),
-    sa.UniqueConstraint('consent_type', 'version', name='uq_consent_type_version')
-    )
-    op.create_index('ix_consent_versions_is_active', 'consent_versions', ['is_active'], unique=False)
-    op.create_index('ix_consent_versions_consent_type', 'consent_versions', ['consent_type'], unique=False)
-    op.create_table('user_sessions',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('user_id', sa.UUID(), autoincrement=False, nullable=False, comment='User who owns this session'),
-    sa.Column('device_fingerprint', sa.VARCHAR(length=64), autoincrement=False, nullable=False, comment='SHA256 hash of user-agent (for device identification)'),
-    sa.Column('device_name', sa.VARCHAR(length=255), autoincrement=False, nullable=False, comment="Friendly device name (e.g., 'iPhone 13 (iOS 15.0)')"),
-    sa.Column('device_type', sa.VARCHAR(length=50), autoincrement=False, nullable=False, comment='mobile, desktop, tablet, bot'),
-    sa.Column('os_name', sa.VARCHAR(length=100), autoincrement=False, nullable=True, comment='Operating system (iOS, Android, Windows, macOS)'),
-    sa.Column('os_version', sa.VARCHAR(length=50), autoincrement=False, nullable=True, comment='OS version'),
-    sa.Column('browser_name', sa.VARCHAR(length=100), autoincrement=False, nullable=True, comment='Browser name (Chrome, Safari, Firefox)'),
-    sa.Column('browser_version', sa.VARCHAR(length=50), autoincrement=False, nullable=True, comment='Browser version'),
-    sa.Column('ip_address', sa.VARCHAR(length=45), autoincrement=False, nullable=False, comment='IP address (IPv4 or IPv6)'),
-    sa.Column('user_agent', sa.TEXT(), autoincrement=False, nullable=False, comment='Full User-Agent header'),
-    sa.Column('refresh_token_jti', sa.VARCHAR(length=64), autoincrement=False, nullable=False, comment='JWT ID of current refresh token'),
-    sa.Column('access_token_jti', sa.VARCHAR(length=64), autoincrement=False, nullable=False, comment='JWT ID of current access token'),
-    sa.Column('access_token_expires_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False, comment='Access token expiration'),
-    sa.Column('refresh_token_expires_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False, comment='Refresh token expiration (session expiry)'),
-    sa.Column('last_active_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False, comment='Last API request from this session'),
-    sa.Column('is_active', sa.BOOLEAN(), autoincrement=False, nullable=False, comment='Session is active (not logged out)'),
-    sa.Column('is_suspicious', sa.BOOLEAN(), autoincrement=False, nullable=False, comment='Flagged as suspicious login'),
-    sa.Column('suspicious_reason', sa.VARCHAR(length=500), autoincrement=False, nullable=True, comment='Why flagged as suspicious'),
-    sa.Column('is_verified', sa.BOOLEAN(), autoincrement=False, nullable=False, comment='Device verified via email/SMS'),
-    sa.Column('total_logins', sa.INTEGER(), autoincrement=False, nullable=False, comment='Total logins from this device'),
-    sa.Column('failed_logins_last_24h', sa.INTEGER(), autoincrement=False, nullable=False, comment='Failed login attempts (security monitoring)'),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False, comment='Session created (first login)'),
-    sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=True, comment='Last updated'),
-    sa.PrimaryKeyConstraint('id', name='user_sessions_pkey')
-    )
-    op.create_index('ix_user_sessions_user_id', 'user_sessions', ['user_id'], unique=False)
-    op.create_index('ix_user_sessions_refresh_token_jti', 'user_sessions', ['refresh_token_jti'], unique=True)
-    op.create_index('ix_user_sessions_refresh_token_expires_at', 'user_sessions', ['refresh_token_expires_at'], unique=False)
-    op.create_index('ix_user_sessions_last_active_at', 'user_sessions', ['last_active_at'], unique=False)
-    op.create_index('ix_user_sessions_is_active', 'user_sessions', ['is_active'], unique=False)
-    op.create_index('ix_user_sessions_device_fingerprint', 'user_sessions', ['device_fingerprint'], unique=False)
+    # REMOVED: Recreate statements for user_consents, user_right_requests, data_retention_policies, consent_versions, user_sessions
+    # These tables are managed by other migrations (9a8b7c6d5e4f, etc.) - keeping downgrade minimal
     op.drop_index(op.f('ix_hsn_knowledge_base_hsn_code'), table_name='hsn_knowledge_base')
     op.drop_index(op.f('ix_hsn_knowledge_base_commodity_name'), table_name='hsn_knowledge_base')
     op.drop_index(op.f('ix_hsn_knowledge_base_commodity_category'), table_name='hsn_knowledge_base')
