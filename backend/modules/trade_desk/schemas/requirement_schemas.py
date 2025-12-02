@@ -18,6 +18,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from modules.common.schemas.responses import ErrorResponse
+from uuid import UUID
+
+from pydantic import BaseModel, Field, field_validator
+
 
 # ========================================================================
 # REQUEST SCHEMAS
@@ -574,17 +579,4 @@ class RiskPrecheckResponse(BaseModel):
             }
         }
 
-
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-    
-    detail: str
-    error_code: Optional[str] = None
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "detail": "Requirement not found",
-                "error_code": "REQUIREMENT_NOT_FOUND"
-            }
-        }
+# ErrorResponse imported from modules.common.schemas.responses

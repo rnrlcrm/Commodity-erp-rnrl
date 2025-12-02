@@ -48,3 +48,25 @@ class OTPResponse(BaseModel):
         ge=0,
         description="Number of seconds the OTP remains valid (default 5 minutes).",
     )
+
+
+class SendOTPRequest(BaseModel):
+    """Request to send OTP to mobile number"""
+    mobile_number: str = Field(
+        ...,
+        min_length=10,
+        max_length=15,
+        pattern=r"^\+?[1-9]\d{9,14}$",
+        description="Mobile number in international format"
+    )
+    country_code: str = Field(
+        default="+91",
+        pattern=r"^\+\d{1,3}$",
+        description="Country code (default: India +91)"
+    )
+
+
+class VerifyOTPRequest(BaseModel):
+    """Request to verify OTP"""
+    mobile_number: str = Field(..., min_length=10, max_length=15)
+    otp: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")

@@ -11,6 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, validator
 
+from modules.common.schemas.responses import ErrorResponse
+
 
 # =============================================================================
 # RISK ASSESSMENT SCHEMAS
@@ -332,18 +334,4 @@ class BatchRiskAssessmentResponse(BaseModel):
 # =============================================================================
 # ERROR SCHEMAS
 # =============================================================================
-
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-    error: str = Field(description="Error type")
-    message: str = Field(description="Error message")
-    details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "error": "ValidationError",
-                "message": "Invalid partner_type",
-                "details": {"partner_type": "Must be BUYER, SELLER, or TRADER"}
-            }
-        }
+# ErrorResponse imported from modules.common.schemas.responses

@@ -1,0 +1,36 @@
+# DUPLICATE & MIGRATION ISSUES FOUND
+
+## 1. DUPLICATE MODULES
+
+### cci vs cci_module
+- `modules/cci/` - 72KB (ACTIVE - has routes, services)
+- `modules/cci_module/` - 64KB (EMPTY PLACEHOLDER - unused)
+- Decision: DELETE cci_module
+
+### risk vs risk_engine  
+- `modules/risk/` - 288KB (COMPLETE - has risk_service.py, ml_risk_model.py, routes.py)
+- `modules/risk_engine/` - 72KB (EMPTY PLACEHOLDER - only models folder)
+- Decision: DELETE risk_engine
+
+## 2. DUPLICATE MIGRATION TABLES
+
+### locations table
+- `025fe632dacf_create_settings_locations_table.py` (Nov 21)
+- `eaf12a4e04a0_baseline.py` (Nov 19 - EARLIER)
+- Issue: locations created twice
+- Decision: Keep baseline, remove from 025fe632dacf
+
+### user_sessions table
+- `bdea096fec3e_add_hsn_knowledge_base_for_ai_learning_.py`
+- `9a8b7c6d5e4f_add_user_sessions_table.py`
+- Issue: user_sessions created twice
+- Decision: Keep dedicated migration, remove from HSN file
+
+## 3. CROSS-MODULE IMPORTS DETECTED
+- Multiple __init__.py files import across modules
+- Need boundary enforcement
+
+## ACTIONS TO TAKE:
+1. Delete empty placeholder modules (cci_module, risk_engine)
+2. Fix duplicate migration files
+3. No schema conflicts found (good!)
