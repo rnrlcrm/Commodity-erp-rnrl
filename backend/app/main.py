@@ -217,11 +217,11 @@ def create_app() -> FastAPI:
 		"""Initialize AI services on application startup."""
 		try:
 			from backend.ai.startup import initialize_ai_services
-			from backend.db.async_session import get_async_db
+			from backend.db.async_session import get_db
 			from backend.core.events.event_bus import get_event_bus
 			
 			# Get database session
-			db = await anext(get_async_db())
+			db = await anext(get_db())
 			
 			# Get event bus
 			event_bus = get_event_bus(db)
