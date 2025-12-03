@@ -87,7 +87,9 @@ class AuthService:
 	async def signup(self, email: str, password: str, full_name: Optional[str] = None) -> User:
 		if await self.user_repo.get_by_email(email):
 			raise ValueError("User already exists")
-		org = await self.org_repo.get_by_name("Cotton Corp") or await self.org_repo.create("Cotton Corp")
+		# Use configurable organization name for multi-commodity support
+		org_name = settings.DEFAULT_ORGANIZATION_NAME
+		org = await self.org_repo.get_by_name(org_name) or await self.org_repo.create(org_name)
 		hashed = self.hasher.hash(password)
 		user = await self.user_repo.create(org.id, email, full_name, hashed)
 		return user

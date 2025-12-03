@@ -66,8 +66,8 @@ def create_app() -> FastAPI:
 		redoc_url="/api/redoc",
 		openapi_url="/api/openapi.json",
 		contact={
-			"name": "Commodity ERP Support",
-			"email": "support@cotton-erp.com",
+			"name": "Multi-Commodity ERP Support",
+			"email": "support@commodity-erp.com",
 		},
 		license_info={
 			"name": "Proprietary",
