@@ -230,18 +230,32 @@ channel: 'market:wheat:prices'  // Can be: cotton, wheat, gold, rice, oil, etc.
 
 | File | Changes | Impact |
 |------|---------|--------|
+| **Core Fixes** | | |
 | `backend/core/settings/config.py` | Added `DEFAULT_ORGANIZATION_NAME` | 🔴 Critical |
 | `backend/modules/settings/services/settings_services.py` | Use configurable org name | 🔴 Critical |
 | `backend/ai/orchestrators/langchain/orchestrator.py` | Parameterized AI prompts | 🔴 Critical |
+| **HSN & Commodities** | | |
 | `backend/modules/settings/commodities/hsn_learning.py` | +60 commodities | 🟡 High |
 | `backend/modules/settings/commodities/ai_helpers.py` | Multi-commodity categories | 🟡 High |
 | `backend/modules/settings/commodities/bulk_operations.py` | Multi-commodity examples | 🟢 Medium |
+| **Documentation & Examples** | | |
 | `backend/api/v1/websocket.py` | Updated examples | 🟢 Low |
 | `backend/api/v1/webhooks.py` | Updated examples | 🟢 Low |
 | `backend/core/websocket/sharding.py` | Updated comments | 🟢 Low |
-| `backend/app/main.py` | Updated contact email | 🟢 Low |
+| `backend/app/main.py` | Updated contact email & service names | 🟢 Low |
+| **Infrastructure Rebranding** | | |
+| `docker-compose.yml` | All containers renamed to commodity-erp-* | 🟡 High |
+| `backend/core/auth/jwt.py` | JWT issuer: commodity-erp | 🟢 Medium |
+| `backend/core/config/secrets.py` | GCP project ID updated | 🟢 Medium |
+| `backend/core/observability/gcp.py` | Service names & metrics | 🟢 Medium |
+| `backend/core/events/emitter.py` | PubSub topic names | 🟢 Medium |
+| `backend/workers/event_subscriber.py` | Subscription names | 🟢 Medium |
+| `backend/workers/event_processor.py` | Database URLs | 🟢 Medium |
+| `backend/test_*.py` (3 files) | Test database URLs | 🟢 Low |
+| `backend/MANUAL_TEST.md` | Docker commands | 🟢 Low |
+| `backend/core/events/README.md` | Example org names | 🟢 Low |
 
-**Total**: 10 files modified, 123 insertions, 19 deletions
+**Total**: 23 files modified, 165+ insertions, 61 deletions
 
 ---
 
@@ -251,6 +265,66 @@ channel: 'market:wheat:prices'  // Can be: cotton, wheat, gold, rice, oil, etc.
 ✅ **Code quality** - Only pre-existing linter warnings (not introduced by changes)  
 ✅ **Backward compatible** - Default org name maintains existing behavior  
 ✅ **Multi-commodity ready** - HSN database expanded significantly
+
+---
+
+## 🏗️ INFRASTRUCTURE REBRANDING COMPLETED
+
+### Docker Containers
+**Before → After:**
+- `cotton-erp-postgres` → `commodity-erp-postgres`
+- `cotton-erp-redis` → `commodity-erp-redis`
+- `cotton-erp-rabbitmq` → `commodity-erp-rabbitmq`
+- `cotton-erp-backend` → `commodity-erp-backend`
+- `cotton-erp-frontend` → `commodity-erp-frontend`
+- `cotton-erp-celery-worker` → `commodity-erp-celery-worker`
+
+### Database & Credentials
+**Before → After:**
+- Database: `cotton_erp` / `cotton_dev` → `commodity_erp` / `commodity_dev`
+- User: `cotton_user` → `commodity_user`
+- Password: `cotton_password` → `commodity_password`
+- Network: `cotton-network` → `commodity-network`
+
+### Service Names
+**Before → After:**
+- GCP Project: `cotton-erp-prod` → `commodity-erp-prod`
+- Backend Service: `cotton-erp-backend` → `commodity-erp-backend`
+- JWT Issuer: `cotton-erp` → `commodity-erp`
+- PubSub Topic: `cotton-erp-events` → `commodity-erp-events`
+- PubSub Subscription: `cotton-erp-domain-events-sub` → `commodity-erp-domain-events-sub`
+- Metrics: `cotton_erp.business` → `commodity_erp.business`
+
+### Migration Steps for Existing Deployments
+
+1. **Stop Current Services:**
+   ```bash
+   docker-compose down
+   ```
+
+2. **Backup Database:**
+   ```bash
+   docker exec commodity-erp-postgres pg_dump -U postgres commodity_erp > backup.sql
+   ```
+
+3. **Update Environment Variables:**
+   ```bash
+   # Update .env file
+   DATABASE_URL=postgresql://commodity_user:commodity_password@localhost:5432/commodity_erp
+   PUBSUB_TOPIC_EVENTS=commodity-erp-events
+   GCP_PROJECT_ID=commodity-erp-prod
+   ```
+
+4. **Restart with New Infrastructure:**
+   ```bash
+   docker-compose up -d
+   ```
+
+5. **Verify Services:**
+   ```bash
+   docker ps  # Check all containers are running with new names
+   curl http://localhost:8000/health
+   ```
 
 ---
 
