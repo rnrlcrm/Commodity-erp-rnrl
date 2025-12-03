@@ -250,6 +250,62 @@ class MatchingEngine:
         return distance
     
     # ========================================================================
+    # INTERNATIONAL TRADE COMPATIBILITY FILTER
+    # ========================================================================
+    
+    def _country_compatible(
+        self,
+        requirement: Requirement,
+        availability: Availability
+    ) -> bool:
+        """
+        Check country compatibility for international trade.
+        
+        Rules:
+        1. If requirement has destination_country → International trade
+           - Match availabilities with country_of_origin set
+           - Destination must match origin
+        2. If requirement has NO destination_country → National trade  
+           - Match both national and international availabilities
+        3. Risk Engine validates export/import licenses separately
+        
+        Args:
+            requirement: Buyer requirement
+            availability: Seller availability
+            
+        Returns:
+            True if countries compatible, False otherwise
+        """
+        req_destination = requirement.destination_country
+        avail_origin = availability.country_of_origin
+        
+        # National trade (no destination country specified)
+        if not req_destination:
+            # Buyer wants national trade - match any availability
+            return True
+        
+        # International trade - buyer wants import
+        # Seller must have country_of_origin set
+        if not avail_origin:
+            logger.debug(
+                f"Country filter blocked: requirement {requirement.id} wants "
+                f"international trade to {req_destination}, but availability "
+                f"{availability.id} has no country_of_origin"
+            )
+            return False
+        
+        # Check if destination matches origin
+        if req_destination.upper() != avail_origin.upper():
+            logger.debug(
+                f"Country mismatch: buyer wants {req_destination}, "
+                f"seller has {avail_origin} - BLOCKED"
+            )
+            return False
+        
+        logger.debug(f"Country match: {avail_origin} → {req_destination}")
+        return True
+    
+    # ========================================================================
     # BIDIRECTIONAL MATCHING
     # ========================================================================
     
@@ -331,6 +387,11 @@ class MatchingEngine:
             if not self._location_matches(requirement, availability):
                 logger.debug(f"Location filter blocked: req={requirement_id}, avail={availability.id}")
                 continue  # SKIP - no scoring needed
+            
+            # Step 2.5: Country compatibility filter (international trade)
+            if not self._country_compatible(requirement, availability):
+                logger.debug(f"Country filter blocked: req={requirement_id}, avail={availability.id}")
+                continue  # SKIP - incompatible countries
             
             # Step 3: Duplicate detection
             dup_key = self._generate_duplicate_key(requirement, availability)
@@ -436,6 +497,11 @@ class MatchingEngine:
         for requirement in candidate_requirements:
             # Step 2: Hard location filter
             if not self._location_matches(requirement, availability):
+                continue
+            
+            # Step 2.5: Country compatibility filter (international trade)
+            if not self._country_compatible(requirement, availability):
+                logger.debug(f"Country filter blocked: req={requirement.id}, avail={availability_id}")
                 continue
             
             # Step 3: Duplicate detection
