@@ -193,51 +193,32 @@ async def upload_document(
     application_id: UUID,
     document_type: str,
     file: UploadFile = File(...),
-    partner_service: PartnerService = Depends(get_partner_service),
+    document_service: PartnerDocumentService = Depends(get_document_service),
     organization_id: UUID = Depends(get_current_organization_id),
+    user_id: UUID = Depends(get_current_user_id),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_CREATE)),
 ):
-    """Upload document and extract data using OCR"""
-    # TODO: Upload file to storage (S3/GCS)
-    file_url = f"https://storage.example.com/{file.filename}"
-    
-    # Extract data using OCR
-    doc_service = DocumentProcessingService()
-    
-    if document_type == "GST_CERTIFICATE":
-        extracted_data = await doc_service.extract_gst_certificate(file_url)
-    elif document_type == "PAN_CARD":
-        extracted_data = await doc_service.extract_pan_card(file_url)
-    elif document_type == "BANK_PROOF":
-        extracted_data = await doc_service.extract_bank_proof(file_url)
-    elif document_type == "VEHICLE_RC":
-        extracted_data = await doc_service.extract_vehicle_rc(file_url)
-    else:
-        extracted_data = {}
-    
-    # Get application to find partner_id
-    application = await partner_service.get_application_by_id(application_id)
-    
-    if not application:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found"
+    """Upload document and extract data using OCR - DELEGATED TO SERVICE"""
+    try:
+        document = await document_service.process_and_upload(
+            application_id=application_id,
+            file=file,
+            document_type=document_type,
+            organization_id=organization_id,
+            uploaded_by=user_id
         )
-    
-    # Create document using service's repository (temporary - should be in service method)
-    document = await partner_service.document_repo.create(
-        partner_id=application.id,  # For now, link to application
-        organization_id=organization_id,
-        document_type=document_type,
-        file_url=file_url,
-        file_name=file.filename,
-        file_size=file.size,
-        mime_type=file.content_type,
-        ocr_extracted_data=extracted_data,
-        ocr_confidence=extracted_data.get("confidence", 0),
-        uploaded_by=partner_service.current_user_id
-    )
+        return document
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Document upload failed: {str(e)}"
+        )
     
     return document
 
@@ -536,13 +517,14 @@ async def get_partner_locations(
 async def add_partner_location(
     partner_id: UUID,
     location_data: PartnerLocationCreate,
-    db: AsyncSession = Depends(get_db),
+    partner_service: PartnerService = Depends(get_partner_service),
+    organization_id: UUID = Depends(get_current_organization_id),
     current_user = Depends(get_current_user),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
     _check: None = Depends(RequireCapability(Capabilities.PARTNER_UPDATE)),
 ):
     """
-    Add a new location for a partner
+    Add a new location for a partner - DELEGATED TO SERVICE
     
     RESTRICTIONS:
     - ship_to: ONLY BUYERS can add (no GST required)
@@ -554,100 +536,23 @@ async def add_partner_location(
     - GST validation for branches (PAN matching)
     - Partner type validation for ship-to
     """
-    from backend.modules.partners.partner_services import GeocodingService, GSTVerificationService
-    
-    # Verify partner exists
-    partner = await partner_service.get_partner_by_id(partner_id)
-    if not partner:
-        raise HTTPException(status_code=404, detail="Partner not found")
-    if location_data.location_type == "ship_to":
-        if partner.partner_type not in ["buyer", "trader"]:
-            raise HTTPException(
-                status_code=400,
-                detail="Only buyers and traders can add ship-to addresses"
-            )
-        # Ship-to does NOT require GST
-        location_data.requires_gst = False
-        location_data.gstin_for_location = None
-    
-    # VALIDATION 2: Branch in different state - validate GSTIN
-    if location_data.location_type == "branch_different_state":
-        if not location_data.gstin_for_location:
-            raise HTTPException(
-                status_code=400,
-                detail="GSTIN required for branch in different state"
-            )
-        
-        # Extract PAN from new GSTIN (characters 3-12)
-        new_pan = location_data.gstin_for_location[2:12]
-        primary_pan = partner.pan_number
-        
-        if new_pan != primary_pan:
-            raise HTTPException(
-                status_code=400,
-                detail=f"GSTIN PAN ({new_pan}) does not match primary PAN ({primary_pan}). Branch GSTIN must belong to same business."
-            )
-        
-        # Verify GSTIN via GST API
-        gst_service = GSTVerificationService()
-        try:
-            gst_data = await gst_service.verify_gstin(location_data.gstin_for_location)
-            if not gst_data or gst_data.get("status") != "Active":
-                raise HTTPException(
-                    status_code=400,
-                    detail="GSTIN is not active or invalid"
-                )
-            
-            # Verify business name matches
-            if gst_data.get("legal_name").upper() != partner.legal_business_name.upper():
-                raise HTTPException(
-                    status_code=400,
-                    detail="GSTIN business name does not match primary business name"
-                )
-        except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"GST verification failed: {str(e)}"
-            )
-    
-    # VALIDATION 3: Geocode with Google Maps and tag location
-    geocoding = GeocodingService()
-    full_address = f"{location_data.address}, {location_data.city}, {location_data.state}, {location_data.postal_code}, {location_data.country}"
-    geocode_result = await geocoding.geocode_address(full_address)
-    
-    if not geocode_result or geocode_result.get("confidence", 0) < 50:
-        raise HTTPException(
-            status_code=400,
-            detail="Could not verify address via Google Maps. Please check address details."
+    try:
+        location = await partner_service.add_partner_location(
+            partner_id=partner_id,
+            location_data=location_data,
+            organization_id=organization_id
         )
-    
-    # Create location with Google Maps data
-    location = await partner_service.location_repo.create(
-        partner_id=partner_id,
-        organization_id=partner.organization_id,
-        location_type=location_data.location_type,
-        location_name=location_data.location_name,
-        gstin_for_location=location_data.gstin_for_location,
-        address=location_data.address,
-        city=location_data.city,
-        state=location_data.state,
-        postal_code=location_data.postal_code,
-        country=location_data.country,
-        contact_person=location_data.contact_person,
-        contact_phone=location_data.contact_phone,
-        requires_gst=location_data.requires_gst,
-        # Google Maps data
-        latitude=geocode_result["latitude"],
-        longitude=geocode_result["longitude"],
-        geocoded=True,
-        geocode_confidence=geocode_result["confidence"],
-        status="active"
-    )
-    
-    # TODO: PartnerLocation doesn't have EventMixin - event emission disabled
-    # Once EventMixin is added to PartnerLocation model, uncomment:
-    # location.emit_event(
-    #     event_type="partner.location.added",
+        return location
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Location creation failed: {str(e)}"
+        )
     #     user_id=current_user.id,
     #     data={
     #         "location_id": str(location.id),
@@ -1158,33 +1063,16 @@ async def download_kyc_register(
     description="Get comprehensive dashboard statistics"
 )
 async def get_dashboard_stats(
-    db: AsyncSession = Depends(get_db),
+    analytics_service: PartnerAnalyticsService = Depends(get_analytics_service),
     organization_id: UUID = Depends(get_current_organization_id)
 ):
     """
-    Get dashboard statistics.
+    Get dashboard statistics - DELEGATED TO SERVICE.
     
-    Uses PartnerAnalyticsService for clean architecture (15-year design).
+    Uses PartnerAnalyticsService.get_dashboard_stats_response() for clean architecture.
+    All data transformation happens in service layer.
     """
-    analytics_service = PartnerAnalyticsService(db)
-    stats = await analytics_service.get_dashboard_stats(organization_id)
-    
-    # Convert to DashboardStats schema
-    return DashboardStats(
-        total_partners=sum(stats["by_type"].values()),
-        by_type=stats["by_type"],
-        by_status=stats["by_status"],
-        kyc_breakdown={
-            "valid": sum(stats["by_status"].values()) - stats["expiring_kyc_count"],
-            "expiring_90_days": 0,  # Could be enhanced
-            "expiring_30_days": stats["expiring_kyc_count"],
-            "expired": 0,  # Could be enhanced
-        },
-        risk_distribution=stats["risk_distribution"],
-        pending_approvals={"onboarding": 0},  # Could be enhanced
-        state_wise=stats["state_distribution"],
-        monthly_onboarding=stats["monthly_trend"]
-    )
+    return await analytics_service.get_dashboard_stats_response(organization_id)
 
 
 # ===== HELPER FUNCTIONS =====

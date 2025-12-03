@@ -18,6 +18,7 @@ import redis.asyncio as redis
 from backend.core.outbox import OutboxRepository
 from backend.modules.partners.models import BusinessPartner
 from backend.modules.partners.enums import PartnerStatus, PartnerType, KYCStatus, RiskCategory
+from backend.modules.partners.schemas import DashboardStats
 
 
 class PartnerAnalyticsService:
@@ -191,6 +192,41 @@ class PartnerAnalyticsService:
         
         result = await self.db.execute(query)
         return result.scalars().all()
+    
+    async def get_dashboard_stats_response(
+        self,
+        organization_id: UUID
+    ) -> DashboardStats:
+        """
+        Get dashboard statistics as ready-to-use DashboardStats schema.
+        
+        This method handles all data transformation in the service layer,
+        keeping routers clean.
+        
+        Args:
+            organization_id: Organization ID
+            
+        Returns:
+            DashboardStats schema ready for API response
+        """
+        stats = await self.get_dashboard_stats(organization_id)
+        
+        # Transform to DashboardStats schema
+        return DashboardStats(
+            total_partners=sum(stats["by_type"].values()),
+            by_type=stats["by_type"],
+            by_status=stats["by_status"],
+            kyc_breakdown={
+                "valid": sum(stats["by_status"].values()) - stats["expiring_kyc_count"],
+                "expiring_90_days": 0,  # Could be enhanced
+                "expiring_30_days": stats["expiring_kyc_count"],
+                "expired": 0,  # Could be enhanced
+            },
+            risk_distribution=stats["risk_distribution"],
+            pending_approvals={"onboarding": 0},  # Could be enhanced
+            state_wise=stats["state_distribution"],
+            monthly_onboarding=stats["monthly_trend"]
+        )
     
     async def get_kyc_expiring_partners(
         self,
