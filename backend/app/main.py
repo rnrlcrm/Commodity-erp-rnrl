@@ -218,20 +218,19 @@ def create_app() -> FastAPI:
 		try:
 			from backend.ai.startup import initialize_ai_services
 			from backend.db.async_session import get_db
-			from backend.core.events.event_bus import get_event_bus
 			
 			# Get database session
 			db = await anext(get_db())
 			
-			# Get event bus
-			event_bus = get_event_bus(db)
-			
 			# Initialize AI services (vector sync, guardrails, memory)
-			await initialize_ai_services(db, redis=None, event_bus=event_bus)
+			# Note: EventBus subscription not yet implemented, passing None
+			await initialize_ai_services(db, redis=None, event_bus=None)
 			
 			print("✅ AI services initialized successfully")
 		except Exception as e:
 			print(f"⚠️  Failed to initialize AI services: {e}")
+			import traceback
+			traceback.print_exc()
 			# Don't fail app startup if AI initialization fails
 	
 	return app
