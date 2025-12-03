@@ -203,6 +203,7 @@ def create_app() -> FastAPI:
 	from backend.api.v1.privacy import router as privacy_router
 	from backend.modules.auth.router import router as session_router
 	from backend.modules.risk.routes import router as risk_router
+	from backend.modules.capabilities.router import router as capabilities_router
 	
 	app.include_router(websocket_router, prefix="/api/v1", tags=["websocket"])
 	app.include_router(webhooks_router, prefix="/api/v1", tags=["webhooks"])
@@ -210,6 +211,7 @@ def create_app() -> FastAPI:
 	app.include_router(privacy_router, prefix="/api/v1", tags=["privacy"])
 	app.include_router(session_router, prefix="/api/v1", tags=["sessions"])
 	app.include_router(risk_router, prefix="/api/v1", tags=["risk"])
+	app.include_router(capabilities_router, prefix="/api/v1", tags=["capabilities"])
 	
 	# AI Infrastructure Startup
 	@app.on_event("startup")
