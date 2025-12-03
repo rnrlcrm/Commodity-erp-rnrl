@@ -210,6 +210,30 @@ class Availability(Base, EventMixin):
     delivery_longitude = Column(Numeric(10, 7), nullable=True)
     delivery_region = Column(String(50), nullable=True, index=True)
     
+    # International Trade Fields
+    currency_code = Column(
+        String(3),
+        default='INR',
+        nullable=False,
+        comment='Currency code (ISO 4217): INR, USD, EUR, etc.'
+    )
+    country_of_origin = Column(
+        String(2),
+        nullable=True,
+        index=True,
+        comment='ISO 3166-1 alpha-2 country code (IN, US, BR, etc.)'
+    )
+    supported_incoterms = Column(
+        JSONB,
+        nullable=True,
+        comment='Array of supported Incoterms: ["FOB", "CIF", "EXW", "DDP"]'
+    )
+    export_port = Column(
+        String(255),
+        nullable=True,
+        comment='Port code for international shipments (e.g., INNSA for Nhava Sheva)'
+    )
+    
     # Temporal Constraints
     available_from = Column(DateTime(timezone=True), nullable=True)
     available_until = Column(DateTime(timezone=True), nullable=True)

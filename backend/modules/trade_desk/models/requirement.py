@@ -296,6 +296,26 @@ class Requirement(Base, EventMixin):
     # Example: [{"location_id": "uuid", "latitude": 21.1, "longitude": 79.0, "max_distance_km": 50}]
     
     # ========================================================================
+    # INTERNATIONAL TRADE FIELDS
+    # ========================================================================
+    destination_country = Column(
+        String(2),
+        nullable=True,
+        index=True,
+        comment='ISO 3166-1 alpha-2 country code for import destination (IN, US, CN, etc.)'
+    )
+    preferred_incoterm = Column(
+        String(10),
+        nullable=True,
+        comment='Preferred Incoterm for international trade: FOB, CIF, EXW, DDP, etc.'
+    )
+    import_port = Column(
+        String(255),
+        nullable=True,
+        comment='Port code for international imports (e.g., INNSA for Nhava Sheva)'
+    )
+    
+    # ========================================================================
     # 🚀 ENHANCEMENT #3: DYNAMIC DELIVERY FLEXIBILITY WINDOW
     # ========================================================================
     delivery_window_start = Column(
