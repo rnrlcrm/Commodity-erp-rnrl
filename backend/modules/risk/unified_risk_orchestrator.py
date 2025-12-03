@@ -34,7 +34,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.modules.risk.risk_engine import RiskEngine
-# from backend.modules.risk.ml_risk_engine import MLRiskEngine  # TODO: Create this
+from backend.modules.risk.ml_risk_engine import MLRiskEngine
 
 
 class CircuitBreaker:
@@ -143,8 +143,7 @@ class UnifiedRiskOrchestrator:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.rule_engine = RiskEngine(db)
-        # self.ml_engine = MLRiskEngine(db)  # TODO: Initialize when ML engine ready
-        self.ml_engine = None  # Placeholder
+        self.ml_engine = MLRiskEngine(db)
         self.circuit_breaker = CircuitBreaker()
         self.fusion_layer = FusionLayer()
     
@@ -414,25 +413,24 @@ class UnifiedRiskOrchestrator:
             tier_2_start = datetime.utcnow()
             
             try:
-                # TODO: Call ML engine when ready
-                # ml_result = await self.ml_engine.predict_risk(
-                #     partner_id=partner_id,
-                #     transaction_type=transaction_type,
-                #     commodity_id=commodity_id,
-                #     amount=amount
-                # )
-                # ml_score = ml_result.get("score")
+                # Call real ML engine
+                ml_result = await self.ml_engine.predict_risk(
+                    entity_type=transaction_type,
+                    partner_id=partner_id,
+                    commodity_id=commodity_id,
+                    trade_value=amount,
+                    counterparty_id=counterparty_id,
+                    trade_quantity=None,  # TODO: Pass if available
+                    trade_price=None  # TODO: Pass if available
+                )
                 
-                # Placeholder for now
-                ml_score = 75
+                ml_score = ml_result.get("ml_score")
                 tier_2_result = {
                     "status": "PASS",
                     "score": ml_score,
                     "duration_ms": self._duration_ms(tier_2_start),
-                    "predictions": {
-                        "payment_default_risk": 0.15,
-                        "fraud_probability": 0.05
-                    }
+                    "predictions": ml_result.get("predictions"),
+                    "recommendation": ml_result.get("recommendation")
                 }
                 
                 self.circuit_breaker.record_success()
