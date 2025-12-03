@@ -1055,6 +1055,124 @@ class PartnerService:
         
         return application
     
+    async def add_partner_location(
+        self,
+        partner_id: UUID,
+        location_data,  # PartnerLocationCreate schema
+        organization_id: UUID
+    ) -> PartnerLocation:
+        """
+        Add location for a partner with all validations.
+        
+        Validations:
+        - Ship-to: ONLY BUYERS can add (no GST required)
+        - Branch different state: Requires GSTIN with same PAN as primary
+        - Geocoding: Google Maps verification
+        - GST verification: For branches
+        
+        Args:
+            partner_id: Partner ID
+            location_data: Location creation data
+            organization_id: Organization ID
+            
+        Returns:
+            Created PartnerLocation
+        """
+        # Get partner
+        partner = await self.bp_repo.get_by_id(partner_id)
+        if not partner:
+            raise ValueError("Partner not found")
+        
+        # VALIDATION 1: Ship-to address validation
+        if location_data.location_type == "ship_to":
+            if partner.partner_type not in ["buyer", "trader"]:
+                raise ValueError("Only buyers and traders can add ship-to addresses")
+            # Ship-to does NOT require GST
+            location_data.requires_gst = False
+            location_data.gstin_for_location = None
+        
+        # VALIDATION 2: Branch in different state - validate GSTIN
+        if location_data.location_type == "branch_different_state":
+            if not location_data.gstin_for_location:
+                raise ValueError("GSTIN required for branch in different state")
+            
+            # Extract PAN from new GSTIN (characters 3-12)
+            new_pan = location_data.gstin_for_location[2:12]
+            primary_pan = partner.pan_number
+            
+            if new_pan != primary_pan:
+                raise ValueError(
+                    f"GSTIN PAN ({new_pan}) does not match primary PAN ({primary_pan}). "
+                    "Branch GSTIN must belong to same business."
+                )
+            
+            # Verify GSTIN via GST API
+            try:
+                gst_data = await self.gst_service.verify_gstin(location_data.gstin_for_location)
+                if not gst_data or not gst_data.verified or gst_data.gst_status != "Active":
+                    raise ValueError("GSTIN is not active or invalid")
+                
+                # Verify business name matches
+                if gst_data.legal_name.upper() != partner.legal_business_name.upper():
+                    raise ValueError("GSTIN business name does not match primary business name")
+            except Exception as e:
+                raise ValueError(f"GST verification failed: {str(e)}")
+        
+        # VALIDATION 3: Geocode with Google Maps
+        full_address = f"{location_data.address}, {location_data.city}, {location_data.state}, {location_data.postal_code}, {location_data.country}"
+        try:
+            geocode_result = await self.geocoding_service.geocode_address(
+                location_data.address,
+                location_data.city,
+                location_data.state,
+                location_data.postal_code
+            )
+            
+            if not geocode_result or geocode_result.get("confidence", 0) < 50:
+                raise ValueError("Could not verify address via Google Maps. Please check address details.")
+        except Exception as e:
+            raise ValueError(f"Address geocoding failed: {str(e)}")
+        
+        # Create location with Google Maps data
+        location = await self.location_repo.create(
+            partner_id=partner_id,
+            organization_id=organization_id,
+            location_type=location_data.location_type,
+            location_name=location_data.location_name,
+            gstin_for_location=location_data.gstin_for_location,
+            address=location_data.address,
+            city=location_data.city,
+            state=location_data.state,
+            postal_code=location_data.postal_code,
+            country=location_data.country,
+            contact_person=location_data.contact_person,
+            contact_phone=location_data.contact_phone,
+            requires_gst=getattr(location_data, 'requires_gst', False),
+            # Google Maps data
+            latitude=geocode_result.get("latitude"),
+            longitude=geocode_result.get("longitude"),
+            geocoded=True,
+            geocode_confidence=geocode_result.get("confidence"),
+            status="active"
+        )
+        
+        # Emit event
+        await self.outbox_repo.save_event(
+            aggregate_id=str(partner_id),
+            aggregate_type="BusinessPartner",
+            event_type="partner.location.added",
+            event_data={
+                "partner_id": str(partner_id),
+                "location_id": str(location.id),
+                "location_type": location_data.location_type,
+                "city": location_data.city,
+                "state": location_data.state
+            },
+            user_id=self.current_user_id
+        )
+        
+        return location
+    
     async def submit_for_approval(self, application_id: UUID) -> Dict:
         """
         Submit application for approval after documents uploaded.

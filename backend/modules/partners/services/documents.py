@@ -15,9 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 
 from backend.core.outbox import OutboxRepository
-from backend.modules.partners.repositories import PartnerDocumentRepository
+from backend.modules.partners.repositories import (
+    PartnerDocumentRepository,
+    OnboardingApplicationRepository,
+)
 from backend.modules.partners.models import PartnerDocument
 from backend.modules.partners.enums import DocumentType
+from backend.modules.partners.partner_services import DocumentProcessingService
 
 # Document status literals (not enum - stored as strings)
 DocumentStatusType = Literal["pending", "approved", "rejected", "expired"]
@@ -39,6 +43,8 @@ class PartnerDocumentService:
         self.redis = redis_client
         self.outbox_repo = OutboxRepository(db)
         self.document_repo = PartnerDocumentRepository(db)
+        self.app_repo = OnboardingApplicationRepository(db)
+        self.doc_processing_service = DocumentProcessingService(db, redis_client)
     
     async def upload_document(
         self,
@@ -124,6 +130,81 @@ class PartnerDocumentService:
             verified_by=verified_by,
             rejection_reason=rejection_reason,
         )
+    
+    async def process_and_upload(
+        self,
+        application_id: UUID,
+        file: UploadFile,
+        document_type: str,
+        organization_id: UUID,
+        uploaded_by: UUID
+    ) -> PartnerDocument:
+        """
+        Process document upload with OCR extraction.
+        
+        Steps:
+        1. Upload file to storage (S3/GCS)
+        2. Extract data using OCR based on document type
+        3. Create document record with extracted data
+        
+        Args:
+            application_id: Application ID
+            file: Uploaded file
+            document_type: Type of document
+            organization_id: Organization ID
+            uploaded_by: User ID who uploaded
+            
+        Returns:
+            Created PartnerDocument
+        """
+        # TODO: Upload file to storage (S3/GCS)
+        file_url = f"https://storage.example.com/{file.filename}"
+        
+        # Extract data using OCR based on document type
+        extracted_data = {}
+        if document_type == "GST_CERTIFICATE":
+            extracted_data = await self.doc_processing_service.extract_gst_certificate(file_url)
+        elif document_type == "PAN_CARD":
+            extracted_data = await self.doc_processing_service.extract_pan_card(file_url)
+        elif document_type == "BANK_PROOF":
+            extracted_data = await self.doc_processing_service.extract_bank_proof(file_url)
+        elif document_type == "VEHICLE_RC":
+            extracted_data = await self.doc_processing_service.extract_vehicle_rc(file_url)
+        
+        # Get application to find partner_id
+        application = await self.app_repo.get_by_id(application_id, organization_id)
+        if not application:
+            raise ValueError("Application not found")
+        
+        # Create document record
+        document = await self.document_repo.create(
+            partner_id=application.id,  # For now, link to application
+            organization_id=organization_id,
+            document_type=document_type,
+            file_url=file_url,
+            file_name=file.filename,
+            file_size=file.size,
+            mime_type=file.content_type,
+            ocr_extracted_data=extracted_data,
+            ocr_confidence=extracted_data.get("confidence", 0),
+            uploaded_by=uploaded_by
+        )
+        
+        # Emit event
+        await self.outbox_repo.save_event(
+            aggregate_id=str(application_id),
+            aggregate_type="OnboardingApplication",
+            event_type="partner.document.uploaded",
+            event_data={
+                "application_id": str(application_id),
+                "document_id": str(document.id),
+                "document_type": document_type,
+                "ocr_confidence": extracted_data.get("confidence", 0)
+            },
+            user_id=uploaded_by
+        )
+        
+        return document
     
     async def check_all_documents_verified(self, partner_id: UUID) -> bool:
         """
