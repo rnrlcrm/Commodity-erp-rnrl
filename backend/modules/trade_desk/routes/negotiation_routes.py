@@ -1,0 +1,464 @@
+"""
+Negotiation API Routes - THIN WRAPPERS ONLY
+
+All business logic is in NegotiationService.
+Routes handle HTTP/WebSocket protocol only.
+"""
+
+from typing import Optional, List
+from uuid import UUID
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    WebSocket,
+    WebSocketDisconnect,
+    Query
+)
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.core.dependencies import get_db, get_current_user
+from backend.modules.partner.models.partner import Partner
+from backend.modules.trade_desk.services.negotiation_service import NegotiationService
+from backend.modules.trade_desk.services.ai_negotiation_service import AINegoticationService
+from backend.modules.trade_desk.websocket.negotiation_rooms import negotiation_room_manager
+from backend.modules.trade_desk.schemas.negotiation_schemas import (
+    StartNegotiationRequest,
+    MakeOfferRequest,
+    AcceptOfferRequest,
+    RejectOfferRequest,
+    SendMessageRequest,
+    AIAssistRequest,
+    NegotiationResponse,
+    NegotiationListResponse,
+    NegotiationListItem,
+    MessageResponse,
+    AICounterOfferSuggestion,
+    PartnerSummary,
+    OfferResponse,
+    PartyEnum
+)
+
+
+router = APIRouter(prefix="/negotiations", tags=["Negotiations"])
+
+
+# ---------- Helper: Get Service ----------
+
+def get_negotiation_service(db: AsyncSession = Depends(get_db)) -> NegotiationService:
+    """Dependency: Get negotiation service"""
+    return NegotiationService(db)
+
+
+def get_ai_service(db: AsyncSession = Depends(get_db)) -> AINegoticationService:
+    """Dependency: Get AI negotiation service"""
+    return AINegoticationService(db)
+
+
+# ---------- POST: Start Negotiation ----------
+
+@router.post("/start", response_model=NegotiationResponse, status_code=status.HTTP_201_CREATED)
+async def start_negotiation(
+    request: StartNegotiationRequest,
+    current_user: Partner = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    Start negotiation from match token.
+    
+    Reveals identities and creates negotiation session.
+    """
+    try:
+        negotiation = await service.start_negotiation(
+            match_token=request.match_token,
+            user_partner_id=current_user.id,
+            initial_message=request.initial_message
+        )
+        
+        # Determine user role
+        if negotiation.buyer_partner_id == current_user.id:
+            user_role = PartyEnum.BUYER
+        else:
+            user_role = PartyEnum.SELLER
+        
+        # Build response
+        response = NegotiationResponse.model_validate(negotiation)
+        response.user_role = user_role
+        
+        return response
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------- POST: Make Offer ----------
+
+@router.post("/{negotiation_id}/offer", response_model=OfferResponse)
+async def make_offer(
+    negotiation_id: UUID,
+    request: MakeOfferRequest,
+    current_user: Partner = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    Make or counter an offer.
+    """
+    try:
+        offer = await service.make_offer(
+            negotiation_id=negotiation_id,
+            user_partner_id=current_user.id,
+            price_per_unit=request.price_per_unit,
+            quantity=request.quantity,
+            delivery_terms=request.delivery_terms,
+            payment_terms=request.payment_terms,
+            quality_conditions=request.quality_conditions,
+            message=request.message
+        )
+        
+        return OfferResponse.model_validate(offer)
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------- POST: Accept Offer ----------
+
+@router.post("/{negotiation_id}/accept", response_model=NegotiationResponse)
+async def accept_offer(
+    negotiation_id: UUID,
+    request: AcceptOfferRequest,
+    current_user: Partner = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    Accept the current offer.
+    
+    Closes negotiation and creates trade contract.
+    """
+    try:
+        negotiation = await service.accept_offer(
+            negotiation_id=negotiation_id,
+            user_partner_id=current_user.id,
+            acceptance_message=request.acceptance_message
+        )
+        
+        # Determine user role
+        if negotiation.buyer_partner_id == current_user.id:
+            user_role = PartyEnum.BUYER
+        else:
+            user_role = PartyEnum.SELLER
+        
+        response = NegotiationResponse.model_validate(negotiation)
+        response.user_role = user_role
+        
+        return response
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------- POST: Reject Offer ----------
+
+@router.post("/{negotiation_id}/reject", response_model=NegotiationResponse)
+async def reject_offer(
+    negotiation_id: UUID,
+    request: RejectOfferRequest,
+    current_user: Partner = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    Reject offer with optional counter.
+    """
+    try:
+        # Prepare counter-offer params if requested
+        counter_params = None
+        if request.make_counter_offer:
+            if not request.counter_price or not request.counter_quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Counter price and quantity required"
+                )
+            
+            counter_params = {
+                "price_per_unit": request.counter_price,
+                "quantity": request.counter_quantity,
+                "delivery_terms": request.counter_delivery_terms,
+                "payment_terms": request.counter_payment_terms,
+                "quality_conditions": request.counter_quality_conditions,
+                "message": request.counter_message
+            }
+        
+        negotiation = await service.reject_offer(
+            negotiation_id=negotiation_id,
+            user_partner_id=current_user.id,
+            rejection_reason=request.rejection_reason,
+            make_counter_offer=request.make_counter_offer,
+            counter_offer_params=counter_params
+        )
+        
+        # Determine user role
+        if negotiation.buyer_partner_id == current_user.id:
+            user_role = PartyEnum.BUYER
+        else:
+            user_role = PartyEnum.SELLER
+        
+        response = NegotiationResponse.model_validate(negotiation)
+        response.user_role = user_role
+        
+        return response
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------- POST: Send Message ----------
+
+@router.post("/{negotiation_id}/messages", response_model=MessageResponse)
+async def send_message(
+    negotiation_id: UUID,
+    request: SendMessageRequest,
+    current_user: Partner = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    Send chat message in negotiation.
+    """
+    try:
+        message = await service.send_message(
+            negotiation_id=negotiation_id,
+            user_partner_id=current_user.id,
+            message=request.message,
+            message_type=request.message_type.value
+        )
+        
+        return MessageResponse.model_validate(message)
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------- GET: Negotiation Details ----------
+
+@router.get("/{negotiation_id}", response_model=NegotiationResponse)
+async def get_negotiation(
+    negotiation_id: UUID,
+    current_user: Partner = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    Get negotiation details with offers and messages.
+    """
+    try:
+        negotiation = await service.get_negotiation_by_id(
+            negotiation_id=negotiation_id,
+            user_partner_id=current_user.id
+        )
+        
+        # Determine user role
+        if negotiation.buyer_partner_id == current_user.id:
+            user_role = PartyEnum.BUYER
+        else:
+            user_role = PartyEnum.SELLER
+        
+        response = NegotiationResponse.model_validate(negotiation)
+        response.user_role = user_role
+        
+        # Add partner summaries
+        if negotiation.buyer_partner:
+            response.buyer = PartnerSummary(
+                id=negotiation.buyer_partner.id,
+                business_name=negotiation.buyer_partner.business_name,
+                business_type=negotiation.buyer_partner.business_type.value
+            )
+        
+        if negotiation.seller_partner:
+            response.seller = PartnerSummary(
+                id=negotiation.seller_partner.id,
+                business_name=negotiation.seller_partner.business_name,
+                business_type=negotiation.seller_partner.business_type.value
+            )
+        
+        return response
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------- GET: User's Negotiations ----------
+
+@router.get("/", response_model=NegotiationListResponse)
+async def list_negotiations(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: Partner = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    List user's negotiations with pagination.
+    """
+    try:
+        negotiations = await service.get_user_negotiations(
+            user_partner_id=current_user.id,
+            status_filter=status_filter,
+            limit=limit,
+            offset=offset
+        )
+        
+        # Build list items
+        items = []
+        for neg in negotiations:
+            # Determine user role
+            if neg.buyer_partner_id == current_user.id:
+                user_role = PartyEnum.BUYER
+                counterparty_name = neg.seller_partner.business_name if neg.seller_partner else "Unknown"
+            else:
+                user_role = PartyEnum.SELLER
+                counterparty_name = neg.buyer_partner.business_name if neg.buyer_partner else "Unknown"
+            
+            # Count unread messages
+            unread_count = 0
+            for msg in neg.messages:
+                if user_role == PartyEnum.BUYER and not msg.read_by_buyer:
+                    unread_count += 1
+                elif user_role == PartyEnum.SELLER and not msg.read_by_seller:
+                    unread_count += 1
+            
+            # Get commodity name
+            commodity_name = "Unknown"
+            if neg.requirement and neg.requirement.commodity:
+                commodity_name = neg.requirement.commodity.name
+            
+            items.append(NegotiationListItem(
+                id=neg.id,
+                status=neg.status,
+                current_round=neg.current_round,
+                current_price_per_unit=neg.current_price_per_unit,
+                user_role=user_role,
+                counterparty_name=counterparty_name,
+                commodity_name=commodity_name,
+                initiated_at=neg.initiated_at,
+                expires_at=neg.expires_at,
+                unread_messages=unread_count
+            ))
+        
+        return NegotiationListResponse(
+            items=items,
+            total=len(items),  # TODO: Get actual total from service
+            limit=limit,
+            offset=offset
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------- GET: AI Suggestion ----------
+
+@router.post("/{negotiation_id}/ai-suggest", response_model=AICounterOfferSuggestion)
+async def get_ai_suggestion(
+    negotiation_id: UUID,
+    request: AIAssistRequest,
+    current_user: Partner = Depends(get_current_user),
+    negotiation_service: NegotiationService = Depends(get_negotiation_service),
+    ai_service: AINegoticationService = Depends(get_ai_service)
+):
+    """
+    Get AI-powered counter-offer suggestion.
+    """
+    try:
+        # Get negotiation
+        negotiation = await negotiation_service.get_negotiation_by_id(
+            negotiation_id=negotiation_id,
+            user_partner_id=current_user.id
+        )
+        
+        # Get latest offer
+        if not negotiation.offers:
+            raise HTTPException(status_code=400, detail="No offers to analyze")
+        
+        latest_offer = negotiation.offers[-1]
+        
+        # Determine user party
+        if negotiation.buyer_partner_id == current_user.id:
+            user_party = "BUYER"
+        else:
+            user_party = "SELLER"
+        
+        # Get AI suggestion
+        suggestion = await ai_service.suggest_counter_offer(
+            negotiation=negotiation,
+            current_offer=latest_offer,
+            user_party=user_party
+        )
+        
+        return AICounterOfferSuggestion(**suggestion)
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+# ---------- WebSocket: Real-time Room ----------
+
+@router.websocket("/{negotiation_id}/ws")
+async def negotiation_websocket(
+    websocket: WebSocket,
+    negotiation_id: UUID,
+    # Note: WebSocket auth would need custom implementation
+    # For now, assume token passed as query param
+):
+    """
+    WebSocket endpoint for real-time negotiation updates.
+    
+    Events received:
+    - offer.created
+    - offer.accepted
+    - offer.rejected
+    - message.received
+    - typing.indicator
+    - negotiation.status_changed
+    """
+    # TODO: Implement proper WebSocket authentication
+    # For now, accept connection without auth
+    user_partner_id = UUID("00000000-0000-0000-0000-000000000000")  # Placeholder
+    
+    try:
+        await negotiation_room_manager.connect(
+            negotiation_id=negotiation_id,
+            websocket=websocket,
+            user_partner_id=user_partner_id
+        )
+        
+        while True:
+            # Receive messages from client
+            data = await websocket.receive_json()
+            
+            # Handle typing indicator
+            if data.get("type") == "typing":
+                await negotiation_room_manager.broadcast_typing_indicator(
+                    negotiation_id=negotiation_id,
+                    user_id=user_partner_id,
+                    is_typing=data.get("is_typing", False)
+                )
+    
+    except WebSocketDisconnect:
+        await negotiation_room_manager.disconnect(
+            negotiation_id=negotiation_id,
+            websocket=websocket
+        )
