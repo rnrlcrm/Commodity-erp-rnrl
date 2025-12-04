@@ -208,6 +208,7 @@ def create_app() -> FastAPI:
 	from backend.modules.trade_desk.routes.requirement_routes import router as requirement_router
 	from backend.modules.trade_desk.routes.matching_router import router as matching_router
 	from backend.modules.trade_desk.routes.negotiation_routes import router as negotiation_router
+	from backend.modules.trade_desk.routes.negotiation_routes import admin_router as negotiation_admin_router
 	
 	app.include_router(websocket_router, prefix="/api/v1", tags=["websocket"])
 	app.include_router(webhooks_router, prefix="/api/v1", tags=["webhooks"])
@@ -220,6 +221,7 @@ def create_app() -> FastAPI:
 	app.include_router(requirement_router, prefix="/api/v1/trade-desk", tags=["trade-desk"])
 	app.include_router(matching_router, prefix="/api/v1/trade-desk", tags=["trade-desk"])
 	app.include_router(negotiation_router, prefix="/api/v1/trade-desk", tags=["trade-desk"])
+	app.include_router(negotiation_admin_router, prefix="/api/v1/trade-desk", tags=["trade-desk-admin"])
 	
 	# AI Infrastructure Startup
 	@app.on_event("startup")

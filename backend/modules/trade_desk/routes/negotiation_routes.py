@@ -25,6 +25,7 @@ from backend.modules.settings.models.settings_models import User
 from backend.modules.trade_desk.services.negotiation_service import NegotiationService
 from backend.modules.trade_desk.services.ai_negotiation_service import AINegoticationService
 from backend.modules.trade_desk.websocket.negotiation_rooms import negotiation_room_manager
+from backend.core.errors.exceptions import AuthorizationException
 from backend.modules.trade_desk.schemas.negotiation_schemas import (
     StartNegotiationRequest,
     MakeOfferRequest,
@@ -44,6 +45,7 @@ from backend.modules.trade_desk.schemas.negotiation_schemas import (
 
 
 router = APIRouter(prefix="/negotiations", tags=["Negotiations"])
+admin_router = APIRouter(prefix="/admin/negotiations", tags=["Admin Monitoring"])
 
 
 # ---------- Helper: Get Service ----------
@@ -490,3 +492,133 @@ async def negotiation_websocket(
             negotiation_id=negotiation_id,
             websocket=websocket
         )
+
+
+# ============================================================================
+# ADMIN MONITORING ENDPOINTS (READ-ONLY)
+# ============================================================================
+
+@admin_router.get("", response_model=NegotiationListResponse)
+async def admin_list_all_negotiations(
+    current_user: User = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0)
+):
+    """
+    Admin: Monitor ALL negotiations in real-time (READ-ONLY).
+    
+    Accessible ONLY to INTERNAL/SUPER_ADMIN users.
+    Back office monitoring - NO participation allowed.
+    """
+    # Check admin access
+    if current_user.user_type not in ['INTERNAL', 'SUPER_ADMIN']:
+        raise AuthorizationException("Admin access required for monitoring")
+    
+    # Get ALL negotiations (no user filter)
+    negotiations = await service.admin_get_all_negotiations(
+        status=status,
+        limit=limit,
+        offset=offset
+    )
+    
+    # Convert to response
+    items = []
+    for neg in negotiations:
+        items.append(NegotiationListItem(
+            id=neg.id,
+            requirement_id=neg.requirement_id,
+            availability_id=neg.availability_id,
+            buyer_partner=PartnerSummary(
+                id=neg.buyer_partner.id,
+                business_name=neg.buyer_partner.business_name
+            ),
+            seller_partner=PartnerSummary(
+                id=neg.seller_partner.id,
+                business_name=neg.seller_partner.business_name
+            ),
+            status=neg.status,
+            current_round=neg.current_round,
+            last_activity_at=neg.last_activity_at,
+            created_at=neg.created_at
+        ))
+    
+    return NegotiationListResponse(
+        negotiations=items,
+        total=len(items),
+        limit=limit,
+        offset=offset
+    )
+
+
+@admin_router.get("/{negotiation_id}", response_model=NegotiationResponse)
+async def admin_get_negotiation_details(
+    negotiation_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: NegotiationService = Depends(get_negotiation_service)
+):
+    """
+    Admin: View negotiation details in real-time (READ-ONLY).
+    
+    Accessible ONLY to INTERNAL/SUPER_ADMIN users.
+    Back office monitoring - NO participation allowed.
+    """
+    # Check admin access
+    if current_user.user_type not in ['INTERNAL', 'SUPER_ADMIN']:
+        raise AuthorizationException("Admin access required for monitoring")
+    
+    try:
+        # Get negotiation without authorization check
+        negotiation = await service.admin_get_negotiation_by_id(negotiation_id)
+        
+        # Convert to response
+        return NegotiationResponse(
+            id=negotiation.id,
+            requirement_id=negotiation.requirement_id,
+            availability_id=negotiation.availability_id,
+            buyer_partner=PartnerSummary(
+                id=negotiation.buyer_partner.id,
+                business_name=negotiation.buyer_partner.business_name
+            ),
+            seller_partner=PartnerSummary(
+                id=negotiation.seller_partner.id,
+                business_name=negotiation.seller_partner.business_name
+            ),
+            status=negotiation.status,
+            current_round=negotiation.current_round,
+            offers=[
+                OfferResponse(
+                    id=offer.id,
+                    round_number=offer.round_number,
+                    offered_by=PartyEnum(offer.offered_by),
+                    price_per_unit=offer.price_per_unit,
+                    quantity=offer.quantity,
+                    delivery_terms=offer.delivery_terms,
+                    payment_terms=offer.payment_terms,
+                    quality_conditions=offer.quality_conditions,
+                    message=offer.message,
+                    status=offer.status,
+                    ai_generated=offer.ai_generated,
+                    ai_confidence=offer.ai_confidence,
+                    created_at=offer.created_at
+                )
+                for offer in negotiation.offers
+            ],
+            messages=[
+                MessageResponse(
+                    id=msg.id,
+                    sender=PartyEnum(msg.sender),
+                    message=msg.message,
+                    message_type=msg.message_type,
+                    created_at=msg.created_at
+                )
+                for msg in negotiation.messages
+            ],
+            last_activity_at=negotiation.last_activity_at,
+            created_at=negotiation.created_at,
+            closed_at=negotiation.closed_at
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

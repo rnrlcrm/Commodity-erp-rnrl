@@ -720,6 +720,81 @@ class NegotiationService:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
     
+    # ========================================================================
+    # ADMIN MONITORING METHODS (READ-ONLY)
+    # ========================================================================
+    
+    async def admin_get_all_negotiations(
+        self,
+        status: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Negotiation]:
+        """
+        Admin: Get ALL negotiations across all users (no authorization filter).
+        
+        For back office monitoring only - NO participation.
+        
+        Args:
+            status: Filter by status (optional)
+            limit: Max results
+            offset: Pagination offset
+        
+        Returns:
+            List of all negotiations
+        """
+        stmt = select(Negotiation).options(
+            selectinload(Negotiation.requirement),
+            selectinload(Negotiation.availability),
+            selectinload(Negotiation.buyer_partner),
+            selectinload(Negotiation.seller_partner)
+        )
+        
+        if status:
+            stmt = stmt.where(Negotiation.status == status)
+        
+        stmt = stmt.order_by(Negotiation.last_activity_at.desc())
+        stmt = stmt.limit(limit).offset(offset)
+        
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+    
+    async def admin_get_negotiation_by_id(
+        self,
+        negotiation_id: UUID
+    ) -> Negotiation:
+        """
+        Admin: Get negotiation details without authorization check.
+        
+        For back office monitoring only - NO participation.
+        
+        Args:
+            negotiation_id: Negotiation UUID
+        
+        Returns:
+            Negotiation: With all related data loaded
+        
+        Raises:
+            NotFoundException: Negotiation not found
+        """
+        stmt = select(Negotiation).where(
+            Negotiation.id == negotiation_id
+        ).options(
+            selectinload(Negotiation.offers),
+            selectinload(Negotiation.messages),
+            selectinload(Negotiation.requirement),
+            selectinload(Negotiation.availability),
+            selectinload(Negotiation.buyer_partner),
+            selectinload(Negotiation.seller_partner)
+        )
+        result = await self.db.execute(stmt)
+        negotiation = result.scalar_one_or_none()
+        
+        if not negotiation:
+            raise NotFoundException(f"Negotiation {negotiation_id} not found")
+        
+        return negotiation
+    
     async def get_negotiation_messages(
         self,
         negotiation_id: UUID,
