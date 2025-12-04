@@ -33,6 +33,29 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select, delete
 
+# Import all models first to ensure SQLAlchemy relationships are resolved
+# This must be done BEFORE creating any model instances to avoid forward reference errors
+from backend.modules.partners.models import BusinessPartner, PartnerBranch
+from backend.modules.settings.commodities.models import Commodity
+# Import all trade_desk models from __init__ to properly resolve string relationships
+from backend.modules.trade_desk.models import (
+    Requirement,
+    Availability,
+    MatchToken,
+    Negotiation,
+    Trade,
+    AvailabilityEmbedding,
+    RequirementEmbedding,
+)
+# Import settings models that might be referenced
+from backend.modules.settings.locations.models import Location
+# Import partner models that might be referenced
+from backend.modules.partners.models import PartnerLocation
+from backend.modules.trade_desk.repositories.trade_repository import TradeRepository
+from backend.modules.partners.repositories.branch_repository import BranchRepository
+from backend.modules.trade_desk.services.trade_service import TradeService
+from backend.modules.trade_desk.services.branch_suggestion_service import BranchSuggestionService
+
 # Test database URL
 TEST_DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/cotton_dev"
 
@@ -60,20 +83,6 @@ async def test_full_trade_desk_workflow(db_session: AsyncSession):
     
     This tests the entire journey from partner creation to instant binding contract
     """
-    # Import models directly to avoid circular imports
-    from backend.modules.partners.models.business_partner import BusinessPartner
-    from backend.modules.partners.models.partner_branch import PartnerBranch
-    from backend.modules.commodities.models.commodity import Commodity
-    from backend.modules.trade_desk.models.requirement import Requirement
-    from backend.modules.trade_desk.models.availability import Availability
-    from backend.modules.trade_desk.models.match_token import MatchToken
-    from backend.modules.trade_desk.models.negotiation import Negotiation
-    from backend.modules.trade_desk.models.trade import Trade
-    from backend.modules.trade_desk.repositories.trade_repository import TradeRepository
-    from backend.modules.partners.repositories.branch_repository import BranchRepository
-    from backend.modules.trade_desk.services.trade_service import TradeService
-    from backend.modules.trade_desk.services.branch_suggestion_service import BranchSuggestionService
-    
     print("\n" + "=" * 80)
     print("TRADE DESK END-TO-END INTEGRATION TEST")
     print("=" * 80)
@@ -579,19 +588,6 @@ async def test_multiple_commodities_simultaneous_trades(db_session: AsyncSession
     - Multi-location branch selection
     - AI branch suggestions for each commodity
     """
-    from backend.modules.partners.models.business_partner import BusinessPartner
-    from backend.modules.partners.models.partner_branch import PartnerBranch
-    from backend.modules.commodities.models.commodity import Commodity
-    from backend.modules.trade_desk.models.requirement import Requirement
-    from backend.modules.trade_desk.models.availability import Availability
-    from backend.modules.trade_desk.models.match_token import MatchToken
-    from backend.modules.trade_desk.models.negotiation import Negotiation
-    from backend.modules.trade_desk.models.trade import Trade
-    from backend.modules.trade_desk.repositories.trade_repository import TradeRepository
-    from backend.modules.partners.repositories.branch_repository import BranchRepository
-    from backend.modules.trade_desk.services.trade_service import TradeService
-    from backend.modules.trade_desk.services.branch_suggestion_service import BranchSuggestionService
-    
     print("\n" + "=" * 80)
     print("MULTIPLE COMMODITIES + INTERNATIONAL TRADES TEST")
     print("=" * 80)
