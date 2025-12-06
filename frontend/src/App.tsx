@@ -11,6 +11,7 @@ import { ClearingSettlementPage } from './pages/backoffice/ClearingSettlementPag
 import { RiskMonitoringPage } from './pages/backoffice/RiskMonitoringPage';
 import { ComplianceAuditPage } from './pages/backoffice/ComplianceAuditPage';
 import { CapabilitiesManagementPage } from './pages/backoffice/CapabilitiesManagementPage';
+import { UserCapabilitiesPage } from './pages/backoffice/UserCapabilitiesPage';
 import { AccountsFinancePage } from './pages/backoffice/AccountsFinancePage';
 import { ProfilePage } from './pages/settings/ProfilePage';
 import { SessionsPage } from './pages/settings/SessionsPage';
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="risk" element={<RiskMonitoringPage />} />
           <Route path="audit" element={<ComplianceAuditPage />} />
           <Route path="capabilities" element={<CapabilitiesManagementPage />} />
+          <Route path="user-capabilities" element={<UserCapabilitiesPage />} />
           <Route path="accounts" element={<AccountsFinancePage />} />
           <Route path="settings/profile" element={<ProfilePage />} />
           <Route path="settings/sessions" element={<SessionsPage />} />
@@ -61,7 +63,6 @@ export default function App() {
       </Routes>
     </BrowserRouter>
       </ToastProvider>
-    </AuthProvider>
   );
 }
 

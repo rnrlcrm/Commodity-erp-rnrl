@@ -19,7 +19,6 @@ import {
 
 export function CapabilityGuardExample() {
   const canCreateAvailability = useHasCapability(CapabilityCode.AVAILABILITY_CREATE);
-  const canApproveMatch = useHasCapability(CapabilityCode.MATCHING_APPROVE_MATCH);
   const isAdmin = useIsAdmin();
 
   return (

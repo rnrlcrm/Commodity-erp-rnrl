@@ -35,6 +35,7 @@ const systems = [
   { id: 'accounts', name: 'Accounts', href: '/backoffice/accounts', icon: CurrencyDollarIcon },
   { id: 'audit', name: 'Audit', href: '/backoffice/audit', icon: DocumentTextIcon },
   { id: 'capabilities', name: 'Capabilities', href: '/backoffice/capabilities', icon: KeyIcon },
+  { id: 'users', name: 'Users', href: '/backoffice/user-capabilities', icon: UserCircleIcon },
   { id: 'settings', name: 'Settings', href: '/backoffice/settings', icon: CogIcon },
 ];
 
@@ -75,6 +76,7 @@ export function BackofficeLayout2040() {
     else if (path.includes('/risk')) setActiveSystem('risk');
     else if (path.includes('/accounts')) setActiveSystem('accounts');
     else if (path.includes('/audit')) setActiveSystem('audit');
+    else if (path.includes('/user-capabilities')) setActiveSystem('users');
     else if (path.includes('/capabilities')) setActiveSystem('capabilities');
     else if (path.includes('/settings')) setActiveSystem('settings');
   }, [location.pathname]);

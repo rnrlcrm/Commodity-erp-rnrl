@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import type { CapabilityCode } from '@/types/capability';
+import { CapabilityCode } from '@/types/capability';
 
 /**
  * Hook to check if current user has a specific capability

@@ -9,25 +9,20 @@ import {
   UserCircleIcon,
   ShieldCheckIcon,
   KeyIcon,
-  ClockIcon,
   CheckCircleIcon,
-  XCircleIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
 } from '@heroicons/react/24/outline';
 import capabilitiesService from '@/services/api/capabilitiesService';
 import type { 
-  Capability, 
-  UserCapabilitiesResponse,
-  CapabilityCategory 
+  Capability
 } from '@/types/capability';
 
 export function CapabilitiesManagementPage() {
   const [allCapabilities, setAllCapabilities] = useState<Capability[]>([]);
   const [capabilitiesByCategory, setCapabilitiesByCategory] = useState<Record<string, Capability[]>>({});
-  const [selectedUser, setSelectedUser] = useState<UserCapabilitiesResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'roles' | 'matrix'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'matrix'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
 
@@ -165,7 +160,6 @@ export function CapabilitiesManagementPage() {
           {[
             { id: 'overview', label: 'Overview', icon: KeyIcon },
             { id: 'users', label: 'User Capabilities', icon: UserCircleIcon },
-            { id: 'roles', label: 'Role Capabilities', icon: ShieldCheckIcon },
             { id: 'matrix', label: 'Permission Matrix', icon: FunnelIcon },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -268,24 +262,10 @@ export function CapabilitiesManagementPage() {
           <div className="text-center py-12">
             <UserCircleIcon className="w-16 h-16 text-saturn-300 mx-auto mb-4" />
             <p className="text-saturn-600 font-medium">User Capabilities Management</p>
-            <p className="text-sm text-saturn-500 mt-1">Assign and manage individual user permissions</p>
-            <button className="mt-6 px-6 py-3 bg-gradient-to-r from-saturn-500 to-sun-500 text-white font-heading font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-120">
-              View Users
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Role Capabilities Tab */}
-      {activeTab === 'roles' && (
-        <div className="bg-white/80 backdrop-blur-sm border-2 border-space-200/30 rounded-2xl p-6">
-          <div className="text-center py-12">
-            <ShieldCheckIcon className="w-16 h-16 text-saturn-300 mx-auto mb-4" />
-            <p className="text-saturn-600 font-medium">Role Capabilities Management</p>
-            <p className="text-sm text-saturn-500 mt-1">Configure role-based capability templates</p>
-            <button className="mt-6 px-6 py-3 bg-gradient-to-r from-saturn-500 to-sun-500 text-white font-heading font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-120">
-              Manage Roles
-            </button>
+            <p className="text-sm text-saturn-500 mt-1">This feature has moved to a dedicated page</p>
+            <a href="/backoffice/user-capabilities" className="mt-6 inline-block px-6 py-3 bg-gradient-to-r from-saturn-500 to-sun-500 text-white font-heading font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-120">
+              Go to User Capabilities Page →
+            </a>
           </div>
         </div>
       )}

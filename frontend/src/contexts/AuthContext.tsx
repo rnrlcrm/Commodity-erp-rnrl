@@ -5,7 +5,7 @@
  */
 
 import { createContext, useState, useEffect, ReactNode } from 'react';
-import type { User, LoginRequest, LoginWith2FAResponse } from '@/types/auth';
+import type { User, LoginRequest } from '@/types/auth';
 import { authService } from '@/services/api/authService';
 import capabilitiesService from '@/services/api/capabilitiesService';
 
