@@ -18,36 +18,28 @@ export interface Capability {
 export interface UserCapability {
   id: string;
   user_id: string;
-  capability_id: string;
-  capability_code: string;
-  capability_name: string;
+  capability: Capability; // Full capability object (matches backend)
   granted_at: string;
   granted_by: string | null;
-  granted_by_name?: string;
   expires_at: string | null;
   revoked_at: string | null;
+  revoked_by: string | null;
   reason: string | null;
 }
 
 export interface RoleCapability {
   id: string;
   role_id: string;
-  capability_id: string;
-  capability_code: string;
-  capability_name: string;
+  capability: Capability; // Full capability object (matches backend)
   granted_at: string;
   granted_by: string | null;
-  granted_by_name?: string;
 }
 
 export interface UserCapabilitiesResponse {
   user_id: string;
-  user_email: string;
-  user_name: string;
-  capabilities: string[]; // Array of capability codes
-  direct_capabilities: UserCapability[];
-  role_capabilities: RoleCapability[];
-  total_count: number;
+  capabilities: string[]; // Array of capability codes (simple strings)
+  direct_capabilities: UserCapability[]; // Full objects with nested capability
+  role_capabilities: RoleCapability[]; // Full objects with nested capability
 }
 
 export interface GrantCapabilityRequest {

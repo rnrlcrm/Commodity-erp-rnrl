@@ -4,15 +4,15 @@
  * Replaces role-based permission system with fine-grained capabilities
  */
 
-import { useContext, useMemo } from 'react';
-import { AuthContext } from '@/contexts/AuthContext';
+import { useMemo } from 'react';
+import { useAuthStore } from '@/store/authStore';
 import type { CapabilityCode } from '@/types/capability';
 
 /**
  * Hook to check if current user has a specific capability
  */
 export function useHasCapability(capabilityCode: string | CapabilityCode): boolean {
-  const { user } = useContext(AuthContext);
+  const user = useAuthStore((state) => state.user);
   
   return useMemo(() => {
     if (!user?.capabilities) return false;
@@ -24,7 +24,7 @@ export function useHasCapability(capabilityCode: string | CapabilityCode): boole
  * Hook to check if current user has ANY of the specified capabilities
  */
 export function useHasAnyCapability(capabilityCodes: (string | CapabilityCode)[]): boolean {
-  const { user } = useContext(AuthContext);
+  const user = useAuthStore((state) => state.user);
   
   return useMemo(() => {
     if (!user?.capabilities) return false;
@@ -36,7 +36,7 @@ export function useHasAnyCapability(capabilityCodes: (string | CapabilityCode)[]
  * Hook to check if current user has ALL of the specified capabilities
  */
 export function useHasAllCapabilities(capabilityCodes: (string | CapabilityCode)[]): boolean {
-  const { user } = useContext(AuthContext);
+  const user = useAuthStore((state) => state.user);
   
   return useMemo(() => {
     if (!user?.capabilities) return false;
@@ -48,7 +48,7 @@ export function useHasAllCapabilities(capabilityCodes: (string | CapabilityCode)
  * Hook to get all capabilities of current user
  */
 export function useUserCapabilities(): string[] {
-  const { user } = useContext(AuthContext);
+  const user = useAuthStore((state) => state.user);
   return user?.capabilities || [];
 }
 

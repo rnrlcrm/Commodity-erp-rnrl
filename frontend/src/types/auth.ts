@@ -9,13 +9,25 @@ export interface User {
   full_name: string;
   user_type: 'SUPER_ADMIN' | 'INTERNAL' | 'EXTERNAL';
   role?: string; // Deprecated - use capabilities instead
-  capabilities: string[]; // Array of capability codes
+  capabilities: string[]; // Array of capability codes from /capabilities/me
   is_active: boolean;
   organization_id?: string;
   business_partner_id?: string;
   allowed_modules?: string[];
   created_at: string;
 }
+
+// Helper to create default user with empty capabilities
+export const createDefaultUser = (userData: Partial<User>): User => ({
+  id: '',
+  email: '',
+  full_name: '',
+  user_type: 'EXTERNAL',
+  capabilities: [],
+  is_active: false,
+  created_at: new Date().toISOString(),
+  ...userData,
+});
 
 export interface LoginRequest {
   email: string;

@@ -53,15 +53,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userProfile = await authService.getCurrentUser();
       
       // Get user capabilities from /capabilities/me
-      const capabilitiesData = await capabilitiesService.getMyCapabilities();
-      
-      // Merge user data with capabilities
-      setUser({
-        ...userProfile,
-        capabilities: capabilitiesData.capabilities || [],
-      });
+      try {
+        const capabilitiesData = await capabilitiesService.getMyCapabilities();
+        
+        // Merge user data with capabilities
+        setUser({
+          ...userProfile,
+          capabilities: capabilitiesData.capabilities || [],
+        });
+      } catch (capError) {
+        console.warn('Failed to load capabilities, using empty array:', capError);
+        // Still set user but with empty capabilities
+        setUser({
+          ...userProfile,
+          capabilities: [],
+        });
+      }
     } catch (error) {
-      console.error('Failed to load user capabilities:', error);
+      console.error('Failed to load user profile:', error);
       throw error;
     }
   };

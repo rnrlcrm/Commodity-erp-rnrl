@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authService } from '@/services/api/authService';
+import capabilitiesService from '@/services/api/capabilitiesService';
 import type { LoginRequest, AuthState, AuthError } from '@/types/auth';
 
 interface AuthActions {
@@ -14,6 +15,7 @@ interface AuthActions {
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   loadUser: () => Promise<void>;
+  loadCapabilities: () => Promise<void>; // New: Load user capabilities
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   
@@ -60,6 +62,15 @@ export const useAuthStore = create<AuthStore>()(
           // Fetch user details
           const user = await authService.getCurrentUser();
           authService.storeUser(user);
+
+          // Fetch user capabilities and merge
+          try {
+            const capabilitiesData = await capabilitiesService.getMyCapabilities();
+            user.capabilities = capabilitiesData.capabilities || [];
+          } catch (capError) {
+            console.warn('Failed to load capabilities, using empty array:', capError);
+            user.capabilities = [];
+          }
 
           set({
             user,
@@ -154,6 +165,15 @@ export const useAuthStore = create<AuthStore>()(
             authService.storeUser(user);
           }
 
+          // Always fetch fresh capabilities
+          try {
+            const capabilitiesData = await capabilitiesService.getMyCapabilities();
+            user.capabilities = capabilitiesData.capabilities || [];
+          } catch (capError) {
+            console.warn('Failed to load capabilities:', capError);
+            user.capabilities = user.capabilities || [];
+          }
+
           set({
             user,
             accessToken,
@@ -222,6 +242,24 @@ export const useAuthStore = create<AuthStore>()(
       // Set loading
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
+      },
+
+      // Load capabilities for current user
+      loadCapabilities: async () => {
+        const { user } = get();
+        if (!user) return;
+
+        try {
+          const capabilitiesData = await capabilitiesService.getMyCapabilities();
+          set({
+            user: {
+              ...user,
+              capabilities: capabilitiesData.capabilities || [],
+            },
+          });
+        } catch (error) {
+          console.error('Failed to load capabilities:', error);
+        }
       },
     }),
     {
