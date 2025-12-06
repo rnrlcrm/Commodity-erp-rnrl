@@ -37,9 +37,6 @@ gcloud sql instances create cotton-erp-db \
   --database-version=POSTGRES_15 \
   --tier=db-f1-micro \
   --region=$REGION \
-  --network=default \
-  --no-assign-ip \
-  --database-flags=cloudsql.enable_pgvector=on \
   --backup-start-time=03:00 \
   --retained-backups-count=7 \
   || echo "Cloud SQL instance already exists, skipping..."
@@ -65,10 +62,10 @@ gcloud sql users create commodity_user \
   --password="$DB_PASSWORD" \
   || echo "User already exists, skipping..."
 
-# Store database URL in Secret Manager
+# Get database connection info and store in Secret Manager
 echo "🔐 Storing database credentials in Secret Manager..."
 DB_CONNECTION_NAME=$(gcloud sql instances describe cotton-erp-db --format="value(connectionName)")
-DATABASE_URL="postgresql://commodity_user:${DB_PASSWORD}@/${commodity_erp}?host=/cloudsql/${DB_CONNECTION_NAME}"
+DATABASE_URL="postgresql://commodity_user:${DB_PASSWORD}@/commodity_erp?host=/cloudsql/${DB_CONNECTION_NAME}"
 echo -n "$DATABASE_URL" | gcloud secrets create database-url --data-file=- || \
   echo -n "$DATABASE_URL" | gcloud secrets versions add database-url --data-file=-
 
