@@ -88,3 +88,5 @@ Thumbs.db
 
 # Build scripts (created temporarily)
 *.sh
+.vite/
+frontend/cloudflared
