@@ -14,6 +14,9 @@ import { AccountsFinancePage } from './pages/backoffice/AccountsFinancePage';
 import { ProfilePage } from './pages/settings/ProfilePage';
 import { SessionsPage } from './pages/settings/SessionsPage';
 import { TwoFactorPage } from './pages/settings/TwoFactorPage';
+import OrganizationPage from './pages/settings/OrganizationPage';
+import CommoditiesPage from './pages/settings/CommoditiesPage';
+import LocationsPage from './pages/settings/LocationsPage';
 
 export default function App() {
   console.log('App component rendered - 2040 Architecture with Auth!');
@@ -47,7 +50,10 @@ export default function App() {
           <Route path="settings/profile" element={<ProfilePage />} />
           <Route path="settings/sessions" element={<SessionsPage />} />
           <Route path="settings/2fa" element={<TwoFactorPage />} />
-          <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+          <Route path="settings/organization" element={<OrganizationPage />} />
+          <Route path="settings/commodities" element={<CommoditiesPage />} />
+          <Route path="settings/locations" element={<LocationsPage />} />
+          <Route path="settings" element={<Navigate to="/backoffice/settings/organization" replace />} />
           <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />
         </Route>
       </Routes>
