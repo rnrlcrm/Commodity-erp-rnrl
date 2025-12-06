@@ -99,7 +99,7 @@ steps:
       - '--concurrency=80'
       - '--port=8000'
       - '--vpc-connector=cotton-erp-connector'
-      - '--set-env-vars=ENVIRONMENT=sandbox,LOG_LEVEL=INFO'
+      - '--set-env-vars=ENVIRONMENT=sandbox,LOG_LEVEL=INFO,GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets=DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,JWT_SECRET_KEY=jwt-secret:latest,OPENAI_API_KEY=openai-key:latest'
       - '--service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com'
     waitFor: ['push-backend']
