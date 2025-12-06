@@ -1,0 +1,116 @@
+# GitHub Actions Workflow for GCP Deployment
+# Project: commodity-plafform-sandbox
+# 
+# Triggers Cloud Build on push to main branch
+
+name: Deploy to GCP Sandbox
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: commodity-plafform-sandbox
+  REGION: us-central1
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    
+    # Only run on push, not on PRs
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Trigger Cloud Build
+        run: |
+          gcloud builds submit \
+            --config=cloudbuild.yaml \
+            --substitutions=_ENVIRONMENT=sandbox \
+            --timeout=30m
+
+      - name: Get service URLs
+        id: get-urls
+        run: |
+          BACKEND_URL=$(gcloud run services describe backend-service \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          FRONTEND_URL=$(gcloud run services describe frontend-service \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          
+          echo "backend_url=$BACKEND_URL" >> $GITHUB_OUTPUT
+          echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+
+      - name: Run health checks
+        run: |
+          echo "🏥 Running health checks..."
+          
+          # Backend health check
+          BACKEND_URL="${{ steps.get-urls.outputs.backend_url }}"
+          echo "Checking backend: $BACKEND_URL/health"
+          curl -f "$BACKEND_URL/health" || exit 1
+          echo "✅ Backend is healthy"
+          
+          # Frontend health check
+          FRONTEND_URL="${{ steps.get-urls.outputs.frontend_url }}"
+          echo "Checking frontend: $FRONTEND_URL/health"
+          curl -f "$FRONTEND_URL/health" || exit 1
+          echo "✅ Frontend is healthy"
+
+      - name: Deployment summary
+        run: |
+          echo "🚀 Deployment successful!"
+          echo ""
+          echo "📍 Service URLs:"
+          echo "  Backend:  ${{ steps.get-urls.outputs.backend_url }}"
+          echo "  Frontend: ${{ steps.get-urls.outputs.frontend_url }}"
+          echo ""
+          echo "📊 View logs:"
+          echo "  https://console.cloud.google.com/run?project=${{ env.PROJECT_ID }}"
+
+  # Validation job for PRs (no deployment)
+  validate:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate cloudbuild.yaml
+        run: |
+          echo "✅ Validating Cloud Build configuration..."
+          # Check if cloudbuild.yaml exists and is valid YAML
+          python -c "import yaml; yaml.safe_load(open('cloudbuild.yaml'))"
+          echo "✅ cloudbuild.yaml is valid"
+
+      - name: Validate Dockerfiles
+        run: |
+          echo "✅ Validating Dockerfiles..."
+          [ -f "infra/docker/backend/Dockerfile.prod" ] || exit 1
+          [ -f "infra/docker/frontend/Dockerfile.prod" ] || exit 1
+          echo "✅ Dockerfiles exist"

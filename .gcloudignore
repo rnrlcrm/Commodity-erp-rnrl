@@ -1,0 +1,89 @@
+# This file specifies files that are intentionally untracked by gcloud
+# and should not be uploaded to Google Cloud Platform.
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.venv/
+.venv-1/
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm/
+dist/
+build/
+.next/
+.vite/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+AI_*.md
+MODULE_*.md
+TRADE_*.md
+
+# Tests
+tests/
+test_*.py
+*_test.py
+*.test.ts
+*.spec.ts
+
+# Development files
+.env
+.env.local
+.env.development
+docker-compose.yml
+docker-compose.*.yml
+Makefile
+
+# Logs
+*.log
+logs/
+test_results.log
+
+# Mobile
+mobile/
+*.apk
+*.ipa
+
+# Temporary files
+*.tmp
+*.bak
+tmp/
+temp/
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Database files
+*.db
+*.sqlite
