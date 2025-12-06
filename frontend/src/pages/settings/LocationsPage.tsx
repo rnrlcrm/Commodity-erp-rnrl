@@ -16,16 +16,20 @@ import {
   CheckCircleIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { useToast } from '@/contexts/ToastContext';
+import { LocationModal } from '@/components/settings/LocationModal';
 import locationService from '@/services/api/locationService';
 import type { Location } from '@/types/settings';
 
 export default function LocationsPage() {
+  const toast = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterActive, setFilterActive] = useState<boolean | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [locationModal, setLocationModal] = useState<{ open: boolean; data?: Location }>({ open: false });
 
   useEffect(() => {
     loadLocations();
@@ -44,6 +48,17 @@ export default function LocationsPage() {
       setError(err.message || 'Failed to load locations');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteLocation = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this location?')) return;
+    try {
+      await locationService.deleteLocation(id);
+      toast.success('Location deleted successfully');
+      loadLocations();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete location');
     }
   };
 
@@ -178,7 +193,10 @@ export default function LocationsPage() {
                 className="pl-10 pr-4 py-2 bg-pearl-800/50 border border-pearl-700/30 rounded-lg text-pearl-100 placeholder-pearl-500 focus:outline-none focus:ring-2 focus:ring-sun-500"
               />
             </div>
-            <button className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2">
+            <button 
+              onClick={() => setLocationModal({ open: true })}
+              className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
+            >
               <PlusIcon className="w-4 h-4" />
               <span>Add Location</span>
             </button>
@@ -282,10 +300,16 @@ export default function LocationsPage() {
 
                     {/* Actions */}
                     <div className="flex space-x-2">
-                      <button className="p-2 hover:bg-pearl-700/30 rounded transition-colors">
+                      <button 
+                        onClick={() => setLocationModal({ open: true, data: location })}
+                        className="p-2 hover:bg-pearl-700/30 rounded transition-colors"
+                      >
                         <PencilIcon className="w-4 h-4 text-pearl-400" />
                       </button>
-                      <button className="p-2 hover:bg-mars-500/20 rounded transition-colors">
+                      <button 
+                        onClick={() => handleDeleteLocation(location.id)}
+                        className="p-2 hover:bg-mars-500/20 rounded transition-colors"
+                      >
                         <TrashIcon className="w-4 h-4 text-mars-400" />
                       </button>
                     </div>
@@ -296,6 +320,14 @@ export default function LocationsPage() {
           </div>
         )}
       </div>
+
+      {/* Location Modal */}
+      <LocationModal
+        isOpen={locationModal.open}
+        onClose={() => setLocationModal({ open: false })}
+        location={locationModal.data}
+        onSuccess={loadLocations}
+      />
     </div>
   );
 }
