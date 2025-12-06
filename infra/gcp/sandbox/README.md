@@ -55,7 +55,7 @@ echo -n "sk_test_your-stripe-key" | gcloud secrets versions add stripe-secret-ke
 1. Go to: https://console.cloud.google.com/cloud-build/triggers
 2. Click "Connect Repository"
 3. Select GitHub and authorize
-4. Select repository: `rnrlcrm/cotton-erp-rnrl`
+4. Select repository: `rnrlcrm/Commodity-erp-rnrl`
 5. Create trigger:
    - **Name:** `deploy-sandbox`
    - **Branch:** `^main$`
@@ -91,7 +91,7 @@ cat ~/gcp-key.json
 
 ### 4. Add GitHub Secret
 
-1. Go to: https://github.com/rnrlcrm/cotton-erp-rnrl/settings/secrets/actions
+1. Go to: https://github.com/rnrlcrm/Commodity-erp-rnrl/settings/secrets/actions
 2. Click "New repository secret"
 3. Name: `GCP_SA_KEY`
 4. Value: Paste the entire JSON content from `gcp-key.json`
