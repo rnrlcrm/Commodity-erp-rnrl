@@ -32,7 +32,6 @@ export default function OrganizationPage() {
   const [documentSeries, setDocumentSeries] = useState<OrganizationDocumentSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     loadOrganizationData();
@@ -172,7 +171,7 @@ export default function OrganizationPage() {
 }
 
 // Component for Company Details tab
-function CompanyDetails({ organization, onUpdate }: { organization: Organization; onUpdate: () => void }) {
+function CompanyDetails({ organization }: { organization: Organization; onUpdate?: () => void }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -243,10 +242,10 @@ function CompanyDetails({ organization, onUpdate }: { organization: Organization
 }
 
 // Component for GST Management tab
-function GSTManagement({ gstList, organizationId, onUpdate }: { 
-  gstList: OrganizationGST[]; 
-  organizationId: string; 
-  onUpdate: () => void 
+function GSTManagement({ gstList }: {
+  gstList: OrganizationGST[];
+  organizationId?: string;
+  onUpdate?: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -298,10 +297,10 @@ function GSTManagement({ gstList, organizationId, onUpdate }: {
 }
 
 // Component for Bank Accounts Management tab
-function BankAccountsManagement({ accounts, organizationId, onUpdate }: { 
-  accounts: OrganizationBankAccount[]; 
-  organizationId: string; 
-  onUpdate: () => void 
+function BankAccountsManagement({ accounts }: {
+  accounts: OrganizationBankAccount[];
+  organizationId?: string;
+  onUpdate?: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -354,10 +353,10 @@ function BankAccountsManagement({ accounts, organizationId, onUpdate }: {
 }
 
 // Component for Financial Years Management tab
-function FinancialYearsManagement({ years, organizationId, onUpdate }: { 
-  years: OrganizationFinancialYear[]; 
-  organizationId: string; 
-  onUpdate: () => void 
+function FinancialYearsManagement({ years }: {
+  years: OrganizationFinancialYear[];
+  organizationId?: string;
+  onUpdate?: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -410,10 +409,10 @@ function FinancialYearsManagement({ years, organizationId, onUpdate }: {
 }
 
 // Component for Document Series Management tab
-function DocumentSeriesManagement({ series, organizationId, onUpdate }: { 
-  series: OrganizationDocumentSeries[]; 
-  organizationId: string; 
-  onUpdate: () => void 
+function DocumentSeriesManagement({ series }: {
+  series: OrganizationDocumentSeries[];
+  organizationId?: string;
+  onUpdate?: () => void;
 }) {
   return (
     <div className="space-y-4">

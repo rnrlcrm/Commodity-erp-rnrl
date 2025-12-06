@@ -167,7 +167,7 @@ export default function CommoditiesPage() {
 }
 
 // Component for Commodities List
-function CommoditiesList({ commodities, onUpdate }: { commodities: Commodity[]; onUpdate: () => void }) {
+function CommoditiesList({ commodities }: { commodities: Commodity[]; onUpdate?: () => void }) {
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredCommodities = commodities.filter(c =>
@@ -251,7 +251,7 @@ function CommoditiesList({ commodities, onUpdate }: { commodities: Commodity[]; 
 }
 
 // Component for Trade Types List
-function TradeTypesList({ tradeTypes, onUpdate }: { tradeTypes: TradeType[]; onUpdate: () => void }) {
+function TradeTypesList({ tradeTypes }: { tradeTypes: TradeType[]; onUpdate?: () => void }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -287,7 +287,7 @@ function TradeTypesList({ tradeTypes, onUpdate }: { tradeTypes: TradeType[]; onU
 }
 
 // Component for Bargain Types List
-function BargainTypesList({ bargainTypes, onUpdate }: { bargainTypes: BargainType[]; onUpdate: () => void }) {
+function BargainTypesList({ bargainTypes }: { bargainTypes: BargainType[]; onUpdate?: () => void }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -328,13 +328,12 @@ function TradingTerms({
   weightmentTerms,
   deliveryTerms,
   paymentTerms,
-  onUpdate,
 }: {
   passingTerms: PassingTerm[];
   weightmentTerms: WeightmentTerm[];
   deliveryTerms: DeliveryTerm[];
   paymentTerms: PaymentTerm[];
-  onUpdate: () => void;
+  onUpdate?: () => void;
 }) {
   const [activeTermTab, setActiveTermTab] = useState<'passing' | 'weightment' | 'delivery' | 'payment'>('passing');
 
