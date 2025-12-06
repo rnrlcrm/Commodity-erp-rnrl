@@ -30,13 +30,15 @@ gcloud artifacts repositories create cotton-erp \
   || echo "Repository already exists, skipping..."
 
 # ============================================================================
-# STEP 2: Create Cloud SQL PostgreSQL Instance
+# STEP 2: Create Cloud SQL PostgreSQL Instance (Private IP only)
 # ============================================================================
 echo "🗄️  Step 2/10: Creating Cloud SQL PostgreSQL instance..."
 gcloud sql instances create cotton-erp-db \
   --database-version=POSTGRES_15 \
   --tier=db-f1-micro \
   --region=$REGION \
+  --network=projects/$PROJECT_ID/global/networks/default \
+  --no-assign-ip \
   --backup-start-time=03:00 \
   --retained-backups-count=7 \
   || echo "Cloud SQL instance already exists, skipping..."
