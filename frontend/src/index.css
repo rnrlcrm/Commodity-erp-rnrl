@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Premium 2040 Cursor System */
+  * {
+    cursor: default;
+  }
+  
+  button, a, [role="button"], .cursor-pointer {
+    cursor: pointer !important;
+  }
+  
+  input, textarea, select {
+    cursor: text !important;
+  }
+  
+  input[type="checkbox"], input[type="radio"] {
+    cursor: pointer !important;
+  }
+  
+  /* Remove all focus outlines - premium clean UX */
+  *:focus {
+    outline: none !important;
+  }
+  
+  *:focus-visible {
+    outline: none !important;
+  }
+  
+  /* Prevent text selection on UI elements */
+  button, .select-none, nav, header {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+  }
+  
+  /* 2040 Typography System */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  
+  /* Smooth font rendering */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+  }
+  
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  /* Custom Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: rgba(30, 58, 138, 0.05);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: rgba(30, 58, 138, 0.3);
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(30, 58, 138, 0.5);
+  }
+  
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(30, 58, 138, 0.3) rgba(30, 58, 138, 0.05);
+  }
+}
+
+@layer utilities {
+  /* 2040 Motion System - 120ms Snap Standard */
+  @keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+  }
+  
+  @keyframes emerald-trace {
+    0% { stroke-dashoffset: 1000; }
+    100% { stroke-dashoffset: 0; }
+  }
+  
+  /* Neural-pulse alerts for fraud/anomaly */
+  @keyframes neural-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.8; }
+  }
+  
+  @keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  
+  /* Wave ripple for AI insights */
+  @keyframes wave-ripple {
+    0% { transform: scale(0.9); opacity: 0; }
+    50% { opacity: 0.5; }
+    100% { transform: scale(1.3); opacity: 0; }
+  }
+  
+  /* Soft light bloom on hover */
+  @keyframes soft-bloom {
+    0% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0); }
+    100% { box-shadow: 0 0 20px 4px rgba(251, 146, 60, 0.15); }
+  }
+  
+  .animate-neural-pulse {
+    animation: neural-pulse 2s ease-in-out infinite;
+  }
+  
+  .animate-pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  
+  .animate-wave-ripple {
+    animation: wave-ripple 1.5s ease-out;
+  }
+  
+  .hover-soft-bloom:hover {
+    animation: soft-bloom 0.3s ease-out forwards;
+  }
+  
+  /* Only shimmer on hover - not continuous */
+  .hover-shimmer:hover {
+    background-size: 200% auto;
+    background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 2s ease-in-out;
+  }
+  
+  .animate-emerald-trace {
+    animation: emerald-trace 1.5s ease-out forwards;
+  }
+  
+  /* Remove focus outline globally */
+  *:focus {
+    outline: none;
+  }
+  
+  /* Glass Morphism */
+  .glass-neo {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  
+  .glass-sapphire {
+    background: rgba(29, 61, 245, 0.05);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+  
+  /* Circle Motif Patterns */
+  .circle-pattern {
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(29, 61, 245, 0.08) 1px, transparent 1px),
+      radial-gradient(circle at 80% 70%, rgba(231, 195, 72, 0.06) 1px, transparent 1px);
+    background-size: 60px 60px, 80px 80px;
+  }
+  
+  .flowing-geometry {
+    clip-path: polygon(0 0, 100% 0, 100% 85%, 85% 100%, 0 100%);
+  }
+
+  /* 2040 Premium Animations - Smooth & Elegant */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  @keyframes ping {
+    75%, 100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+}
