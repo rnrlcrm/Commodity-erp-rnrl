@@ -46,7 +46,7 @@ steps:
         npm ci --prefer-offline --no-audit
         npm run build
     env:
-      - 'VITE_API_URL=https://backend-service-$${PROJECT_NUMBER}.run.app'
+      - 'VITE_API_URL=https://backend-service-565186585906.a.run.app'
       - 'NODE_ENV=production'
     timeout: '600s'
 
