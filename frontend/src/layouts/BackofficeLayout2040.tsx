@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import {
   HomeIcon,
   ChartBarIcon,
@@ -44,6 +45,7 @@ function ExclamationTriangleIcon(props: any) {
 export function BackofficeLayout2040() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [activeSystem, setActiveSystem] = useState('dashboard');
   const [quantumHubOpen, setQuantumHubOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -52,6 +54,12 @@ export function BackofficeLayout2040() {
   // Panel management to prevent collisions
   const handleQuantumToggle = () => {
     setQuantumHubOpen(!quantumHubOpen);
+  };
+  
+  // Handle logout
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   // Auto-detect active system from route
@@ -199,28 +207,42 @@ export function BackofficeLayout2040() {
                 aria-expanded={showProfile}
               >
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sun-400 via-saturn-500 to-mars-500 flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">RK</span>
+                  <span className="text-white text-xs font-bold">
+                    {user?.full_name?.substring(0, 2).toUpperCase() || 'U'}
+                  </span>
                 </div>
                 <ChevronDownIcon className="w-4 h-4 text-saturn-400" />
               </button>
 
               {showProfile && (
-                <div className="absolute right-0 top-12 w-56 glass-neo border border-saturn-200 rounded-xl shadow-2xl overflow-hidden animate-fadeIn z-50">
-                  <div className="p-3 border-b border-saturn-200">
-                    <p className="font-heading font-bold text-saturn-900">Rajkumar Rungta</p>
-                    <p className="text-xs text-saturn-600">Director</p>
+                <div className="absolute right-0 top-12 w-64 glass-neo border border-saturn-200 rounded-xl shadow-2xl overflow-hidden animate-fadeIn z-50">
+                  <div className="p-4 border-b border-saturn-200">
+                    <p className="font-heading font-bold text-saturn-900">{user?.full_name || 'User'}</p>
+                    <p className="text-xs text-saturn-600 mt-1">{user?.email || ''}</p>
+                    <p className="text-xs text-sun-600 font-medium mt-1">{user?.role || user?.user_type}</p>
                   </div>
                   <div className="p-2">
-                    <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-saturn-50 rounded-lg transition-all duration-120">
+                    <Link 
+                      to="/backoffice/settings/profile"
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-saturn-50 rounded-lg transition-all duration-120"
+                      onClick={() => setShowProfile(false)}
+                    >
                       <UserCircleIcon className="w-4 h-4 text-saturn-600" />
                       <span className="text-sm text-saturn-900">Profile</span>
-                    </button>
-                    <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-saturn-50 rounded-lg transition-all duration-120">
+                    </Link>
+                    <Link
+                      to="/backoffice/settings/sessions"
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-saturn-50 rounded-lg transition-all duration-120"
+                      onClick={() => setShowProfile(false)}
+                    >
                       <CogIcon className="w-4 h-4 text-saturn-600" />
-                      <span className="text-sm text-saturn-900">Settings</span>
-                    </button>
+                      <span className="text-sm text-saturn-900">Sessions</span>
+                    </Link>
                     <hr className="my-2 border-saturn-200" />
-                    <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-mars-50 rounded-lg transition-all duration-120">
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-mars-50 rounded-lg transition-all duration-120"
+                    >
                       <ArrowRightOnRectangleIcon className="w-4 h-4 text-mars-600" />
                       <span className="text-sm text-mars-700">Logout</span>
                     </button>
