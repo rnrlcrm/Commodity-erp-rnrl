@@ -13,6 +13,7 @@ steps:
     id: 'build-backend'
     args:
       - 'build'
+      - '--no-cache'
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:$SHORT_SHA'
       - '-t'
@@ -20,7 +21,7 @@ steps:
       - '-f'
       - 'infra/docker/backend/Dockerfile.prod'
       - '.'
-    timeout: '600s'
+    timeout: '900s'
 
   # ============================================================================
   # STEP 2: Push Backend Image to Artifact Registry
