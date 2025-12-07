@@ -77,7 +77,24 @@ steps:
     waitFor: ['build-frontend-image']
 
   # ============================================================================
-  # STEP 5: Deploy Backend to Cloud Run
+  # STEP 5: Run Database Migrations (before deploying services)
+  # ============================================================================
+  - name: 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:$SHORT_SHA'
+    id: 'run-migrations'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        alembic upgrade head
+    env:
+      - 'DATABASE_URL=$$DATABASE_URL'
+      - 'ENVIRONMENT=sandbox'
+    secretEnv: ['DATABASE_URL']
+    waitFor: ['push-backend-sha']
+    timeout: '600s'
+
+  # ============================================================================
+  # STEP 6: Deploy Backend to Cloud Run
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-backend'
@@ -101,11 +118,13 @@ steps:
       - '--set-env-vars=ENVIRONMENT=sandbox,LOG_LEVEL=INFO,GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets=DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,JWT_SECRET_KEY=jwt-secret:latest,OPENAI_API_KEY=openai-key:latest'
       - '--service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com'
-    waitFor: ['push-backend-sha', 'push-backend-latest']
+      - '--startup-cpu-boost'
+      - '--no-cpu-throttling'
+    waitFor: ['run-migrations']
     timeout: '600s'
 
   # ============================================================================
-  # STEP 6: Deploy Frontend to Cloud Run
+  # STEP 7: Deploy Frontend to Cloud Run
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-frontend'
@@ -127,22 +146,6 @@ steps:
     timeout: '300s'
 
   # ============================================================================
-  # STEP 7: Run Database Migrations
-  # ============================================================================
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'run-migrations'
-    entrypoint: 'gcloud'
-    args:
-      - 'run'
-      - 'jobs'
-      - 'execute'
-      - 'db-migrate'
-      - '--region=us-central1'
-      - '--wait'
-    waitFor: ['deploy-backend']
-    timeout: '600s'
-
-  # ============================================================================
   # STEP 8: Health Check
   # ============================================================================
   - name: 'gcr.io/cloud-builders/curl'
@@ -156,6 +159,12 @@ steps:
         curl -f "$$BACKEND_URL/health" || exit 1
         echo "✅ Backend health check passed"
     waitFor: ['run-migrations']
+
+# Available secrets
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/database-url/versions/latest
+      env: 'DATABASE_URL'
 
 # Build options
 options:
