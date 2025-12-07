@@ -44,7 +44,7 @@ steps:
       - '-c'
       - |
         cd frontend
-        npm ci --prefer-offline --no-audit
+        npm install
         npm run build
     env:
       - 'VITE_API_URL=https://backend-service-565186585906.a.run.app'
