@@ -55,12 +55,10 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY backend/ /app/backend/
 
-# Make start script executable
-RUN chmod +x /app/backend/start.sh
-
 # Create directories for ML models and uploads
 RUN mkdir -p /app/ml_models /app/uploads && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app && \
+    chmod +x /app/backend/start.sh || true
 
 # Switch to non-root user
 USER appuser
