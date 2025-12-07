@@ -35,31 +35,7 @@ steps:
     waitFor: ['build-backend']
 
   # ============================================================================
-  # STEP 3: Build Frontend (React + Vite)
-  # ============================================================================
-  - name: 'node:18'
-    id: 'build-frontend'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        set -e
-        cd frontend
-        echo "Installing dependencies..."
-        npm ci || npm install
-        echo "Verifying TypeScript..."
-        npx tsc --version
-        echo "Building frontend..."
-        npm run build
-        echo "Verifying build output..."
-        ls -la dist/
-    env:
-      - 'VITE_API_URL=https://backend-service-565186585906.a.run.app'
-      - 'NODE_ENV=production'
-    timeout: '600s'
-
-  # ============================================================================
-  # STEP 4: Build Frontend Docker Image (Nginx)
+  # STEP 3: Build Frontend Docker Image (includes build + Nginx)
   # ============================================================================
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-frontend-image'
@@ -69,13 +45,16 @@ steps:
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:$SHORT_SHA'
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:latest'
+      - '--build-arg'
+      - 'VITE_API_URL=https://backend-service-565186585906.a.run.app'
       - '-f'
       - 'infra/docker/frontend/Dockerfile.prod'
       - 'frontend'
-    waitFor: ['build-frontend']
+    waitFor: ['build-backend']
+    timeout: '900s'
 
   # ============================================================================
-  # STEP 5: Push Frontend Image
+  # STEP 4: Push Frontend Image
   # ============================================================================
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push-frontend'
@@ -86,7 +65,7 @@ steps:
     waitFor: ['build-frontend-image']
 
   # ============================================================================
-  # STEP 6: Deploy Backend to Cloud Run
+  # STEP 5: Deploy Backend to Cloud Run
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-backend'
@@ -114,7 +93,7 @@ steps:
     timeout: '600s'
 
   # ============================================================================
-  # STEP 7: Deploy Frontend to Cloud Run
+  # STEP 6: Deploy Frontend to Cloud Run
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-frontend'
@@ -136,7 +115,7 @@ steps:
     timeout: '300s'
 
   # ============================================================================
-  # STEP 8: Run Database Migrations
+  # STEP 7: Run Database Migrations
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'run-migrations'
@@ -152,7 +131,7 @@ steps:
     timeout: '600s'
 
   # ============================================================================
-  # STEP 9: Health Check
+  # STEP 8: Health Check
   # ============================================================================
   - name: 'gcr.io/cloud-builders/curl'
     id: 'health-check'
