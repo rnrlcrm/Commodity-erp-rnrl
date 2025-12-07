@@ -37,15 +37,22 @@ steps:
   # ============================================================================
   # STEP 3: Build Frontend (React + Vite)
   # ============================================================================
-  - name: 'node:18-alpine'
+  - name: 'node:18'
     id: 'build-frontend'
-    entrypoint: 'sh'
+    entrypoint: 'bash'
     args:
       - '-c'
       - |
+        set -e
         cd frontend
-        npm install
+        echo "Installing dependencies..."
+        npm ci || npm install
+        echo "Verifying TypeScript..."
+        npx tsc --version
+        echo "Building frontend..."
         npm run build
+        echo "Verifying build output..."
+        ls -la dist/
     env:
       - 'VITE_API_URL=https://backend-service-565186585906.a.run.app'
       - 'NODE_ENV=production'
