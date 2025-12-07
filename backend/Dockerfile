@@ -11,9 +11,8 @@ WORKDIR /app
 RUN groupadd -r app && useradd -r -g app app
 COPY --from=builder /install /usr/local
 COPY backend /app/backend
-COPY backend/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+RUN chmod +x /app/backend/start.sh
 EXPOSE 8000
 USER app
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD curl -f http://localhost:8000/health || exit 1
-ENTRYPOINT ["/app/start.sh"]
+ENTRYPOINT ["/app/backend/start.sh"]
