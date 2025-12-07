@@ -78,18 +78,30 @@ steps:
 
   # ============================================================================
   # STEP 5: Run Database Migrations (before deploying services)
+  # Uses Cloud SQL Proxy via gcloud run jobs execute
   # ============================================================================
-  - name: 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:$SHORT_SHA'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'run-migrations'
-    entrypoint: 'sh'
+    entrypoint: 'bash'
     args:
       - '-c'
       - |
-        cd backend
-        alembic upgrade head
-    env:
-      - 'ENVIRONMENT=sandbox'
-    secretEnv: ['DATABASE_URL']
+        # Create a temporary Cloud Run Job to run migrations with Cloud SQL Proxy
+        gcloud run jobs create migration-job-$BUILD_ID \
+          --image=us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:$SHORT_SHA \
+          --region=us-central1 \
+          --set-env-vars=ENVIRONMENT=sandbox \
+          --set-secrets=DATABASE_URL=database-url:latest \
+          --set-cloudsql-instances=commodity-plafform-sandbox:us-central1:cotton-erp-db \
+          --vpc-connector=cotton-erp-connector \
+          --service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com \
+          --execute-now \
+          --wait \
+          --command=sh \
+          --args=-c,--args="cd backend && alembic upgrade head" || exit 1
+        
+        # Delete the job after successful execution
+        gcloud run jobs delete migration-job-$BUILD_ID --region=us-central1 --quiet || true
     waitFor: ['push-backend-sha']
     timeout: '600s'
 
