@@ -77,36 +77,7 @@ steps:
     waitFor: ['build-frontend-image']
 
   # ============================================================================
-  # STEP 5: Run Database Migrations (before deploying services)
-  # Uses Cloud SQL Proxy via gcloud run jobs execute
-  # ============================================================================
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'run-migrations'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        # Create a temporary Cloud Run Job to run migrations with Cloud SQL Proxy
-        gcloud run jobs create migration-job-$BUILD_ID \
-          --image=us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:$SHORT_SHA \
-          --region=us-central1 \
-          --set-env-vars=ENVIRONMENT=sandbox \
-          --set-secrets=DATABASE_URL=database-url:latest \
-          --set-cloudsql-instances=commodity-plafform-sandbox:us-central1:cotton-erp-db \
-          --vpc-connector=cotton-erp-connector \
-          --service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com \
-          --args="sh,-c,cd backend && alembic upgrade head"
-        
-        # Execute the job and wait for completion
-        gcloud run jobs execute migration-job-$BUILD_ID --region=us-central1 --wait || exit 1
-        
-        # Delete the job after successful execution
-        gcloud run jobs delete migration-job-$BUILD_ID --region=us-central1 --quiet || true
-    waitFor: ['push-backend-sha']
-    timeout: '600s'
-
-  # ============================================================================
-  # STEP 6: Deploy Backend to Cloud Run
+  # STEP 5: Deploy Backend to Cloud Run (migrations run on startup)
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-backend'
@@ -132,11 +103,11 @@ steps:
       - '--service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com'
       - '--startup-cpu-boost'
       - '--no-cpu-throttling'
-    waitFor: ['run-migrations']
+    waitFor: ['push-backend-sha']
     timeout: '600s'
 
   # ============================================================================
-  # STEP 7: Deploy Frontend to Cloud Run
+  # STEP 6: Deploy Frontend to Cloud Run
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-frontend'
@@ -158,7 +129,7 @@ steps:
     timeout: '300s'
 
   # ============================================================================
-  # STEP 8: Health Check
+  # STEP 7: Health Check
   # ============================================================================
   - name: 'gcr.io/cloud-builders/curl'
     id: 'health-check'
