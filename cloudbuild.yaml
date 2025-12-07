@@ -101,7 +101,7 @@ steps:
       - '--set-env-vars=ENVIRONMENT=sandbox,LOG_LEVEL=INFO,GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets=DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,JWT_SECRET_KEY=jwt-secret:latest,OPENAI_API_KEY=openai-key:latest'
       - '--service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--startup-cpu-boost'
+      - '--cpu-boost'
       - '--no-cpu-throttling'
     waitFor: ['push-backend-sha']
     timeout: '600s'
