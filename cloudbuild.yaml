@@ -95,10 +95,10 @@ steps:
           --set-cloudsql-instances=commodity-plafform-sandbox:us-central1:cotton-erp-db \
           --vpc-connector=cotton-erp-connector \
           --service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com \
-          --execute-now \
-          --wait \
-          --command=sh \
-          --args=-c,--args="cd backend && alembic upgrade head" || exit 1
+          --args="sh,-c,cd backend && alembic upgrade head"
+        
+        # Execute the job and wait for completion
+        gcloud run jobs execute migration-job-$BUILD_ID --region=us-central1 --wait || exit 1
         
         # Delete the job after successful execution
         gcloud run jobs delete migration-job-$BUILD_ID --region=us-central1 --quiet || true
@@ -171,12 +171,6 @@ steps:
         curl -f "$$BACKEND_URL/health" || exit 1
         echo "✅ Backend health check passed"
     waitFor: ['deploy-backend']
-
-# Available secrets
-availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/database-url/versions/latest
-      env: 'DATABASE_URL'
 
 # Build options
 options:
