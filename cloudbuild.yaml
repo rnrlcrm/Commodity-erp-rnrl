@@ -87,7 +87,6 @@ steps:
       - |
         alembic upgrade head
     env:
-      - 'DATABASE_URL=$$DATABASE_URL'
       - 'ENVIRONMENT=sandbox'
     secretEnv: ['DATABASE_URL']
     waitFor: ['push-backend-sha']
