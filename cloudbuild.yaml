@@ -27,11 +27,17 @@ steps:
   # STEP 2: Push Backend Image to Artifact Registry
   # ============================================================================
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'push-backend'
+    id: 'push-backend-latest'
     args:
       - 'push'
-      - '--all-tags'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:latest'
+    waitFor: ['build-backend']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend-sha'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:$SHORT_SHA'
     waitFor: ['build-backend']
 
   # ============================================================================
@@ -57,11 +63,17 @@ steps:
   # STEP 4: Push Frontend Image
   # ============================================================================
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'push-frontend'
+    id: 'push-frontend-latest'
     args:
       - 'push'
-      - '--all-tags'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:latest'
+    waitFor: ['build-frontend-image']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-frontend-sha'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:$SHORT_SHA'
     waitFor: ['build-frontend-image']
 
   # ============================================================================
@@ -89,7 +101,7 @@ steps:
       - '--set-env-vars=ENVIRONMENT=sandbox,LOG_LEVEL=INFO,GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets=DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,JWT_SECRET_KEY=jwt-secret:latest,OPENAI_API_KEY=openai-key:latest'
       - '--service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com'
-    waitFor: ['push-backend']
+    waitFor: ['push-backend-sha', 'push-backend-latest']
     timeout: '600s'
 
   # ============================================================================
@@ -111,7 +123,7 @@ steps:
       - '--cpu=1'
       - '--memory=512Mi'
       - '--port=80'
-    waitFor: ['push-frontend']
+    waitFor: ['push-frontend-sha', 'push-frontend-latest']
     timeout: '300s'
 
   # ============================================================================
