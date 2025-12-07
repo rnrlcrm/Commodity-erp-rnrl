@@ -158,7 +158,7 @@ steps:
         echo "Testing backend at: $$BACKEND_URL/health"
         curl -f "$$BACKEND_URL/health" || exit 1
         echo "✅ Backend health check passed"
-    waitFor: ['run-migrations']
+    waitFor: ['deploy-backend']
 
 # Available secrets
 availableSecrets:
