@@ -180,3 +180,4 @@ images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:latest'
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:$SHORT_SHA'
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:latest'
+# Cloud Build needs secretmanager.secretAccessor role
