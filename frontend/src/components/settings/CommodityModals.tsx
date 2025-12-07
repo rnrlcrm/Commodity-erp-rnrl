@@ -88,7 +88,7 @@ export function CommodityModal({ isOpen, onClose, commodity, onSuccess }: Commod
 
     try {
       setAiLoading(true);
-      const result = await commodityService.detectCategory(formData.name, formData.description || '');
+      const result = await commodityService.detectCategory(formData.name);
       setFormData(prev => ({ ...prev, category: result.category }));
       toast.success('AI suggested category');
     } catch (error: any) {

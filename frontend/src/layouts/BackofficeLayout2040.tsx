@@ -22,7 +22,6 @@ import {
   BuildingOfficeIcon,
   CubeIcon,
   MapPinIcon,
-  KeyIcon,
 } from '@heroicons/react/24/outline';
 import { QuantumHub } from '@/components/2040/QuantumHub';
 

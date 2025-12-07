@@ -35,7 +35,6 @@ export function GSTModal({ isOpen, onClose, organizationId, gst, onSuccess }: GS
     organization_id: organizationId,
     gstin: gst?.gstin || '',
     state: gst?.state || '',
-    registration_date: gst?.registration_date || '',
     is_primary: gst?.is_primary ?? false,
   });
 
@@ -86,23 +85,10 @@ export function GSTModal({ isOpen, onClose, organizationId, gst, onSuccess }: GS
           <input
             type="text"
             required
-            value={formData.state}
+            value={formData.state || ''}
             onChange={(e) => setFormData({ ...formData, state: e.target.value })}
             placeholder="Maharashtra"
             className="w-full px-3 py-2 bg-pearl-800/50 border border-pearl-700/30 rounded-lg text-pearl-100 placeholder-pearl-500 focus:outline-none focus:ring-2 focus:ring-sun-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-pearl-300 mb-2">
-            Registration Date <span className="text-mars-400">*</span>
-          </label>
-          <input
-            type="date"
-            required
-            value={formData.registration_date}
-            onChange={(e) => setFormData({ ...formData, registration_date: e.target.value })}
-            className="w-full px-3 py-2 bg-pearl-800/50 border border-pearl-700/30 rounded-lg text-pearl-100 focus:outline-none focus:ring-2 focus:ring-sun-500"
           />
         </div>
 
@@ -157,8 +143,9 @@ export function BankAccountModal({ isOpen, onClose, organizationId, account, onS
     organization_id: organizationId,
     bank_name: account?.bank_name || '',
     account_number: account?.account_number || '',
+    account_holder_name: account?.account_holder_name || '',
     ifsc_code: account?.ifsc_code || '',
-    branch: account?.branch || '',
+    branch_name: account?.branch_name || '',
     account_type: account?.account_type || 'current',
     is_primary: account?.is_primary ?? false,
   });
@@ -239,8 +226,8 @@ export function BankAccountModal({ isOpen, onClose, organizationId, account, onS
           <input
             type="text"
             required
-            value={formData.branch}
-            onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+            value={formData.branch_name || ''}
+            onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
             placeholder="Mumbai Main"
             className="w-full px-3 py-2 bg-pearl-800/50 border border-pearl-700/30 rounded-lg text-pearl-100 placeholder-pearl-500 focus:outline-none focus:ring-2 focus:ring-sun-500"
           />
@@ -252,7 +239,7 @@ export function BankAccountModal({ isOpen, onClose, organizationId, account, onS
           </label>
           <select
             required
-            value={formData.account_type}
+            value={formData.account_type || 'current'}
             onChange={(e) => setFormData({ ...formData, account_type: e.target.value as 'savings' | 'current' })}
             className="w-full px-3 py-2 bg-pearl-800/50 border border-pearl-700/30 rounded-lg text-pearl-100 focus:outline-none focus:ring-2 focus:ring-sun-500"
           >
@@ -459,7 +446,7 @@ export function DocumentSeriesModal({ isOpen, onClose, organizationId, series, o
     }
   };
 
-  const previewFormat = `${formData.prefix}${String(formData.current_number).padStart(formData.padding_length, '0')}${formData.suffix || ''}`;
+  const previewFormat = `${formData.prefix}${String(formData.current_number).padStart(formData.padding_length || 4, '0')}${formData.suffix || ''}`;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={series ? 'Edit Document Series' : 'Add Document Series'} size="md">
