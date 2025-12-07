@@ -85,7 +85,7 @@ steps:
     args:
       - '-c'
       - |
-        alembic upgrade head
+        cd /app/backend && alembic upgrade head
     env:
       - 'ENVIRONMENT=sandbox'
     secretEnv: ['DATABASE_URL']
