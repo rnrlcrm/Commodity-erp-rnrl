@@ -119,3 +119,4 @@ tokenizers==0.15.0  # Fast tokenization
 # Model Utilities
 tiktoken==0.5.2  # Token counting for OpenAI
 huggingface-hub==0.19.4  # Model downloading
+email-validator==2.1.0
