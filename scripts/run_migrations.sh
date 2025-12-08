@@ -110,6 +110,30 @@ test_database_connection() {
 }
 
 # ============================================
+# CREATE REQUIRED DATABASE EXTENSIONS
+# ============================================
+create_extensions() {
+    log_info "Creating required PostgreSQL extensions..."
+    
+    # Extract psql connection from DATABASE_URL
+    # Format: postgresql://user:password@host:5432/dbname
+    if command -v psql &> /dev/null; then
+        log_info "Creating pgvector extension..."
+        
+        if psql "${DATABASE_URL}" -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>&1 | tee -a "${LOG_FILE}"; then
+            log_success "pgvector extension created/verified"
+        else
+            log_warning "Could not create pgvector extension (may already exist or require superuser)"
+            log_warning "Migrations will fail if vector type is not available"
+            log_warning "Please create it manually: CREATE EXTENSION IF NOT EXISTS vector;"
+        fi
+    else
+        log_warning "psql not available - skipping extension creation"
+        log_warning "Ensure pgvector extension exists: CREATE EXTENSION IF NOT EXISTS vector;"
+    fi
+}
+
+# ============================================
 # SHOW CURRENT MIGRATION STATE
 # ============================================
 show_migration_state() {
@@ -176,6 +200,9 @@ main() {
     echo ""
     
     test_database_connection
+    echo ""
+    
+    create_extensions
     echo ""
     
     show_migration_state
