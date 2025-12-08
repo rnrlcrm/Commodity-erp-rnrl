@@ -57,8 +57,10 @@ COPY backend/ /app/backend/
 
 # Create directories for ML models and uploads
 RUN mkdir -p /app/ml_models /app/uploads && \
-    chown -R appuser:appuser /app && \
-    chmod +x /app/backend/start.sh || true
+    chown -R appuser:appuser /app
+
+# Make start script executable (must run before switching to non-root user)
+RUN chmod +x /app/backend/start.sh
 
 # Switch to non-root user
 USER appuser
