@@ -86,7 +86,7 @@ def upgrade() -> None:
         """
         CREATE UNIQUE INDEX uq_availabilities_no_duplicates
         ON availabilities (
-            seller_id,
+            seller_partner_id,
             commodity_id,
             total_quantity,
             location_id,
@@ -143,7 +143,7 @@ def upgrade() -> None:
         """
         CREATE INDEX ix_availabilities_seller_commodity_date
         ON availabilities (
-            seller_id,
+            seller_partner_id,
             commodity_id,
             created_at
         )

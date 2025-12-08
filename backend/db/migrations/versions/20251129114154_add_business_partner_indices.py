@@ -95,7 +95,7 @@ def upgrade():
                 WHERE indexname = 'idx_availabilities_seller_id'
             ) THEN
                 CREATE INDEX idx_availabilities_seller_id 
-                ON availabilities (seller_id);
+                ON availabilities (seller_partner_id);
             END IF;
         END $$;
     """)
@@ -105,7 +105,7 @@ def upgrade():
     op.create_index(
         'idx_availabilities_seller_status',
         'availabilities',
-        ['seller_id', 'status'],
+        ['seller_partner_id', 'status'],
         unique=False
     )
     
@@ -123,7 +123,7 @@ def upgrade():
                 WHERE indexname = 'idx_requirements_buyer_id'
             ) THEN
                 CREATE INDEX idx_requirements_buyer_id 
-                ON requirements (buyer_id);
+                ON requirements (buyer_partner_id);
             END IF;
         END $$;
     """)
@@ -138,7 +138,7 @@ def upgrade():
                 WHERE indexname = 'idx_requirements_buyer_status'
             ) THEN
                 CREATE INDEX idx_requirements_buyer_status 
-                ON requirements (buyer_id, status);
+                ON requirements (buyer_partner_id, status);
             END IF;
         END $$;
     """)
