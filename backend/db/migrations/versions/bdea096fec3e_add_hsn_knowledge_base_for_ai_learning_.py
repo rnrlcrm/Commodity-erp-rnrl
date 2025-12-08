@@ -399,20 +399,26 @@ def upgrade() -> None:
     op.drop_column('partner_vehicles', 'rto_verification_data')
     op.drop_column('partner_vehicles', 'is_deleted')
     op.drop_column('partner_vehicles', 'deleted_by')
+    
     # Drop old index if it exists, then create new one with unique constraint
     # Use inspector to check for existing indexes
     from sqlalchemy import inspect
     conn = op.get_bind()
     inspector = inspect(conn)
-    indexes = [idx['name'] for idx in inspector.get_indexes('settings_locations')]
-    # Drop the old non-unique index if it exists
-    if 'ix_settings_locations_google_place_id_unique' in indexes:
-        op.drop_index('ix_settings_locations_google_place_id_unique', table_name='settings_locations')
-    # Drop the current non-unique index if it exists
-    if 'ix_settings_locations_google_place_id' in indexes:
-        op.drop_index('ix_settings_locations_google_place_id', table_name='settings_locations')
-    # Create the new unique index
-    op.create_index(op.f('ix_settings_locations_google_place_id'), 'settings_locations', ['google_place_id'], unique=True)
+    
+    # Check if table exists before inspecting indexes
+    tables = inspector.get_table_names()
+    if 'settings_locations' in tables:
+        indexes = [idx['name'] for idx in inspector.get_indexes('settings_locations')]
+        # Drop the old non-unique index if it exists
+        if 'ix_settings_locations_google_place_id_unique' in indexes:
+            op.drop_index('ix_settings_locations_google_place_id_unique', table_name='settings_locations')
+        # Drop the current non-unique index if it exists
+        if 'ix_settings_locations_google_place_id' in indexes:
+            op.drop_index('ix_settings_locations_google_place_id', table_name='settings_locations')
+        # Create the new unique index
+        op.create_index(op.f('ix_settings_locations_google_place_id'), 'settings_locations', ['google_place_id'], unique=True)
+    
     op.alter_column('users', 'user_type',
                existing_type=sa.VARCHAR(length=20),
                server_default=None,

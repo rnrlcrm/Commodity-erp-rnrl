@@ -34,6 +34,19 @@ def upgrade() -> None:
     """Create requirement engine tables with 2035 enhancements"""
     
     # ============================================================================
+    # CREATE HELPER FUNCTION - update_updated_at_column
+    # ============================================================================
+    op.execute("""
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+    """)
+    
+    # ============================================================================
     # ENABLE PGVECTOR EXTENSION (for market_context_embedding)
     # ============================================================================
     # op.execute('CREATE EXTENSION IF NOT EXISTS vector')  # Commented out - install pgvector separately if needed
@@ -490,6 +503,7 @@ def downgrade() -> None:
     op.execute('DROP TRIGGER IF EXISTS trigger_requirements_updated_at ON requirements')
     op.execute('DROP TRIGGER IF EXISTS trigger_update_requirement_status ON requirements')
     op.execute('DROP FUNCTION IF EXISTS update_requirement_status()')
+    op.execute('DROP FUNCTION IF EXISTS update_updated_at_column()')
     
     # Drop table
     op.drop_table('requirements')
