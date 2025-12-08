@@ -145,7 +145,7 @@ def upgrade() -> None:
         ON availabilities (
             seller_id,
             commodity_id,
-            DATE(created_at)
+            created_at
         )
         WHERE status IN ('AVAILABLE', 'PARTIALLY_SOLD')
         """
@@ -158,7 +158,7 @@ def upgrade() -> None:
         ON requirements (
             buyer_partner_id,
             commodity_id,
-            DATE(created_at)
+            created_at
         )
         WHERE status IN ('DRAFT', 'ACTIVE', 'PARTIALLY_FULFILLED')
         """
