@@ -55,8 +55,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop event_outbox table"""
+    # Drop indexes (if they exist), then table, then enum type
     op.execute('DROP INDEX IF EXISTS idx_outbox_topic_created')
-op.execute('DROP INDEX IF EXISTS idx_outbox_status_next_retry')
-op.execute('DROP INDEX IF EXISTS idx_outbox_status_created')
-op.drop_table('event_outbox')
-    op.execute('DROP TYPE outbox_status')
+    op.execute('DROP INDEX IF EXISTS idx_outbox_status_next_retry')
+    op.execute('DROP INDEX IF EXISTS idx_outbox_status_created')
+    op.drop_table('event_outbox')
+    op.execute('DROP TYPE IF EXISTS outbox_status')
