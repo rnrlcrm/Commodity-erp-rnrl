@@ -22,7 +22,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers
 revision = 'create_availability_engine'
-down_revision = None  # Update this to latest migration
+down_revision = 'eaf12a4e04a0'  # Link to baseline
 branch_labels = None
 depends_on = None
 
