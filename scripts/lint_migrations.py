@@ -123,6 +123,20 @@ def lint_versions() -> Tuple[TableColumns, List[Issue]]:
             if missing:
                 issues.append((f, line, f"Index on {table} references missing columns: {missing}"))
 
+        # Guard checks: DROP/CREATE index/function/trigger guards
+        # 1) DROP INDEX without IF EXISTS
+        for m in re.finditer(r"DROP\s+INDEX\s+(?!(?:IF\s+EXISTS))", src, re.IGNORECASE):
+            issues.append((f, m.start(), "DROP INDEX without IF EXISTS"))
+        # 2) CREATE (UNIQUE) INDEX without IF NOT EXISTS
+        for m in re.finditer(r"CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?!(?:IF\s+NOT\s+EXISTS))", src, re.IGNORECASE):
+            issues.append((f, m.start(), "CREATE INDEX without IF NOT EXISTS"))
+        # 3) DROP FUNCTION without IF EXISTS
+        for m in re.finditer(r"DROP\s+FUNCTION\s+(?!(?:IF\s+EXISTS))", src, re.IGNORECASE):
+            issues.append((f, m.start(), "DROP FUNCTION without IF EXISTS"))
+        # 4) DROP TRIGGER without IF EXISTS
+        for m in re.finditer(r"DROP\s+TRIGGER\s+(?!(?:IF\s+EXISTS))", src, re.IGNORECASE):
+            issues.append((f, m.start(), "DROP TRIGGER without IF EXISTS"))
+
     return all_tables, issues
 
 

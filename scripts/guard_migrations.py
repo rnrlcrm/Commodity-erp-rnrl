@@ -8,6 +8,8 @@ VERSIONS = ROOT / 'backend' / 'db' / 'migrations' / 'versions'
 
 CREATE_INDEX_RE = re.compile(r"(CREATE\s+)(UNIQUE\s+)?(INDEX\s+)(?!IF\s+NOT\s+EXISTS)([A-Za-z0-9_\"]+)\s+ON\s+", re.IGNORECASE)
 DROP_INDEX_RE = re.compile(r"DROP\s+INDEX\s+(?!IF\s+EXISTS)", re.IGNORECASE)
+DROP_FUNCTION_RE = re.compile(r"DROP\s+FUNCTION\s+(?!IF\s+EXISTS)", re.IGNORECASE)
+DROP_TRIGGER_RE = re.compile(r"DROP\s+TRIGGER\s+(?!IF\s+EXISTS)", re.IGNORECASE)
 
 # Replace op.drop_index('name', ...) with op.execute('DROP INDEX IF EXISTS name')
 OP_DROP_INDEX_RE = re.compile(r"op\.drop_index\(\s*['\"]([A-Za-z0-9_]+)['\"][^\)]*\)\s*")
@@ -29,6 +31,10 @@ def rewrite_sql_guards(text: str) -> str:
     text = CREATE_INDEX_RE.sub(lambda m: f"{m.group(1)}{m.group(2) or ''}{m.group(3)}IF NOT EXISTS {m.group(4)} ON ", text)
     # DROP INDEX -> DROP INDEX IF EXISTS
     text = DROP_INDEX_RE.sub("DROP INDEX IF EXISTS ", text)
+    # DROP FUNCTION -> DROP FUNCTION IF EXISTS
+    text = DROP_FUNCTION_RE.sub("DROP FUNCTION IF EXISTS ", text)
+    # DROP TRIGGER -> DROP TRIGGER IF EXISTS
+    text = DROP_TRIGGER_RE.sub("DROP TRIGGER IF EXISTS ", text)
     return text
 
 
