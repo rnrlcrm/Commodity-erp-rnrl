@@ -151,8 +151,14 @@ def main():
         for f, line, msg in issues:
             where = f"{f}:{line}" if line else f
             print(f"- {where} -> {msg}")
+        # Exit non-zero when issues are found so CI fails the PR
+        import sys
+        sys.exit(1)
     else:
         print("No index/schema mismatches detected.")
+        # Explicit success code for CI logs
+        import sys
+        sys.exit(0)
 
 if __name__ == '__main__':
     main()
