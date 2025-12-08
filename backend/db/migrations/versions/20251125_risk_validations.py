@@ -201,7 +201,7 @@ def upgrade() -> None:
         """
         CREATE INDEX ix_availabilities_risk_assessment
         ON availabilities (
-            seller_id,
+            seller_partner_id,
             estimated_trade_value,
             risk_precheck_status,
             status
