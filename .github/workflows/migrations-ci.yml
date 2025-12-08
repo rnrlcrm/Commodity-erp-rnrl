@@ -1,0 +1,78 @@
+name: Migration Lint and Dry-Run
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/db/migrations/**'
+      - 'scripts/**'
+      - '.github/workflows/migrations-ci.yml'
+
+jobs:
+  migration-lint:
+    name: Migration Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run migration linter
+        run: |
+          python scripts/lint_migrations.py
+
+  migration-dry-run:
+    name: Alembic Dry-Run (Fresh DB)
+    runs-on: ubuntu-latest
+    needs: migration-lint
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cotton_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres" 
+          --health-interval=10s 
+          --health-timeout=5s 
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend requirements
+        run: |
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1; then
+              echo "Postgres is ready"; break;
+            fi
+            echo "Waiting for Postgres..."; sleep 2;
+          done
+
+      - name: Run Alembic upgrade head against fresh DB
+        env:
+          DATABASE_URL: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/cotton_dev
+        run: |
+          alembic -c backend/alembic.ini upgrade head
