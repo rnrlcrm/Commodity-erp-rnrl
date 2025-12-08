@@ -55,8 +55,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop event_outbox table"""
-    op.drop_index('idx_outbox_topic_created', table_name='event_outbox')
-    op.drop_index('idx_outbox_status_next_retry', table_name='event_outbox')
-    op.drop_index('idx_outbox_status_created', table_name='event_outbox')
-    op.drop_table('event_outbox')
+    op.execute('DROP INDEX IF EXISTS idx_outbox_topic_created')
+op.execute('DROP INDEX IF EXISTS idx_outbox_status_next_retry')
+op.execute('DROP INDEX IF EXISTS idx_outbox_status_created')
+op.drop_table('event_outbox')
     op.execute('DROP TYPE outbox_status')

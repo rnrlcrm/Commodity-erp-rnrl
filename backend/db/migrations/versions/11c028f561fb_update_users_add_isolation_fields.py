@@ -87,11 +87,10 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Drop indexes
-    op.drop_index('ix_users_organization_id', table_name='users')
-    op.drop_index('ix_users_business_partner_id', table_name='users')
-    op.drop_index('ix_users_user_type', table_name='users')
-    
-    # Drop constraint
+    op.execute('DROP INDEX IF EXISTS ix_users_organization_id')
+op.execute('DROP INDEX IF EXISTS ix_users_business_partner_id')
+op.execute('DROP INDEX IF EXISTS ix_users_user_type')
+# Drop constraint
     op.drop_constraint('ck_user_type_isolation', 'users', type_='check')
     
     # Drop foreign key

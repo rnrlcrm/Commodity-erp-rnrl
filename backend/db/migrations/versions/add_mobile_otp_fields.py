@@ -55,8 +55,8 @@ def downgrade():
     op.drop_column('users', 'is_verified')
     
     # Remove mobile_number
-    op.drop_index('ix_users_mobile_number', 'users')
-    op.drop_constraint('uq_users_mobile_number', 'users', type_='unique')
+    op.execute('DROP INDEX IF EXISTS ix_users_mobile_number')
+op.drop_constraint('uq_users_mobile_number', 'users', type_='unique')
     op.drop_column('users', 'mobile_number')
     
     # Restore email and password_hash as NOT NULL

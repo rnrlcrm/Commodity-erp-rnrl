@@ -137,18 +137,20 @@ def upgrade() -> None:
     op.alter_column('business_partners', 'is_deleted',
                existing_type=sa.BOOLEAN(),
                nullable=False)
-    op.drop_index('ix_business_partners_email', table_name='business_partners')
-    op.drop_index('ix_business_partners_is_deleted', table_name='business_partners')
-    op.drop_index('ix_business_partners_kyc_expiry', table_name='business_partners')
-    op.drop_index('ix_business_partners_kyc_status', table_name='business_partners')
-    op.drop_index('ix_business_partners_kyc_status_expiry', table_name='business_partners', postgresql_where='(is_deleted = false)')
-    op.drop_index('ix_business_partners_name_search', table_name='business_partners', postgresql_using='gin')
-    op.drop_index('ix_business_partners_pan', table_name='business_partners')
-    op.drop_index('ix_business_partners_phone', table_name='business_partners')
-    op.drop_index('ix_business_partners_state_status', table_name='business_partners', postgresql_where='(is_deleted = false)')
-    op.drop_index('ix_business_partners_status', table_name='business_partners')
-    op.drop_index('ix_business_partners_tax_id', table_name='business_partners')
-    op.drop_constraint('uq_partners_org_tax_id', 'business_partners', type_='unique')
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_email')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_is_deleted')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_kyc_expiry')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_kyc_status')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_kyc_status_expiry')
+')
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_name_search')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_pan')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_phone')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_state_status')
+')
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_status')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_tax_id')
+op.drop_constraint('uq_partners_org_tax_id', 'business_partners', type_='unique')
     op.create_index(op.f('ix_business_partners_country'), 'business_partners', ['country'], unique=False)
     op.create_index(op.f('ix_business_partners_legal_name'), 'business_partners', ['legal_name'], unique=False)
     op.create_index(op.f('ix_business_partners_pan_number'), 'business_partners', ['pan_number'], unique=False)
@@ -193,9 +195,9 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=20),
                comment='pending, approved, rejected',
                existing_nullable=True)
-    op.drop_index('ix_partner_amendments_partner_id', table_name='partner_amendments')
-    op.drop_index('ix_partner_amendments_status', table_name='partner_amendments')
-    op.create_index(op.f('ix_partner_amendments_organization_id'), 'partner_amendments', ['organization_id'], unique=False)
+    op.execute('DROP INDEX IF EXISTS ix_partner_amendments_partner_id')
+op.execute('DROP INDEX IF EXISTS ix_partner_amendments_status')
+op.create_index(op.f('ix_partner_amendments_organization_id'), 'partner_amendments', ['organization_id'], unique=False)
     op.drop_constraint('partner_amendments_partner_id_fkey', 'partner_amendments', type_='foreignkey')
     op.create_foreign_key(None, 'partner_amendments', 'organizations', ['organization_id'], ['id'])
     op.create_foreign_key(None, 'partner_amendments', 'business_partners', ['partner_id'], ['id'])
@@ -213,9 +215,9 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=100),
                comment='gst_certificate, pan_card, bank_proof, transport_license, vehicle_rc, etc.',
                existing_nullable=False)
-    op.drop_index('ix_partner_documents_partner_id', table_name='partner_documents')
-    op.drop_index('ix_partner_documents_type', table_name='partner_documents')
-    op.create_index(op.f('ix_partner_documents_organization_id'), 'partner_documents', ['organization_id'], unique=False)
+    op.execute('DROP INDEX IF EXISTS ix_partner_documents_partner_id')
+op.execute('DROP INDEX IF EXISTS ix_partner_documents_type')
+op.create_index(op.f('ix_partner_documents_organization_id'), 'partner_documents', ['organization_id'], unique=False)
     op.drop_column('partner_documents', 'uploaded_by')
     op.drop_column('partner_documents', 'ocr_confidence')
     op.drop_column('partner_documents', 'deleted_at')
@@ -230,9 +232,9 @@ def upgrade() -> None:
                existing_type=postgresql.JSON(astext_type=sa.Text()),
                comment='{"create_orders": true, "view_reports": true, "approve_contracts": false}',
                existing_nullable=True)
-    op.drop_index('ix_partner_employees_partner_id', table_name='partner_employees')
-    op.drop_index('ix_partner_employees_user_id', table_name='partner_employees')
-    op.create_index(op.f('ix_partner_employees_organization_id'), 'partner_employees', ['organization_id'], unique=False)
+    op.execute('DROP INDEX IF EXISTS ix_partner_employees_partner_id')
+op.execute('DROP INDEX IF EXISTS ix_partner_employees_user_id')
+op.create_index(op.f('ix_partner_employees_organization_id'), 'partner_employees', ['organization_id'], unique=False)
     op.drop_column('partner_employees', 'deleted_at')
     op.drop_column('partner_employees', 'is_active')
     op.drop_column('partner_employees', 'is_deleted')
@@ -253,10 +255,10 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=20),
                comment='pending, in_progress, completed, expired',
                existing_nullable=True)
-    op.drop_index('ix_partner_kyc_renewals_due_date', table_name='partner_kyc_renewals')
-    op.drop_index('ix_partner_kyc_renewals_partner_id', table_name='partner_kyc_renewals')
-    op.drop_index('ix_partner_kyc_renewals_status', table_name='partner_kyc_renewals')
-    op.create_index(op.f('ix_partner_kyc_renewals_organization_id'), 'partner_kyc_renewals', ['organization_id'], unique=False)
+    op.execute('DROP INDEX IF EXISTS ix_partner_kyc_renewals_due_date')
+op.execute('DROP INDEX IF EXISTS ix_partner_kyc_renewals_partner_id')
+op.execute('DROP INDEX IF EXISTS ix_partner_kyc_renewals_status')
+op.create_index(op.f('ix_partner_kyc_renewals_organization_id'), 'partner_kyc_renewals', ['organization_id'], unique=False)
     op.drop_constraint('partner_kyc_renewals_partner_id_fkey', 'partner_kyc_renewals', type_='foreignkey')
     op.create_foreign_key(None, 'partner_kyc_renewals', 'business_partners', ['partner_id'], ['id'])
     op.create_foreign_key(None, 'partner_kyc_renewals', 'organizations', ['organization_id'], ['id'])
@@ -289,8 +291,8 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                nullable=True,
                existing_server_default=sa.text('now()'))
-    op.drop_index('ix_partner_locations_partner_id', table_name='partner_locations')
-    op.drop_column('partner_locations', 'deleted_by')
+    op.execute('DROP INDEX IF EXISTS ix_partner_locations_partner_id')
+op.drop_column('partner_locations', 'deleted_by')
     op.drop_column('partner_locations', 'is_primary')
     op.drop_column('partner_locations', 'created_by')
     op.drop_column('partner_locations', 'deleted_at')
@@ -341,9 +343,9 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=50),
                type_=sa.String(length=20),
                existing_nullable=True)
-    op.drop_index('ix_onboarding_apps_organization_id', table_name='partner_onboarding_applications')
-    op.drop_index('ix_onboarding_apps_status', table_name='partner_onboarding_applications')
-    op.create_index(op.f('ix_partner_onboarding_applications_organization_id'), 'partner_onboarding_applications', ['organization_id'], unique=False)
+    op.execute('DROP INDEX IF EXISTS ix_onboarding_apps_organization_id')
+op.execute('DROP INDEX IF EXISTS ix_onboarding_apps_status')
+op.create_index(op.f('ix_partner_onboarding_applications_organization_id'), 'partner_onboarding_applications', ['organization_id'], unique=False)
     op.create_foreign_key(None, 'partner_onboarding_applications', 'users', ['user_id'], ['id'])
     op.drop_column('partner_onboarding_applications', 'entity_type')
     op.drop_column('partner_onboarding_applications', 'location_verified')
@@ -378,9 +380,9 @@ def upgrade() -> None:
                type_=sa.String(length=50),
                comment='truck, trailer, container, etc.',
                existing_nullable=False)
-    op.drop_index('ix_partner_vehicles_partner_id', table_name='partner_vehicles')
-    op.drop_index('ix_partner_vehicles_registration', table_name='partner_vehicles')
-    op.drop_constraint('uq_vehicle_registration', 'partner_vehicles', type_='unique')
+    op.execute('DROP INDEX IF EXISTS ix_partner_vehicles_partner_id')
+op.execute('DROP INDEX IF EXISTS ix_partner_vehicles_registration')
+op.drop_constraint('uq_vehicle_registration', 'partner_vehicles', type_='unique')
     op.create_index(op.f('ix_partner_vehicles_organization_id'), 'partner_vehicles', ['organization_id'], unique=False)
     op.create_index(op.f('ix_partner_vehicles_vehicle_number'), 'partner_vehicles', ['vehicle_number'], unique=True)
     op.drop_column('partner_vehicles', 'rto_verified')
@@ -412,11 +414,11 @@ def upgrade() -> None:
         indexes = [idx['name'] for idx in inspector.get_indexes('settings_locations')]
         # Drop the old non-unique index if it exists
         if 'ix_settings_locations_google_place_id_unique' in indexes:
-            op.drop_index('ix_settings_locations_google_place_id_unique', table_name='settings_locations')
-        # Drop the current non-unique index if it exists
+            op.execute('DROP INDEX IF EXISTS ix_settings_locations_google_place_id_unique')
+# Drop the current non-unique index if it exists
         if 'ix_settings_locations_google_place_id' in indexes:
-            op.drop_index('ix_settings_locations_google_place_id', table_name='settings_locations')
-        # Create the new unique index
+            op.execute('DROP INDEX IF EXISTS ix_settings_locations_google_place_id')
+# Create the new unique index
         op.create_index(op.f('ix_settings_locations_google_place_id'), 'settings_locations', ['google_place_id'], unique=True)
     
     op.alter_column('users', 'user_type',
@@ -445,12 +447,14 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=50),
                comment='User role: partner_user, manager, director, etc.',
                existing_nullable=True)
-    op.drop_index('ix_users_business_partner_id', table_name='users', postgresql_where='(business_partner_id IS NOT NULL)')
-    op.drop_index('ix_users_organization_id', table_name='users', postgresql_where='(organization_id IS NOT NULL)')
-    op.drop_index('ix_users_user_type', table_name='users')
-    op.drop_constraint('uq_users_mobile_number', 'users', type_='unique')
-    op.drop_index('ix_users_mobile_number', table_name='users')
-    op.create_index(op.f('ix_users_mobile_number'), 'users', ['mobile_number'], unique=True)
+    op.execute('DROP INDEX IF EXISTS ix_users_business_partner_id')
+')
+    op.execute('DROP INDEX IF EXISTS ix_users_organization_id')
+')
+    op.execute('DROP INDEX IF EXISTS ix_users_user_type')
+op.drop_constraint('uq_users_mobile_number', 'users', type_='unique')
+    op.execute('DROP INDEX IF EXISTS ix_users_mobile_number')
+op.create_index(op.f('ix_users_mobile_number'), 'users', ['mobile_number'], unique=True)
     op.create_foreign_key(None, 'users', 'business_partners', ['business_partner_id'], ['id'], ondelete='RESTRICT')
     # ### end Alembic commands ###
 

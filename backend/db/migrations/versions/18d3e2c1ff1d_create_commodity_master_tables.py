@@ -223,41 +223,41 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop all commodity master tables"""
-    op.drop_index('ix_commission_is_active', table_name='commission_structures')
-    op.drop_index('ix_commission_trade_type_id', table_name='commission_structures')
-    op.drop_index('ix_commission_commodity_id', table_name='commission_structures')
-    op.drop_table('commission_structures')
+    op.execute('DROP INDEX IF EXISTS ix_commission_is_active')
+op.execute('DROP INDEX IF EXISTS ix_commission_trade_type_id')
+op.execute('DROP INDEX IF EXISTS ix_commission_commodity_id')
+op.drop_table('commission_structures')
     
-    op.drop_index('ix_payment_terms_is_active', table_name='payment_terms')
-    op.drop_table('payment_terms')
+    op.execute('DROP INDEX IF EXISTS ix_payment_terms_is_active')
+op.drop_table('payment_terms')
     
-    op.drop_index('ix_delivery_terms_is_active', table_name='delivery_terms')
-    op.drop_table('delivery_terms')
+    op.execute('DROP INDEX IF EXISTS ix_delivery_terms_is_active')
+op.drop_table('delivery_terms')
     
-    op.drop_index('ix_weightment_terms_is_active', table_name='weightment_terms')
-    op.drop_table('weightment_terms')
+    op.execute('DROP INDEX IF EXISTS ix_weightment_terms_is_active')
+op.drop_table('weightment_terms')
     
-    op.drop_index('ix_passing_terms_is_active', table_name='passing_terms')
-    op.drop_table('passing_terms')
+    op.execute('DROP INDEX IF EXISTS ix_passing_terms_is_active')
+op.drop_table('passing_terms')
     
-    op.drop_index('ix_bargain_types_is_active', table_name='bargain_types')
-    op.drop_table('bargain_types')
+    op.execute('DROP INDEX IF EXISTS ix_bargain_types_is_active')
+op.drop_table('bargain_types')
     
-    op.drop_index('ix_trade_types_is_active', table_name='trade_types')
-    op.drop_table('trade_types')
+    op.execute('DROP INDEX IF EXISTS ix_trade_types_is_active')
+op.drop_table('trade_types')
     
-    op.drop_index('ix_system_parameters_category', table_name='system_commodity_parameters')
-    op.drop_table('system_commodity_parameters')
+    op.execute('DROP INDEX IF EXISTS ix_system_parameters_category')
+op.drop_table('system_commodity_parameters')
     
-    op.drop_index('ix_commodity_parameters_commodity_id', table_name='commodity_parameters')
-    op.drop_table('commodity_parameters')
+    op.execute('DROP INDEX IF EXISTS ix_commodity_parameters_commodity_id')
+op.drop_table('commodity_parameters')
     
-    op.drop_index('ix_commodity_varieties_code', table_name='commodity_varieties')
-    op.drop_index('ix_commodity_varieties_commodity_id', table_name='commodity_varieties')
-    op.drop_table('commodity_varieties')
+    op.execute('DROP INDEX IF EXISTS ix_commodity_varieties_code')
+op.execute('DROP INDEX IF EXISTS ix_commodity_varieties_commodity_id')
+op.drop_table('commodity_varieties')
     
-    op.drop_index('ix_commodities_is_active', table_name='commodities')
-    op.drop_index('ix_commodities_hsn_code', table_name='commodities')
-    op.drop_index('ix_commodities_category', table_name='commodities')
-    op.drop_index('ix_commodities_name', table_name='commodities')
-    op.drop_table('commodities')
+    op.execute('DROP INDEX IF EXISTS ix_commodities_is_active')
+op.execute('DROP INDEX IF EXISTS ix_commodities_hsn_code')
+op.execute('DROP INDEX IF EXISTS ix_commodities_category')
+op.execute('DROP INDEX IF EXISTS ix_commodities_name')
+op.drop_table('commodities')

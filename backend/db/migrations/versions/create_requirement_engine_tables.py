@@ -435,8 +435,7 @@ def upgrade() -> None:
     # INDEX - PARTIAL (Active Requirements Only - Performance Optimization)
     # ============================================================================
     op.execute("""
-        CREATE INDEX ix_requirements_active
-        ON requirements(commodity_id, buyer_partner_id, urgency_level, intent_type)
+        CREATE INDEX IF NOT EXISTS ix_requirements_active ON requirements(commodity_id, buyer_partner_id, urgency_level, intent_type)
         WHERE status = 'ACTIVE'
     """)
     

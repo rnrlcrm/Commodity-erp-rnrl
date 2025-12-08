@@ -111,20 +111,20 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Drop tables
-    op.drop_index('ix_user_right_requests_user_id', table_name='user_right_requests')
-    op.drop_table('user_right_requests')
+    op.execute('DROP INDEX IF EXISTS ix_user_right_requests_user_id')
+op.drop_table('user_right_requests')
     
-    op.drop_index('ix_data_retention_policies_data_category', table_name='data_retention_policies')
-    op.drop_table('data_retention_policies')
+    op.execute('DROP INDEX IF EXISTS ix_data_retention_policies_data_category')
+op.drop_table('data_retention_policies')
     
-    op.drop_index('ix_user_consents_given', table_name='user_consents')
-    op.drop_index('ix_user_consents_consent_type', table_name='user_consents')
-    op.drop_index('ix_user_consents_user_id', table_name='user_consents')
-    op.drop_table('user_consents')
+    op.execute('DROP INDEX IF EXISTS ix_user_consents_given')
+op.execute('DROP INDEX IF EXISTS ix_user_consents_consent_type')
+op.execute('DROP INDEX IF EXISTS ix_user_consents_user_id')
+op.drop_table('user_consents')
     
-    op.drop_index('ix_consent_versions_is_active', table_name='consent_versions')
-    op.drop_index('ix_consent_versions_consent_type', table_name='consent_versions')
-    op.drop_table('consent_versions')
+    op.execute('DROP INDEX IF EXISTS ix_consent_versions_is_active')
+op.execute('DROP INDEX IF EXISTS ix_consent_versions_consent_type')
+op.drop_table('consent_versions')
     
     # Drop enums
     op.execute('DROP TYPE IF EXISTS requeststatus')

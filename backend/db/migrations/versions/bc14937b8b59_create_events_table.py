@@ -54,10 +54,10 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop events table and all indexes"""
-    op.drop_index('ix_events_aggregate_composite', table_name='events')
-    op.drop_index('ix_events_timestamp', table_name='events')
-    op.drop_index('ix_events_user_id', table_name='events')
-    op.drop_index('ix_events_aggregate_type', table_name='events')
-    op.drop_index('ix_events_aggregate_id', table_name='events')
-    op.drop_index('ix_events_event_type', table_name='events')
-    op.drop_table('events')
+    op.execute('DROP INDEX IF EXISTS ix_events_aggregate_composite')
+op.execute('DROP INDEX IF EXISTS ix_events_timestamp')
+op.execute('DROP INDEX IF EXISTS ix_events_user_id')
+op.execute('DROP INDEX IF EXISTS ix_events_aggregate_type')
+op.execute('DROP INDEX IF EXISTS ix_events_aggregate_id')
+op.execute('DROP INDEX IF EXISTS ix_events_event_type')
+op.drop_table('events')

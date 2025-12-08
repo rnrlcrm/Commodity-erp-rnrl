@@ -69,7 +69,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop capability tables"""
-    op.drop_index('idx_user_capabilities_active', table_name='user_capabilities')
-    op.drop_table('role_capabilities')
+    op.execute('DROP INDEX IF EXISTS idx_user_capabilities_active')
+op.drop_table('role_capabilities')
     op.drop_table('user_capabilities')
     op.drop_table('capabilities')

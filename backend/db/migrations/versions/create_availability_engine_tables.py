@@ -197,20 +197,19 @@ def upgrade() -> None:
     
     # JSONB GIN indexes for fast JSONB queries
     op.execute(
-        'CREATE INDEX ix_availabilities_quality_params_gin ON availabilities USING GIN (quality_params)'
+        'CREATE INDEX IF NOT EXISTS ix_availabilities_quality_params_gin ON availabilities USING GIN (quality_params)'
     )
     op.execute(
-        'CREATE INDEX ix_availabilities_price_options_gin ON availabilities USING GIN (price_options)'
+        'CREATE INDEX IF NOT EXISTS ix_availabilities_price_options_gin ON availabilities USING GIN (price_options)'
     )
     op.execute(
-        'CREATE INDEX ix_availabilities_ai_score_vector_gin ON availabilities USING GIN (ai_score_vector)'
+        'CREATE INDEX IF NOT EXISTS ix_availabilities_ai_score_vector_gin ON availabilities USING GIN (ai_score_vector)'
     )
     
     # Partial index for active availabilities (most queried)
     op.execute(
         """
-        CREATE INDEX ix_availabilities_active 
-        ON availabilities (commodity_id, location_id, available_quantity)
+        CREATE INDEX IF NOT EXISTS ix_availabilities_active ON availabilities (commodity_id, location_id, available_quantity)
         WHERE status = 'AVAILABLE'
         """
     )
@@ -356,20 +355,19 @@ def downgrade() -> None:
     op.execute('DROP FUNCTION IF EXISTS update_availability_quantities()')
     
     # Drop indexes (automatically dropped with table, but explicit for clarity)
-    op.drop_index('ix_availabilities_active', 'availabilities')
-    op.drop_index('ix_availabilities_ai_score_vector_gin', 'availabilities')
-    op.drop_index('ix_availabilities_price_options_gin', 'availabilities')
-    op.drop_index('ix_availabilities_quality_params_gin', 'availabilities')
-    op.drop_index('ix_availabilities_geo_location', 'availabilities')
-    op.drop_index('ix_availabilities_commodity_visibility', 'availabilities')
-    op.drop_index('ix_availabilities_commodity_status', 'availabilities')
-    op.drop_index('ix_availabilities_created_at', 'availabilities')
-    op.drop_index('ix_availabilities_valid_until', 'availabilities')
-    op.drop_index('ix_availabilities_market_visibility', 'availabilities')
-    op.drop_index('ix_availabilities_status', 'availabilities')
-    op.drop_index('ix_availabilities_location_id', 'availabilities')
-    op.drop_index('ix_availabilities_commodity_id', 'availabilities')
-    op.drop_index('ix_availabilities_seller_partner_id', 'availabilities')
-    
-    # Drop table
+    op.execute('DROP INDEX IF EXISTS ix_availabilities_active')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_ai_score_vector_gin')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_price_options_gin')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_quality_params_gin')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_geo_location')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_commodity_visibility')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_commodity_status')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_created_at')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_valid_until')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_market_visibility')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_status')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_location_id')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_commodity_id')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_seller_partner_id')
+# Drop table
     op.drop_table('availabilities')
