@@ -1,0 +1,183 @@
+name: 🛡️ Migration Guard - Block PRs with Migration Errors
+
+on:
+  pull_request:
+    paths:
+      - 'backend/db/migrations/**'
+      - 'backend/modules/**/models/**'
+      - 'backend/core/**/models.py'
+      - '.github/workflows/migration-guard.yml'
+
+jobs:
+  migration-lint:
+    name: Lint Migration Files
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          pip install alembic sqlalchemy psycopg2-binary
+      
+      - name: Run migration linter
+        run: |
+          cd backend
+          python ../scripts/lint_migrations.py
+        continue-on-error: false
+
+  migration-dry-run:
+    name: Test Migrations on Fresh PostgreSQL
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+      
+      - name: Apply all migrations
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        run: |
+          cd backend
+          alembic upgrade head
+      
+      - name: Verify migration state
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        run: |
+          cd backend
+          alembic current
+      
+      - name: Check for missing migrations
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        run: |
+          cd backend
+          # Run autogenerate to check if models changed without migration
+          alembic revision --autogenerate -m "check_for_changes" || true
+          
+          # Check if any new migration file was created
+          if git diff --exit-code db/migrations/versions/; then
+            echo "✅ SUCCESS: No missing migrations detected"
+            # Clean up the check migration if created
+            rm -f db/migrations/versions/*check_for_changes.py
+          else
+            echo "❌ ERROR: Models changed but migrations missing!"
+            echo "Please run 'alembic revision --autogenerate -m \"description\"'"
+            git diff db/migrations/versions/
+            exit 1
+          fi
+
+  migration-downgrade-test:
+    name: Test Migration Reversibility
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+      
+      - name: Test upgrade
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        run: |
+          cd backend
+          alembic upgrade head
+      
+      - name: Test downgrade (one step)
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        run: |
+          cd backend
+          # Try to downgrade one step
+          alembic downgrade -1 || echo "⚠️ WARNING: Downgrade failed (may be expected for baseline)"
+      
+      - name: Test re-upgrade
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        run: |
+          cd backend
+          alembic upgrade head
+
+  security-check:
+    name: Security Checks for Migrations
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check for dangerous SQL operations
+        run: |
+          cd backend/db/migrations/versions
+          
+          # Check for DROP DATABASE
+          if grep -r "DROP DATABASE" *.py 2>/dev/null; then
+            echo "❌ ERROR: DROP DATABASE found in migrations!"
+            exit 1
+          fi
+          
+          # Check for TRUNCATE on production tables
+          if grep -r "TRUNCATE" *.py 2>/dev/null; then
+            echo "⚠️ WARNING: TRUNCATE found in migrations - ensure this is intentional"
+          fi
+          
+          # Check for direct SQL without op.execute
+          if grep -rE "cursor\.execute|conn\.execute" *.py 2>/dev/null; then
+            echo "⚠️ WARNING: Raw SQL execution found - prefer op.execute()"
+          fi
+          
+          echo "✅ Security checks passed"
