@@ -127,25 +127,25 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index('ix_organization_document_series_document_type', table_name='organization_document_series')
-    op.drop_index('ix_organization_document_series_financial_year_id', table_name='organization_document_series')
-    op.drop_index('ix_organization_document_series_organization_id', table_name='organization_document_series')
-    op.drop_table('organization_document_series')
+    op.execute('DROP INDEX IF EXISTS ix_organization_document_series_document_type')
+op.execute('DROP INDEX IF EXISTS ix_organization_document_series_financial_year_id')
+op.execute('DROP INDEX IF EXISTS ix_organization_document_series_organization_id')
+op.drop_table('organization_document_series')
 
-    op.drop_index('ix_organization_financial_years_is_active', table_name='organization_financial_years')
-    op.drop_index('ix_organization_financial_years_end_date', table_name='organization_financial_years')
-    op.drop_index('ix_organization_financial_years_start_date', table_name='organization_financial_years')
-    op.drop_index('ix_organization_financial_years_organization_id', table_name='organization_financial_years')
-    op.drop_table('organization_financial_years')
+    op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_is_active')
+op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_end_date')
+op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_start_date')
+op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_organization_id')
+op.drop_table('organization_financial_years')
 
-    op.drop_index('ix_organization_bank_accounts_is_default', table_name='organization_bank_accounts')
-    op.drop_index('ix_organization_bank_accounts_organization_id', table_name='organization_bank_accounts')
-    op.drop_table('organization_bank_accounts')
+    op.execute('DROP INDEX IF EXISTS ix_organization_bank_accounts_is_default')
+op.execute('DROP INDEX IF EXISTS ix_organization_bank_accounts_organization_id')
+op.drop_table('organization_bank_accounts')
 
-    op.drop_index('ix_organization_gst_is_primary', table_name='organization_gst')
-    op.drop_index('ix_organization_gst_organization_id', table_name='organization_gst')
-    op.drop_index('ix_organization_gst_gstin', table_name='organization_gst')
-    op.drop_table('organization_gst')
+    op.execute('DROP INDEX IF EXISTS ix_organization_gst_is_primary')
+op.execute('DROP INDEX IF EXISTS ix_organization_gst_organization_id')
+op.execute('DROP INDEX IF EXISTS ix_organization_gst_gstin')
+op.drop_table('organization_gst')
 
     # Restore organizations table to original state
     op.add_column('organizations', sa.Column('code', sa.String(64), nullable=True, unique=True))

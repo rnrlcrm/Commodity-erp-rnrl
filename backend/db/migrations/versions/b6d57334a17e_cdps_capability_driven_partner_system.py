@@ -318,44 +318,37 @@ def upgrade() -> None:
     # STEP 5: Create JSONB indexes for performance
     # ============================================
     op.execute("""
-        CREATE INDEX idx_capabilities_domestic_buy_india 
-        ON business_partners ((capabilities->>'domestic_buy_india'))
+        CREATE INDEX IF NOT EXISTS idx_capabilities_domestic_buy_india ON business_partners ((capabilities->>'domestic_buy_india'))
         WHERE (capabilities->>'domestic_buy_india')::boolean = true
     """)
     
     op.execute("""
-        CREATE INDEX idx_capabilities_domestic_sell_india 
-        ON business_partners ((capabilities->>'domestic_sell_india'))
+        CREATE INDEX IF NOT EXISTS idx_capabilities_domestic_sell_india ON business_partners ((capabilities->>'domestic_sell_india'))
         WHERE (capabilities->>'domestic_sell_india')::boolean = true
     """)
     
     op.execute("""
-        CREATE INDEX idx_capabilities_import_allowed 
-        ON business_partners ((capabilities->>'import_allowed'))
+        CREATE INDEX IF NOT EXISTS idx_capabilities_import_allowed ON business_partners ((capabilities->>'import_allowed'))
         WHERE (capabilities->>'import_allowed')::boolean = true
     """)
     
     op.execute("""
-        CREATE INDEX idx_capabilities_export_allowed 
-        ON business_partners ((capabilities->>'export_allowed'))
+        CREATE INDEX IF NOT EXISTS idx_capabilities_export_allowed ON business_partners ((capabilities->>'export_allowed'))
         WHERE (capabilities->>'export_allowed')::boolean = true
     """)
     
     op.execute("""
-        CREATE INDEX idx_capabilities_domestic_buy_home 
-        ON business_partners ((capabilities->>'domestic_buy_home_country'))
+        CREATE INDEX IF NOT EXISTS idx_capabilities_domestic_buy_home ON business_partners ((capabilities->>'domestic_buy_home_country'))
         WHERE (capabilities->>'domestic_buy_home_country')::boolean = true
     """)
     
     op.execute("""
-        CREATE INDEX idx_capabilities_domestic_sell_home 
-        ON business_partners ((capabilities->>'domestic_sell_home_country'))
+        CREATE INDEX IF NOT EXISTS idx_capabilities_domestic_sell_home ON business_partners ((capabilities->>'domestic_sell_home_country'))
         WHERE (capabilities->>'domestic_sell_home_country')::boolean = true
     """)
     
     op.execute("""
-        CREATE INDEX idx_capabilities_auto_detected 
-        ON business_partners ((capabilities->>'auto_detected'))
+        CREATE INDEX IF NOT EXISTS idx_capabilities_auto_detected ON business_partners ((capabilities->>'auto_detected'))
         WHERE (capabilities->>'auto_detected')::boolean = true
     """)
 
@@ -398,16 +391,16 @@ def downgrade() -> None:
     
     # Drop new columns
     op.drop_constraint('fk_business_partners_master_entity_id', 'business_partners', type_='foreignkey')
-    op.drop_index('ix_business_partners_master_entity_id', 'business_partners')
-    op.drop_column('business_partners', 'master_entity_id')
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_master_entity_id')
+op.drop_column('business_partners', 'master_entity_id')
     
-    op.drop_index('ix_business_partners_corporate_group_id', 'business_partners')
-    op.drop_column('business_partners', 'corporate_group_id')
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_corporate_group_id')
+op.drop_column('business_partners', 'corporate_group_id')
     
     op.drop_column('business_partners', 'entity_hierarchy')
     op.drop_column('business_partners', 'is_master_entity')
     op.drop_column('business_partners', 'capabilities')
     
-    op.drop_index('ix_business_partners_entity_class', 'business_partners')
-    op.drop_column('business_partners', 'entity_class')
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_entity_class')
+op.drop_column('business_partners', 'entity_class')
 

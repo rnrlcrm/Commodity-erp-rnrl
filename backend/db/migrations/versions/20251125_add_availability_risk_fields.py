@@ -160,7 +160,7 @@ def upgrade() -> None:
     
     # GIN index for risk_flags JSONB
     op.execute(
-        'CREATE INDEX ix_availabilities_risk_flags_gin ON availabilities USING GIN (risk_flags)'
+        'CREATE INDEX IF NOT EXISTS ix_availabilities_risk_flags_gin ON availabilities USING GIN (risk_flags)'
     )
     
     # ============================================================================
@@ -219,13 +219,12 @@ def downgrade() -> None:
     op.drop_constraint('fk_availabilities_seller_branch_id', 'availabilities', type_='foreignkey')
     
     # Drop indexes
-    op.drop_index('ix_availabilities_risk_flags_gin', 'availabilities')
-    op.drop_index('ix_availabilities_risk_composite', 'availabilities')
-    op.drop_index('ix_availabilities_blocked_for_branches', 'availabilities')
-    op.drop_index('ix_availabilities_seller_branch_id', 'availabilities')
-    op.drop_index('ix_availabilities_risk_precheck_status', 'availabilities')
-    
-    # Drop constraints
+    op.execute('DROP INDEX IF EXISTS ix_availabilities_risk_flags_gin')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_risk_composite')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_blocked_for_branches')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_seller_branch_id')
+op.execute('DROP INDEX IF EXISTS ix_availabilities_risk_precheck_status')
+# Drop constraints
     op.drop_constraint('check_expected_price_positive', 'availabilities', type_='check')
     op.drop_constraint('check_seller_delivery_score_range', 'availabilities', type_='check')
     op.drop_constraint('check_seller_rating_score_range', 'availabilities', type_='check')

@@ -38,9 +38,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Remove index
-    op.drop_index('ix_users_parent_user_id', table_name='users')
-    
-    # Remove foreign key
+    op.execute('DROP INDEX IF EXISTS ix_users_parent_user_id')
+# Remove foreign key
     op.drop_constraint('fk_users_parent_user_id', 'users', type_='foreignkey')
     
     # Remove column

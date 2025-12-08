@@ -65,8 +65,8 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_bargain_types_is_active', table_name='bargain_types')
-    op.create_unique_constraint(None, 'bargain_types', ['name'])
+    op.execute('DROP INDEX IF EXISTS ix_bargain_types_is_active')
+op.create_unique_constraint(None, 'bargain_types', ['name'])
     op.alter_column('commission_structures', 'is_active',
                existing_type=sa.BOOLEAN(),
                server_default=None,
@@ -75,10 +75,10 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_commission_commodity_id', table_name='commission_structures')
-    op.drop_index('ix_commission_is_active', table_name='commission_structures')
-    op.drop_index('ix_commission_trade_type_id', table_name='commission_structures')
-    op.drop_constraint('commission_structures_trade_type_id_fkey', 'commission_structures', type_='foreignkey')
+    op.execute('DROP INDEX IF EXISTS ix_commission_commodity_id')
+op.execute('DROP INDEX IF EXISTS ix_commission_is_active')
+op.execute('DROP INDEX IF EXISTS ix_commission_trade_type_id')
+op.drop_constraint('commission_structures_trade_type_id_fkey', 'commission_structures', type_='foreignkey')
     op.drop_constraint('commission_structures_commodity_id_fkey', 'commission_structures', type_='foreignkey')
     op.create_foreign_key(None, 'commission_structures', 'commodities', ['commodity_id'], ['id'])
     op.create_foreign_key(None, 'commission_structures', 'trade_types', ['trade_type_id'], ['id'])
@@ -90,8 +90,8 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_commodities_is_active', table_name='commodities')
-    op.alter_column('commodity_parameters', 'is_mandatory',
+    op.execute('DROP INDEX IF EXISTS ix_commodities_is_active')
+op.alter_column('commodity_parameters', 'is_mandatory',
                existing_type=sa.BOOLEAN(),
                server_default=None,
                existing_nullable=False)
@@ -99,8 +99,8 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_commodity_parameters_commodity_id', table_name='commodity_parameters')
-    op.alter_column('commodity_varieties', 'is_standard',
+    op.execute('DROP INDEX IF EXISTS ix_commodity_parameters_commodity_id')
+op.alter_column('commodity_varieties', 'is_standard',
                existing_type=sa.BOOLEAN(),
                server_default=None,
                existing_nullable=False)
@@ -112,9 +112,9 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_commodity_varieties_code', table_name='commodity_varieties')
-    op.drop_index('ix_commodity_varieties_commodity_id', table_name='commodity_varieties')
-    op.alter_column('delivery_terms', 'code',
+    op.execute('DROP INDEX IF EXISTS ix_commodity_varieties_code')
+op.execute('DROP INDEX IF EXISTS ix_commodity_varieties_commodity_id')
+op.alter_column('delivery_terms', 'code',
                existing_type=sa.VARCHAR(length=20),
                nullable=True)
     op.alter_column('delivery_terms', 'includes_freight',
@@ -133,18 +133,18 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_delivery_terms_is_active', table_name='delivery_terms')
-    op.create_unique_constraint(None, 'delivery_terms', ['name'])
+    op.execute('DROP INDEX IF EXISTS ix_delivery_terms_is_active')
+op.create_unique_constraint(None, 'delivery_terms', ['name'])
     op.add_column('events', sa.Column('event_metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
-    op.drop_index('ix_events_aggregate_composite', table_name='events')
-    op.drop_column('events', 'metadata')
+    op.execute('DROP INDEX IF EXISTS ix_events_aggregate_composite')
+op.drop_column('events', 'metadata')
     op.alter_column('organization_bank_accounts', 'is_default',
                existing_type=sa.BOOLEAN(),
                server_default=None,
                existing_nullable=False)
-    op.drop_index('ix_organization_bank_accounts_is_default', table_name='organization_bank_accounts')
-    op.drop_index('ix_organization_bank_accounts_organization_id', table_name='organization_bank_accounts')
-    op.alter_column('organization_document_series', 'current_number',
+    op.execute('DROP INDEX IF EXISTS ix_organization_bank_accounts_is_default')
+op.execute('DROP INDEX IF EXISTS ix_organization_bank_accounts_organization_id')
+op.alter_column('organization_document_series', 'current_number',
                existing_type=sa.INTEGER(),
                server_default=None,
                existing_nullable=False)
@@ -160,10 +160,10 @@ def upgrade() -> None:
                existing_type=postgresql.JSONB(astext_type=sa.Text()),
                server_default=None,
                existing_nullable=False)
-    op.drop_index('ix_organization_document_series_document_type', table_name='organization_document_series')
-    op.drop_index('ix_organization_document_series_financial_year_id', table_name='organization_document_series')
-    op.drop_index('ix_organization_document_series_organization_id', table_name='organization_document_series')
-    op.alter_column('organization_financial_years', 'is_active',
+    op.execute('DROP INDEX IF EXISTS ix_organization_document_series_document_type')
+op.execute('DROP INDEX IF EXISTS ix_organization_document_series_financial_year_id')
+op.execute('DROP INDEX IF EXISTS ix_organization_document_series_organization_id')
+op.alter_column('organization_financial_years', 'is_active',
                existing_type=sa.BOOLEAN(),
                server_default=None,
                existing_nullable=False)
@@ -175,11 +175,11 @@ def upgrade() -> None:
                existing_type=sa.INTEGER(),
                server_default=None,
                existing_nullable=False)
-    op.drop_index('ix_organization_financial_years_end_date', table_name='organization_financial_years')
-    op.drop_index('ix_organization_financial_years_is_active', table_name='organization_financial_years')
-    op.drop_index('ix_organization_financial_years_organization_id', table_name='organization_financial_years')
-    op.drop_index('ix_organization_financial_years_start_date', table_name='organization_financial_years')
-    op.alter_column('organization_gst', 'is_primary',
+    op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_end_date')
+op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_is_active')
+op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_organization_id')
+op.execute('DROP INDEX IF EXISTS ix_organization_financial_years_start_date')
+op.alter_column('organization_gst', 'is_primary',
                existing_type=sa.BOOLEAN(),
                server_default=None,
                existing_nullable=False)
@@ -187,10 +187,10 @@ def upgrade() -> None:
                existing_type=sa.BOOLEAN(),
                server_default=None,
                existing_nullable=False)
-    op.drop_index('ix_organization_gst_gstin', table_name='organization_gst')
-    op.drop_index('ix_organization_gst_is_primary', table_name='organization_gst')
-    op.drop_index('ix_organization_gst_organization_id', table_name='organization_gst')
-    op.alter_column('organizations', 'base_currency',
+    op.execute('DROP INDEX IF EXISTS ix_organization_gst_gstin')
+op.execute('DROP INDEX IF EXISTS ix_organization_gst_is_primary')
+op.execute('DROP INDEX IF EXISTS ix_organization_gst_organization_id')
+op.alter_column('organizations', 'base_currency',
                existing_type=sa.VARCHAR(length=3),
                server_default=None,
                existing_nullable=False)
@@ -244,8 +244,8 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_passing_terms_is_active', table_name='passing_terms')
-    op.create_unique_constraint(None, 'passing_terms', ['name'])
+    op.execute('DROP INDEX IF EXISTS ix_passing_terms_is_active')
+op.create_unique_constraint(None, 'passing_terms', ['name'])
     op.alter_column('payment_terms', 'code',
                existing_type=sa.VARCHAR(length=20),
                nullable=True)
@@ -257,10 +257,10 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_payment_terms_is_active', table_name='payment_terms')
-    op.create_unique_constraint(None, 'payment_terms', ['name'])
-    op.drop_index('ix_system_parameters_category', table_name='system_commodity_parameters')
-    op.create_index(op.f('ix_system_commodity_parameters_commodity_category'), 'system_commodity_parameters', ['commodity_category'], unique=False)
+    op.execute('DROP INDEX IF EXISTS ix_payment_terms_is_active')
+op.create_unique_constraint(None, 'payment_terms', ['name'])
+    op.execute('DROP INDEX IF EXISTS ix_system_parameters_category')
+op.create_index(op.f('ix_system_commodity_parameters_commodity_category'), 'system_commodity_parameters', ['commodity_category'], unique=False)
     op.alter_column('trade_types', 'code',
                existing_type=sa.VARCHAR(length=20),
                nullable=True)
@@ -272,8 +272,8 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_trade_types_is_active', table_name='trade_types')
-    op.create_unique_constraint(None, 'trade_types', ['name'])
+    op.execute('DROP INDEX IF EXISTS ix_trade_types_is_active')
+op.create_unique_constraint(None, 'trade_types', ['name'])
     op.alter_column('weightment_terms', 'code',
                existing_type=sa.VARCHAR(length=20),
                nullable=True)
@@ -285,8 +285,8 @@ def upgrade() -> None:
                existing_type=postgresql.TIMESTAMP(timezone=True),
                server_default=None,
                nullable=True)
-    op.drop_index('ix_weightment_terms_is_active', table_name='weightment_terms')
-    op.create_unique_constraint(None, 'weightment_terms', ['name'])
+    op.execute('DROP INDEX IF EXISTS ix_weightment_terms_is_active')
+op.create_unique_constraint(None, 'weightment_terms', ['name'])
     # ### end Alembic commands ###
 
 
@@ -545,11 +545,11 @@ def downgrade() -> None:
     sa.PrimaryKeyConstraint('id', name='locations_pkey')
     )
     op.drop_index(op.f('ix_settings_locations_state'), table_name='settings_locations')
-    op.drop_index('ix_settings_locations_region', table_name='settings_locations')
-    op.drop_index('ix_settings_locations_pincode', table_name='settings_locations')
-    op.drop_index(op.f('ix_settings_locations_name'), table_name='settings_locations')
-    op.drop_index('ix_settings_locations_is_active', table_name='settings_locations')
-    op.drop_index('ix_settings_locations_google_place_id', table_name='settings_locations')
-    op.drop_index('ix_settings_locations_city', table_name='settings_locations')
-    op.drop_table('settings_locations')
+    op.execute('DROP INDEX IF EXISTS ix_settings_locations_region')
+op.execute('DROP INDEX IF EXISTS ix_settings_locations_pincode')
+op.drop_index(op.f('ix_settings_locations_name'), table_name='settings_locations')
+    op.execute('DROP INDEX IF EXISTS ix_settings_locations_is_active')
+op.execute('DROP INDEX IF EXISTS ix_settings_locations_google_place_id')
+op.execute('DROP INDEX IF EXISTS ix_settings_locations_city')
+op.drop_table('settings_locations')
     # ### end Alembic commands ###

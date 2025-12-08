@@ -178,14 +178,12 @@ def upgrade():
     
     # 8. Create GIN index for test_report_data (AI parameter search)
     op.execute("""
-        CREATE INDEX idx_availabilities_test_report_data 
-        ON availabilities USING gin (test_report_data)
+        CREATE INDEX IF NOT EXISTS idx_availabilities_test_report_data ON availabilities USING gin (test_report_data)
     """)
     
     # 9. Create GIN index for ai_detected_params (AI quality search)
     op.execute("""
-        CREATE INDEX idx_availabilities_ai_detected_params 
-        ON availabilities USING gin (ai_detected_params)
+        CREATE INDEX IF NOT EXISTS idx_availabilities_ai_detected_params ON availabilities USING gin (ai_detected_params)
     """)
     
     # 10. Add check constraint for valid quantity_unit
@@ -211,12 +209,11 @@ def downgrade():
     """Remove unit conversion, test report, and media fields"""
     
     # Drop indexes
-    op.drop_index('idx_availabilities_ai_detected_params', 'availabilities')
-    op.drop_index('idx_availabilities_test_report_data', 'availabilities')
-    op.drop_index('idx_availabilities_quantity_in_base_unit', 'availabilities')
-    op.drop_index('idx_availabilities_quantity_unit', 'availabilities')
-    
-    # Drop check constraints
+    op.execute('DROP INDEX IF EXISTS idx_availabilities_ai_detected_params')
+op.execute('DROP INDEX IF EXISTS idx_availabilities_test_report_data')
+op.execute('DROP INDEX IF EXISTS idx_availabilities_quantity_in_base_unit')
+op.execute('DROP INDEX IF EXISTS idx_availabilities_quantity_unit')
+# Drop check constraints
     op.drop_constraint('chk_quantity_in_base_unit_positive', 'availabilities', type_='check')
     op.drop_constraint('chk_quantity_unit_valid', 'availabilities', type_='check')
     

@@ -105,11 +105,10 @@ def downgrade() -> None:
     """Remove unit conversion fields"""
     
     # Drop indexes first
-    op.drop_index('ix_commodities_rate_unit', table_name='commodities')
-    op.drop_index('ix_commodities_trade_unit', table_name='commodities')
-    op.drop_index('ix_commodities_base_unit', table_name='commodities')
-    
-    # Drop columns
+    op.execute('DROP INDEX IF EXISTS ix_commodities_rate_unit')
+op.execute('DROP INDEX IF EXISTS ix_commodities_trade_unit')
+op.execute('DROP INDEX IF EXISTS ix_commodities_base_unit')
+# Drop columns
     op.drop_column('commodities', 'standard_weight_per_unit')
     op.drop_column('commodities', 'rate_unit')
     op.drop_column('commodities', 'trade_unit')

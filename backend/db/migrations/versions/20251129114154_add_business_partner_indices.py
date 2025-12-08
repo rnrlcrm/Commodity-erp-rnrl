@@ -94,8 +94,7 @@ def upgrade():
                 SELECT 1 FROM pg_indexes 
                 WHERE indexname = 'idx_availabilities_seller_id'
             ) THEN
-                CREATE INDEX idx_availabilities_seller_id 
-                ON availabilities (seller_id);
+                CREATE INDEX IF NOT EXISTS idx_availabilities_seller_id ON availabilities (seller_partner_id);
             END IF;
         END $$;
     """)
@@ -105,7 +104,7 @@ def upgrade():
     op.create_index(
         'idx_availabilities_seller_status',
         'availabilities',
-        ['seller_id', 'status'],
+        ['seller_partner_id', 'status'],
         unique=False
     )
     
@@ -122,8 +121,7 @@ def upgrade():
                 SELECT 1 FROM pg_indexes 
                 WHERE indexname = 'idx_requirements_buyer_id'
             ) THEN
-                CREATE INDEX idx_requirements_buyer_id 
-                ON requirements (buyer_id);
+                CREATE INDEX IF NOT EXISTS idx_requirements_buyer_id ON requirements (buyer_partner_id);
             END IF;
         END $$;
     """)
@@ -137,8 +135,7 @@ def upgrade():
                 SELECT 1 FROM pg_indexes 
                 WHERE indexname = 'idx_requirements_buyer_status'
             ) THEN
-                CREATE INDEX idx_requirements_buyer_status 
-                ON requirements (buyer_id, status);
+                CREATE INDEX IF NOT EXISTS idx_requirements_buyer_status ON requirements (buyer_partner_id, status);
             END IF;
         END $$;
     """)
@@ -160,8 +157,7 @@ def upgrade():
                     SELECT 1 FROM pg_indexes 
                     WHERE indexname = 'idx_partner_locations_partner_id'
                 ) THEN
-                    CREATE INDEX idx_partner_locations_partner_id 
-                    ON partner_locations (partner_id);
+                    CREATE INDEX IF NOT EXISTS idx_partner_locations_partner_id ON partner_locations (partner_id);
                 END IF;
             END IF;
         END $$;
@@ -180,8 +176,7 @@ def upgrade():
                     SELECT 1 FROM pg_indexes 
                     WHERE indexname = 'idx_partner_locations_partner_location'
                 ) THEN
-                    CREATE INDEX idx_partner_locations_partner_location 
-                    ON partner_locations (partner_id, location_id);
+                    CREATE INDEX IF NOT EXISTS idx_partner_locations_partner_location ON partner_locations (partner_id, location_id);
                 END IF;
             END IF;
         END $$;
@@ -200,11 +195,10 @@ def downgrade():
     op.execute("DROP INDEX IF EXISTS idx_requirements_buyer_id")
     
     # Drop business_partners indices
-    op.drop_index('idx_business_partners_gst_number', 'business_partners')
-    op.drop_index('idx_business_partners_corporate_group_id', 'business_partners')
-    op.drop_index('idx_business_partners_is_master_entity', 'business_partners')
-    op.drop_index('idx_business_partners_master_entity_id', 'business_partners')
-    
-    # Drop partner_locations indices (if they exist)
+    op.execute('DROP INDEX IF EXISTS idx_business_partners_gst_number')
+op.execute('DROP INDEX IF EXISTS idx_business_partners_corporate_group_id')
+op.execute('DROP INDEX IF EXISTS idx_business_partners_is_master_entity')
+op.execute('DROP INDEX IF EXISTS idx_business_partners_master_entity_id')
+# Drop partner_locations indices (if they exist)
     op.execute("DROP INDEX IF EXISTS idx_partner_locations_partner_location")
     op.execute("DROP INDEX IF EXISTS idx_partner_locations_partner_id")

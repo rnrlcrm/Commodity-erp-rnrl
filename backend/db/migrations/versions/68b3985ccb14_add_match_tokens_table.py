@@ -44,8 +44,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop match_tokens table."""
-    op.drop_index('idx_match_tokens_expires', 'match_tokens')
-    op.drop_index('idx_match_tokens_availability', 'match_tokens')
-    op.drop_index('idx_match_tokens_requirement', 'match_tokens')
-    op.drop_index('idx_match_tokens_token', 'match_tokens')
-    op.drop_table('match_tokens')
+    op.execute('DROP INDEX IF EXISTS idx_match_tokens_expires')
+op.execute('DROP INDEX IF EXISTS idx_match_tokens_availability')
+op.execute('DROP INDEX IF EXISTS idx_match_tokens_requirement')
+op.execute('DROP INDEX IF EXISTS idx_match_tokens_token')
+op.drop_table('match_tokens')

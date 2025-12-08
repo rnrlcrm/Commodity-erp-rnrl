@@ -60,16 +60,15 @@ def upgrade() -> None:
     
     # Full-text search index on business name (PostgreSQL)
     op.execute("""
-        CREATE INDEX ix_business_partners_name_search 
-        ON business_partners 
+        CREATE INDEX IF NOT EXISTS ix_business_partners_name_search ON business_partners 
         USING gin(to_tsvector('english', legal_business_name || ' ' || COALESCE(trade_name, '')))
     """)
 
 
 def downgrade() -> None:
     """Remove indexes"""
-    op.drop_index('ix_business_partners_name_search', 'business_partners')
-    op.drop_index('ix_business_partners_phone', 'business_partners')
-    op.drop_index('ix_business_partners_email', 'business_partners')
-    op.drop_index('ix_business_partners_kyc_status_expiry', 'business_partners')
-    op.drop_index('ix_business_partners_state_status', 'business_partners')
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_name_search')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_phone')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_email')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_kyc_status_expiry')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_state_status')

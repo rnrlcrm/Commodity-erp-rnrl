@@ -59,8 +59,7 @@ def upgrade() -> None:
     # The application layer should handle duplicate detection logic if needed
     op.execute(
         """
-        CREATE UNIQUE INDEX uq_requirements_no_duplicates
-        ON requirements (
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_requirements_no_duplicates ON requirements (
             buyer_partner_id, 
             commodity_id, 
             preferred_quantity,
@@ -84,9 +83,8 @@ def upgrade() -> None:
     
     op.execute(
         """
-        CREATE UNIQUE INDEX uq_availabilities_no_duplicates
-        ON availabilities (
-            seller_id,
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_availabilities_no_duplicates ON availabilities (
+            seller_partner_id,
             commodity_id,
             total_quantity,
             location_id,
@@ -108,8 +106,7 @@ def upgrade() -> None:
     # PAN number index (for blocking same PAN trades)
     op.execute(
         """
-        CREATE INDEX ix_business_partners_pan_lookup
-        ON business_partners (pan_number)
+        CREATE INDEX IF NOT EXISTS ix_business_partners_pan_lookup ON business_partners (pan_number)
         WHERE pan_number IS NOT NULL AND status = 'approved'
         """
     )
@@ -117,8 +114,7 @@ def upgrade() -> None:
     # GST number index (for blocking same GST trades)
     op.execute(
         """
-        CREATE INDEX ix_business_partners_gst_lookup
-        ON business_partners (gst_number)
+        CREATE INDEX IF NOT EXISTS ix_business_partners_gst_lookup ON business_partners (gst_number)
         WHERE gst_number IS NOT NULL AND status = 'approved'
         """
     )
@@ -126,8 +122,7 @@ def upgrade() -> None:
     # Mobile number index (for warning on same mobile)
     op.execute(
         """
-        CREATE INDEX ix_business_partners_mobile_lookup
-        ON business_partners (primary_contact_phone)
+        CREATE INDEX IF NOT EXISTS ix_business_partners_mobile_lookup ON business_partners (primary_contact_phone)
         WHERE primary_contact_phone IS NOT NULL AND status = 'approved'
         """
     )
@@ -141,9 +136,8 @@ def upgrade() -> None:
     # Index for checking buyer's open SELL positions
     op.execute(
         """
-        CREATE INDEX ix_availabilities_seller_commodity_date
-        ON availabilities (
-            seller_id,
+        CREATE INDEX IF NOT EXISTS ix_availabilities_seller_commodity_date ON availabilities (
+            seller_partner_id,
             commodity_id,
             created_at
         )
@@ -154,8 +148,7 @@ def upgrade() -> None:
     # Index for checking seller's open BUY positions
     op.execute(
         """
-        CREATE INDEX ix_requirements_buyer_commodity_date
-        ON requirements (
+        CREATE INDEX IF NOT EXISTS ix_requirements_buyer_commodity_date ON requirements (
             buyer_partner_id,
             commodity_id,
             created_at
@@ -171,8 +164,7 @@ def upgrade() -> None:
     
     op.execute(
         """
-        CREATE INDEX ix_business_partners_type_lookup
-        ON business_partners (id, partner_type)
+        CREATE INDEX IF NOT EXISTS ix_business_partners_type_lookup ON business_partners (id, partner_type)
         WHERE status = 'approved'
         """
     )
@@ -185,8 +177,7 @@ def upgrade() -> None:
     # Buyer risk assessment index
     op.execute(
         """
-        CREATE INDEX ix_requirements_risk_assessment
-        ON requirements (
+        CREATE INDEX IF NOT EXISTS ix_requirements_risk_assessment ON requirements (
             buyer_partner_id,
             estimated_trade_value,
             risk_precheck_status,
@@ -199,9 +190,8 @@ def upgrade() -> None:
     # Seller risk assessment index
     op.execute(
         """
-        CREATE INDEX ix_availabilities_risk_assessment
-        ON availabilities (
-            seller_id,
+        CREATE INDEX IF NOT EXISTS ix_availabilities_risk_assessment ON availabilities (
+            seller_partner_id,
             estimated_trade_value,
             risk_precheck_status,
             status
@@ -218,8 +208,7 @@ def upgrade() -> None:
     # Requirements matching index
     op.execute(
         """
-        CREATE INDEX ix_requirements_matching
-        ON requirements (
+        CREATE INDEX IF NOT EXISTS ix_requirements_matching ON requirements (
             commodity_id,
             status,
             market_visibility,
@@ -235,8 +224,7 @@ def upgrade() -> None:
     # Availabilities matching index
     op.execute(
         """
-        CREATE INDEX ix_availabilities_matching
-        ON availabilities (
+        CREATE INDEX IF NOT EXISTS ix_availabilities_matching ON availabilities (
             commodity_id,
             status,
             market_visibility,

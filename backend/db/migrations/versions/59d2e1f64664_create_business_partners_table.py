@@ -134,14 +134,13 @@ def downgrade() -> None:
     op.drop_constraint('uq_partners_org_tax_id', 'business_partners', type_='unique')
     
     # Drop indexes
-    op.drop_index('ix_business_partners_is_deleted', table_name='business_partners')
-    op.drop_index('ix_business_partners_kyc_expiry', table_name='business_partners')
-    op.drop_index('ix_business_partners_kyc_status', table_name='business_partners')
-    op.drop_index('ix_business_partners_status', table_name='business_partners')
-    op.drop_index('ix_business_partners_pan', table_name='business_partners')
-    op.drop_index('ix_business_partners_tax_id', table_name='business_partners')
-    op.drop_index('ix_business_partners_partner_type', table_name='business_partners')
-    op.drop_index('ix_business_partners_organization_id', table_name='business_partners')
-    
-    # Drop table
+    op.execute('DROP INDEX IF EXISTS ix_business_partners_is_deleted')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_kyc_expiry')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_kyc_status')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_status')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_pan')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_tax_id')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_partner_type')
+op.execute('DROP INDEX IF EXISTS ix_business_partners_organization_id')
+# Drop table
     op.drop_table('business_partners')
