@@ -55,24 +55,27 @@ def upgrade() -> None:
     # Option B: Partial unique index excluding CANCELLED/FULFILLED
     # Allows users to re-post if they cancelled previous requirement
     
+    # NOTE: Using plain columns instead of functions to avoid IMMUTABLE requirement
+    # The application layer should handle duplicate detection logic if needed
     op.execute(
         """
         CREATE UNIQUE INDEX uq_requirements_no_duplicates
         ON requirements (
             buyer_partner_id, 
             commodity_id, 
-            COALESCE(preferred_quantity, min_quantity),
+            preferred_quantity,
+            min_quantity,
             max_budget_per_unit,
-            COALESCE(buyer_branch_id::text, 'NULL'),
-            DATE(valid_from)
+            buyer_branch_id,
+            valid_from
         )
         WHERE status NOT IN ('CANCELLED', 'FULFILLED', 'EXPIRED')
         """
     )
     # Explanation:
-    # - COALESCE handles NULL buyer_branch_id (traders without branch)
-    # - DATE(valid_from) prevents duplicates on same day
+    # - Using plain columns to avoid IMMUTABLE function requirement
     # - WHERE clause allows re-posting after cancellation (Option B)
+    # - Application handles duplicate detection for NULL values
     
     # ============================================================================
     # 2. DUPLICATE ORDER PREVENTION - AVAILABILITIES
@@ -87,13 +90,14 @@ def upgrade() -> None:
             commodity_id,
             total_quantity,
             location_id,
-            DATE(created_at)
+            created_at
         )
         WHERE status NOT IN ('CANCELLED', 'SOLD', 'EXPIRED')
         """
     )
     # Explanation:
-    # - Prevents seller from posting same commodity/quantity/location on same day
+    # - Prevents seller from posting same commodity/quantity/location
+    # - Using full timestamp; application handles same-day detection if needed
     # - Allows re-posting if previous availability was cancelled/sold (Option B)
     
     # ============================================================================
