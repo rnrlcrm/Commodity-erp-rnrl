@@ -104,17 +104,25 @@ def lint_versions() -> Tuple[TableColumns, List[Issue]]:
 
     # First pass: collect table columns from create_table in all files
     file_sources: Dict[str, str] = {}
+    syntax_issues: List[Issue] = []
     for f in files:
         path = os.path.join(VERSIONS_DIR, f)
         with open(path, 'r', encoding='utf-8', errors='ignore') as fh:
             src = fh.read()
             file_sources[f] = src
+            # Basic Python syntax check to catch SyntaxError/IndentationError early
+            try:
+                ast.parse(src, filename=f)
+            except SyntaxError as e:
+                lineno = getattr(e, 'lineno', 1) or 1
+                msg = getattr(e, 'msg', str(e))
+                syntax_issues.append((f, lineno, f"SyntaxError: {msg}"))
             cols = extract_columns_from_create_table(src)
             for t, cset in cols.items():
                 all_tables.setdefault(t, set()).update(cset)
 
     # Second pass: validate indexes reference existing columns
-    issues: List[Issue] = []
+    issues: List[Issue] = list(syntax_issues)
     for f, src in file_sources.items():
         idx_list = extract_index_columns(src)
         for kind, line, table, _tbl2, cols in idx_list:
