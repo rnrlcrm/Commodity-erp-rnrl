@@ -18,7 +18,7 @@ from sqlalchemy import Boolean, Column, DateTime, Enum as SQLEnum, ForeignKey, J
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 
-from backend.db.base_class import Base
+from backend.db.base import Base
 
 
 class NotificationType(str, Enum):
@@ -124,7 +124,7 @@ class Notification(Base):
     sms_message_id = Column(String(255), nullable=True)  # Message ID from SMS provider
     
     # Metadata
-    metadata = Column(JSON, nullable=True)  # Additional metadata
+    notification_metadata = Column(JSON, nullable=True)  # Additional metadata (renamed from 'metadata' to avoid SQLAlchemy conflict)
     expires_at = Column(DateTime, nullable=True)  # Expiration time (for time-sensitive notifications)
     
     # Audit
