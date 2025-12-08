@@ -399,7 +399,8 @@ def upgrade() -> None:
     op.drop_column('partner_vehicles', 'rto_verification_data')
     op.drop_column('partner_vehicles', 'is_deleted')
     op.drop_column('partner_vehicles', 'deleted_by')
-    op.drop_index('ix_settings_locations_google_place_id_unique', table_name='settings_locations')
+    # Drop old index if it exists (might not exist on fresh database)
+    op.execute("DROP INDEX IF EXISTS ix_settings_locations_google_place_id_unique")
     op.create_index(op.f('ix_settings_locations_google_place_id'), 'settings_locations', ['google_place_id'], unique=True)
     op.alter_column('users', 'user_type',
                existing_type=sa.VARCHAR(length=20),
