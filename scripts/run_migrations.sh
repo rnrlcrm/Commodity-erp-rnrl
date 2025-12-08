@@ -115,21 +115,30 @@ test_database_connection() {
 create_extensions() {
     log_info "Creating required PostgreSQL extensions..."
     
-    # Extract psql connection from DATABASE_URL
-    # Format: postgresql://user:password@host:5432/dbname
-    if command -v psql &> /dev/null; then
-        log_info "Creating pgvector extension..."
-        
-        if psql "${DATABASE_URL}" -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>&1 | tee -a "${LOG_FILE}"; then
-            log_success "pgvector extension created/verified"
-        else
-            log_warning "Could not create pgvector extension (may already exist or require superuser)"
-            log_warning "Migrations will fail if vector type is not available"
-            log_warning "Please create it manually: CREATE EXTENSION IF NOT EXISTS vector;"
-        fi
+    # Use Python to create extension (handles all connection string formats)
+    log_info "Creating pgvector extension..."
+    
+    python3 -c "
+import os
+import sys
+try:
+    from sqlalchemy import create_engine, text
+    engine = create_engine(os.environ['DATABASE_URL'])
+    with engine.connect() as conn:
+        conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
+        conn.commit()
+    print('✅ pgvector extension created/verified')
+    sys.exit(0)
+except Exception as e:
+    print(f'⚠️  Could not create pgvector extension: {e}')
+    print('Migrations will fail if vector type is not available')
+    sys.exit(0)  # Don't fail - might already exist
+" 2>&1 | tee -a "${LOG_FILE}"
+    
+    if [ $? -eq 0 ]; then
+        log_success "pgvector extension setup completed"
     else
-        log_warning "psql not available - skipping extension creation"
-        log_warning "Ensure pgvector extension exists: CREATE EXTENSION IF NOT EXISTS vector;"
+        log_warning "Extension creation had issues - check if it exists"
     fi
 }
 
