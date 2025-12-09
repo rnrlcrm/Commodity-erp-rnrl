@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import apiClient from '@/services/api/apiClient';
 import './SemanticSearchWidget.css';
 
 interface SearchResult {
@@ -27,21 +28,13 @@ const SemanticSearchWidget: React.FC<SemanticSearchWidgetProps> = ({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/ai/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          query,
-          collection_type: collectionType,
-          k: 10,
-        }),
+      const response = await apiClient.post('/ai/search', {
+        query,
+        collection_type: collectionType,
+        k: 10,
       });
 
-      const data = await response.json();
-      setResults(data.results || []);
+      setResults(response.data.results || []);
     } catch (error) {
       console.error('Search failed:', error);
     } finally {

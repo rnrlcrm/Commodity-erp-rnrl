@@ -10,6 +10,7 @@ import {
   XMarkIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
+import apiClient from '@/services/api/apiClient';
 
 interface DocumentAnalysisWidgetProps {
   onClose?: () => void;
@@ -43,25 +44,25 @@ export default function DocumentAnalysisWidget({ onClose }: DocumentAnalysisWidg
     setError(null);
 
     try {
-      const response = await fetch('/api/v1/ai/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-        body: JSON.stringify({
-          document_text: documentText,
-          document_type: documentType,
-          analysis_type: analysisType,
-        }),
+      const response = await apiClient.post('/ai/analyze', {
+        document_text: documentText,
+        document_type: documentType,
+        analysis_type: analysisType,
       });
 
-      if (!response.ok) {
+      if (!response.data) {
+        throw new Error('Analysis failed');
+      const response = await apiClient.post('/ai/analyze', {
+        document_text: documentText,
+        document_type: documentType,
+        analysis_type: analysisType,
+      });
+
+      if (!response.data) {
         throw new Error('Analysis failed');
       }
 
-      const data = await response.json();
-      setResult(data);
+      setResult(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to analyze document');
     } finally {

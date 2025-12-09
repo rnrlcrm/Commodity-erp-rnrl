@@ -1,10 +1,58 @@
 /**
  * Axios Instance with Interceptors
  * Handles token attachment, refresh, and error handling
+ * Supports Cloud Run identity tokens for service-to-service authentication
  */
 
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from '@/config/api';
+
+// GCP Metadata server for identity tokens (Cloud Run only)
+const METADATA_SERVER_URL = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity';
+const isProduction = import.meta.env.PROD;
+
+// Cache for identity token
+let cachedIdentityToken: string | null = null;
+let tokenExpiry: number = 0;
+
+/**
+ * Get identity token from GCP metadata server (Cloud Run only)
+ */
+async function getIdentityToken(): Promise<string | null> {
+  // Skip in development
+  if (!isProduction) {
+    return null;
+  }
+
+  // Return cached token if still valid (with 5 min buffer)
+  if (cachedIdentityToken && Date.now() < tokenExpiry - 5 * 60 * 1000) {
+    return cachedIdentityToken;
+  }
+
+  try {
+    const response = await fetch(`${METADATA_SERVER_URL}?audience=${API_CONFIG.BASE_URL}`, {
+      headers: {
+        'Metadata-Flavor': 'Google'
+      }
+    });
+
+    if (!response.ok) {
+      console.warn('Failed to get identity token from metadata server');
+      return null;
+    }
+
+    const token = await response.text();
+    
+    // Parse token to get expiry (tokens are valid for 1 hour)
+    cachedIdentityToken = token;
+    tokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+    
+    return token;
+  } catch (error) {
+    console.warn('Error getting identity token:', error);
+    return null;
+  }
+}
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -34,13 +82,20 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor - attach token
+// Request interceptor - attach token (user JWT or identity token)
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
+    // First, try to get user JWT token from localStorage (for authenticated users)
     const token = localStorage.getItem(API_CONFIG.TOKEN_STORAGE_KEY);
     
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (isProduction && config.headers) {
+      // In production without user token, use identity token for service-to-service auth
+      const identityToken = await getIdentityToken();
+      if (identityToken) {
+        config.headers.Authorization = `Bearer ${identityToken}`;
+      }
     }
     
     return config;

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import apiClient from '@/services/api/apiClient';
 import './AIChatWidget.css';
 
 interface Message {
@@ -46,25 +47,16 @@ const AIChatWidget: React.FC<AIChatWidgetProps> = ({
 
     try {
       // Call AI assistant API
-      const response = await fetch('/api/v1/ai/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          message: input,
-          assistant_type: assistantType,
-          conversation_history: messages,
-        }),
+      const response = await apiClient.post('/ai/chat', {
+        message: input,
+        assistant_type: assistantType,
+        conversation_history: messages,
       });
-
-      const data = await response.json();
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.response,
+        content: response.data.response,
         timestamp: new Date(),
       };
 
