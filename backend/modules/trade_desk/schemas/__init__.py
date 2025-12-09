@@ -12,7 +12,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from modules.common.schemas.responses import ErrorResponse
+from backend.modules.common.schemas.responses import ErrorResponse
 
 # Import Requirement schemas
 from backend.modules.trade_desk.schemas.requirement_schemas import (

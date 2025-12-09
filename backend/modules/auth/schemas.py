@@ -12,7 +12,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from modules.common.schemas.auth import TokenResponse
+from backend.modules.common.schemas.auth import TokenResponse
 
 
 class RefreshTokenRequest(BaseModel):

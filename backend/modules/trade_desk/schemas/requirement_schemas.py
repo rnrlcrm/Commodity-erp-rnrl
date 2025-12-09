@@ -18,7 +18,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from modules.common.schemas.responses import ErrorResponse
+from backend.modules.common.schemas.responses import ErrorResponse
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator

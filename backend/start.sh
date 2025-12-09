@@ -17,4 +17,9 @@ else
 fi
 
 echo "Starting FastAPI application..."
-exec python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+# Add verbose error output
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 2>&1 || {
+    echo "Failed to start uvicorn, trying to import app directly to see error:"
+    python -c "from backend.app.main import app; print('App imported successfully')" 2>&1
+    exit 1
+}

@@ -6,7 +6,7 @@ import re
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from modules.common.schemas.auth import TokenResponse, SendOTPRequest, VerifyOTPRequest, OTPResponse
+from backend.modules.common.schemas.auth import TokenResponse, SendOTPRequest, VerifyOTPRequest, OTPResponse
 
 
 class SignupRequest(BaseModel):

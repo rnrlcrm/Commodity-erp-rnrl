@@ -10,7 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, EmailStr
 
-from modules.common.schemas.auth import SendOTPRequest, VerifyOTPRequest, OTPResponse
+from backend.modules.common.schemas.auth import SendOTPRequest, VerifyOTPRequest, OTPResponse
 
 
 class CompleteProfileRequest(BaseModel):
