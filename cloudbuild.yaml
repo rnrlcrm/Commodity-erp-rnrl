@@ -5,6 +5,10 @@
 # Builds: Backend + Frontend Docker images
 # Deploys: Cloud Run services
 
+substitutions:
+  _BACKEND_URL: "https://backend-service-565186585906.us-central1.run.app"
+  _REGION: "us-central1"
+
 steps:
   # ============================================================================
   # STEP 1: Build Backend Docker Image
@@ -52,7 +56,7 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:latest'
       - '--build-arg'
-      - 'VITE_API_URL=https://backend-service-565186585906.a.run.app'
+      - 'VITE_API_URL=https://api.rnrltradehub.com'
       - '-f'
       - 'infra/docker/frontend/Dockerfile.prod'
       - 'frontend'
@@ -134,13 +138,12 @@ steps:
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'health-check'
-    entrypoint: 'sh'
+    entrypoint: 'bash'
     args:
       - '-c'
       - |
-        BACKEND_URL=$$(gcloud run services describe backend-service --region=us-central1 --format='value(status.url)')
-        echo "Testing backend at: $$BACKEND_URL/health"
-        curl -f "$$BACKEND_URL/health" || exit 1
+        echo "Testing backend at: $_BACKEND_URL/health"
+        curl -f $_BACKEND_URL/health || exit 1
         echo "✅ Backend health check passed"
     waitFor: ['deploy-backend']
 
