@@ -1,91 +1,82 @@
 #!/usr/bin/env python3
 """
-Create Super Admin User - Simple Direct Insert
-Run this in Google Cloud Shell with cloud-sql-proxy running
+Create Super Admin User via Backend API
+Run this in Google Cloud Shell - uses deployed backend service
 """
 
-import asyncio
-import asyncpg
-from uuid import uuid4
-from passlib.context import CryptContext
+import requests
+import subprocess
+import sys
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Backend URL
+BACKEND_URL = "https://backend-service-565186585906.us-central1.run.app"
 
-async def create_superadmin():
-    """Create superadmin user directly in database"""
-    
-    # Connect to database via cloud-sql-proxy
-    # Make sure cloud-sql-proxy is running with: 
-    # cloud-sql-proxy commodity-plafform-sandbox:us-central1:cotton-erp-db --port 5432 &
-    
-    conn = await asyncpg.connect(
-        host='127.0.0.1',
-        port=5432,
-        user='commodity_user',
-        password='6soz/ALiY0+uaf9te/iZ6CewozSaBYQCJlmNKVnvLDc=',
-        database='commodity_erp'
+def get_identity_token():
+    """Get identity token for authentication"""
+    result = subprocess.run(
+        ["gcloud", "auth", "print-identity-token", f"--audiences={BACKEND_URL}"],
+        capture_output=True,
+        text=True
     )
-    
-    try:
-        print("🔌 Connected to database")
-        
-        # Check if admin already exists
-        existing = await conn.fetchrow(
-            "SELECT id, email FROM users WHERE email = $1",
-            'admin@rnrl.com'
-        )
-        
-        if existing:
-            print("✅ Super Admin already exists!")
-            print("   Email: admin@rnrl.com")
-            print(f"   User ID: {existing['id']}")
-            print("\n🌐 Login at: https://frontend-service-565186585906.us-central1.run.app/")
-            print("   Email:    admin@rnrl.com")
-            print("   Password: Admin@123")
-            return
-        
-        # Generate IDs
-        user_id = uuid4()
-        org_id = uuid4()
-        
-        # Hash password
-        hashed_password = pwd_context.hash("Admin@123")
-        
-        print("📝 Creating Super Admin...")
-        
-        # Create organization first
-        await conn.execute("""
-            INSERT INTO organizations (id, name, org_type, created_at, updated_at)
-            VALUES ($1, $2, $3, NOW(), NOW())
-        """, org_id, 'RNRL Admin Organization', 'ADMIN')
-        
-        # Create superadmin user
-        await conn.execute("""
-            INSERT INTO users (
-                id, email, hashed_password, full_name, 
-                is_active, is_superuser, organization_id,
-                created_at, updated_at
-            )
-            VALUES ($1, $2, $3, $4, true, true, $5, NOW(), NOW())
-        """, user_id, 'admin@rnrl.com', hashed_password, 'Super Administrator', org_id)
-        
-        print("✅ Super Admin created successfully!")
-        print("\n📧 Email:    admin@rnrl.com")
-        print("🔑 Password: Admin@123")
-        print(f"👤 User ID:  {user_id}")
-        print(f"🏢 Org ID:   {org_id}")
-        print("\n🌐 Login at: https://frontend-service-565186585906.us-central1.run.app/")
-        
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        raise
-    finally:
-        await conn.close()
-        print("\n🔌 Database connection closed")
+    return result.stdout.strip()
 
-if __name__ == '__main__':
+def create_superadmin():
+    """Create superadmin user via backend API"""
+    
     print("=" * 60)
     print("Creating Super Admin User")
     print("=" * 60)
-    asyncio.run(create_superadmin())
+    
+    # Get identity token
+    print("\n🔑 Getting authentication token...")
+    token = get_identity_token()
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    
+    # Admin credentials
+    admin_data = {
+        "email": "admin@rnrl.com",
+        "password": "Admin@123456",
+        "full_name": "Super Administrator"
+    }
+    
+    print(f"\n📝 Creating superadmin: {admin_data['email']}")
+    
+    # Call signup-internal endpoint (for INTERNAL users)
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/api/v1/settings/auth/signup-internal",
+            headers=headers,
+            json=admin_data,
+            timeout=10
+        )
+        
+        print(f"\n📡 Response Status: {response.status_code}")
+        
+        if response.status_code in [200, 201]:
+            print("✅ Super Admin created successfully!")
+            print("\n📧 Email:    admin@rnrl.com")
+            print("🔑 Password: Admin@123456")
+            print("\n🌐 Login at: https://frontend-service-565186585906.us-central1.run.app/")
+            
+        elif "already exists" in response.text.lower():
+            print("\nℹ️  Super Admin already exists!")
+            print("📧 Email:    admin@rnrl.com")
+            print("🔑 Password: Admin@123456")
+            print("\n🌐 Login at: https://frontend-service-565186585906.us-central1.run.app/")
+            
+        else:
+            print("❌ Error creating superadmin:")
+            print(f"   Status: {response.status_code}")
+            print(f"   Response: {response.text}")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        sys.exit(1)
+
+if __name__ == '__main__':
+    create_superadmin()
