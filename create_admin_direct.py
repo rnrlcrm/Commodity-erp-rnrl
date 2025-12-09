@@ -1,9 +1,7 @@
 import asyncio
 import asyncpg
-from passlib.context import CryptContext
+import bcrypt
 from uuid import uuid4
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def create_admin_user():
     conn = await asyncpg.connect(
@@ -22,7 +20,7 @@ async def create_admin_user():
             print(f"✅ Admin already exists! ID: {existing['id']}")
             return
 
-        hashed_password = pwd_context.hash("Rnrl@Admin1")
+        hashed_password = bcrypt.hashpw("Rnrl@Admin1".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         user_id = uuid4()
 
         await conn.execute("""
