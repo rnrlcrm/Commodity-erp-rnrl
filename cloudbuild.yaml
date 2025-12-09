@@ -138,7 +138,12 @@ steps:
       - |
         BACKEND_URL=$$(gcloud run services describe backend-service --region=us-central1 --format='value(status.url)')
         echo "Testing backend at: $$BACKEND_URL/health"
-        curl -f "$$BACKEND_URL/health" || exit 1
+        
+        # Get identity token for authentication
+        TOKEN=$$(gcloud auth print-identity-token)
+        
+        # Make authenticated request to health endpoint
+        curl -f -H "Authorization: Bearer $$TOKEN" "$$BACKEND_URL/health" || exit 1
         echo "✅ Backend health check passed"
     waitFor: ['deploy-backend']
 
