@@ -99,7 +99,7 @@ steps:
       - '--vpc-connector=cotton-erp-connector'
       - '--set-cloudsql-instances=commodity-plafform-sandbox:us-central1:cotton-erp-db'
       - '--set-env-vars=ENVIRONMENT=sandbox,LOG_LEVEL=INFO,GCP_PROJECT_ID=$PROJECT_ID'
-      - '--set-secrets=DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,JWT_SECRET_KEY=jwt-secret:latest,OPENAI_API_KEY=openai-key:latest'
+      - '--set-secrets=DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,JWT_SECRET_KEY=jwt-secret:latest,OPENAI_API_KEY=openai-key:latest,HF_TOKEN=huggingface-token:latest'
       - '--service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com'
       - '--cpu-boost'
       - '--no-cpu-throttling'
