@@ -134,7 +134,7 @@ steps:
     timeout: '300s'
 
   # ============================================================================
-  # STEP 7: Health Check
+  # STEP 7: Health Check (Authenticated with Identity Token)
   # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'health-check'
@@ -142,8 +142,9 @@ steps:
     args:
       - '-c'
       - |
-        echo "Testing backend at: $_BACKEND_URL/health"
-        curl -f $_BACKEND_URL/health || exit 1
+        echo "Testing authenticated backend health..."
+        TOKEN=$$(gcloud auth print-identity-token --audiences=$_BACKEND_URL)
+        curl -f -H "Authorization: Bearer $$TOKEN" $_BACKEND_URL/health || exit 1
         echo "✅ Backend health check passed"
     waitFor: ['deploy-backend']
 
