@@ -42,19 +42,12 @@ async def create_admin_user():
             print("   Password: Rnrl@Admin1")
             return
         
-        # Create organization first
-        org_id = uuid4()
-        await conn.execute("""
-            INSERT INTO organizations (id, name, org_type, created_at, updated_at)
-            VALUES ($1, $2, $3, NOW(), NOW())
-            ON CONFLICT DO NOTHING
-        """, org_id, 'RNRL Admin Organization', 'ADMIN')
-        
         # Hash password
         hashed_password = pwd_context.hash("Rnrl@Admin1")
         user_id = uuid4()
         
         # Insert superadmin user with SUPER_ADMIN user_type
+        # SUPER_ADMIN has NULL for both organization_id and business_partner_id
         await conn.execute("""
             INSERT INTO users (
                 id, email, password_hash, full_name,
