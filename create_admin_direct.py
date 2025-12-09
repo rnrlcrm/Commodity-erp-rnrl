@@ -6,7 +6,12 @@ import asyncpg
 from passlib.context import CryptContext
 
 # --- Configuration ---
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/dbname")
+DB_HOST = os.environ.get("DB_HOST", "10.40.0.3")
+DB_PORT = int(os.environ.get("DB_PORT", "5432"))
+DB_USER = os.environ.get("DB_USER", "commodity_user")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "6soz/ALiY0+uaf9te/iZ6CewozSaBYQCJlmNKVnvLDc=")
+DB_NAME = os.environ.get("DB_NAME", "commodity_erp")
+
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@rnrl.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Rnrl@Admin1")
 ADMIN_FULL_NAME = os.environ.get("ADMIN_FULL_NAME", "Super Administrator")
@@ -48,7 +53,13 @@ async def get_not_null_columns(conn, table_name: str):
     return {row["column_name"]: row["data_type"] for row in rows}
 
 async def create_admin_user():
-    conn = await asyncpg.connect(DATABASE_URL)
+    conn = await asyncpg.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
+    )
     try:
         # Check if admin already exists
         existing = await conn.fetchrow("SELECT * FROM users WHERE email=$1", ADMIN_EMAIL)
