@@ -176,10 +176,10 @@ async def refresh(token: str, db: AsyncSession = Depends(get_db)) -> TokenRespon
 @router.post("/auth/change-password", tags=["auth"])
 async def change_password(
     payload: ChangePasswordRequest,
-    current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    current_user = Depends(get_current_user)
 ) -> dict:
     """
     Change password for authenticated INTERNAL user. Supports idempotency.
@@ -248,7 +248,7 @@ async def logout_all_devices(
         count = await svc.logout_all_devices(user_id)
         audit_log("user.logout_all", user_id, "security", user_id, {"tokens_revoked": count})
         return {
-            "message": f"Logged out from all devices successfully",
+            "message": "Logged out from all devices successfully",
             "tokens_revoked": count
         }
     except Exception as e:
