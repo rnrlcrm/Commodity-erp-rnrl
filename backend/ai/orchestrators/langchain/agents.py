@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain.tools import Tool
+from langchain_classic.agents import AgentExecutor, create_openai_functions_agent
+from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
 
 from backend.ai.embeddings.chromadb.search import SemanticSearch

@@ -9,9 +9,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from langchain.chains import LLMChain
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts import ChatPromptTemplate
+from langchain_classic.chains import LLMChain
+from langchain_classic.memory import ConversationBufferMemory
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from backend.ai.orchestrators.langchain.orchestrator import ERPPrompts

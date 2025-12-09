@@ -10,7 +10,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 
 from backend.ai.embeddings.chromadb.store import ChromaDBStore

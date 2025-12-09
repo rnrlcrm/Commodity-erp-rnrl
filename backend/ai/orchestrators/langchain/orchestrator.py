@@ -11,7 +11,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 logger = logging.getLogger(__name__)
 
