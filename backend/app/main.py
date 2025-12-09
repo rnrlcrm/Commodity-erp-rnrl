@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+# Load environment variables from .env file FIRST (before any other imports)
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -173,6 +177,30 @@ def create_app() -> FastAPI:
 	@app.exception_handler(Exception)
 	async def _unhandled(request: Request, exc: Exception):  # noqa: ANN001
 		return JSONResponse(status_code=500, content={"error": "internal_error"})
+
+	# Health endpoint (for Cloud Run health checks)
+	@app.get("/health", include_in_schema=False, tags=["Health"])
+	async def health():
+		"""Simple health check endpoint for Cloud Run and load balancers."""
+		return {"status": "ok"}
+	
+	@app.get("/healthz", include_in_schema=False, tags=["Health"])
+	async def healthz():
+		"""Kubernetes-style health check endpoint."""
+		return {"status": "ok"}
+	
+	@app.get("/ready", include_in_schema=False, tags=["Health"])
+	async def readiness():
+		"""Readiness check with database connectivity test."""
+		try:
+			async with async_engine.connect() as conn:
+				await conn.execute(text("SELECT 1"))
+			return {"ready": True, "database": "connected"}
+		except Exception as e:
+			return JSONResponse(
+				status_code=503,
+				content={"ready": False, "database": "disconnected", "error": str(e)}
+			)
 
 	# Health/readiness
 	@app.get("/healthz")

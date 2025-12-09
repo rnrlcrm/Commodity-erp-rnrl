@@ -50,11 +50,11 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
     summary="Send Notification",
     description="Send a notification to a specific user"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_USERS)  # Only admins can send notifications
 async def send_notification(
     request: SendNotificationRequest,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_USERS)),
 ):
     """
     Send a notification to a user.
@@ -93,11 +93,11 @@ async def send_notification(
     summary="Send Bulk Notifications",
     description="Send the same notification to multiple users"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_USERS)
 async def send_bulk_notifications(
     request: BulkSendNotificationRequest,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_USERS)),
 ):
     """
     Send notification to multiple users at once.

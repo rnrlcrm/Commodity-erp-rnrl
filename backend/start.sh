@@ -17,8 +17,12 @@ else
 fi
 
 echo "Starting FastAPI application..."
+# Use PORT environment variable (default 8080 for Cloud Run compatibility)
+PORT=${PORT:-8080}
+echo "Listening on port $PORT"
+
 # Add verbose error output
-python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 2>&1 || {
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT 2>&1 || {
     echo "Failed to start uvicorn, trying to import app directly to see error:"
     python -c "from backend.app.main import app; print('App imported successfully')" 2>&1
     exit 1
