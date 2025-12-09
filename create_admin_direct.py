@@ -16,14 +16,12 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@rnrl.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Rnrl@Admin1")
 ADMIN_FULL_NAME = os.environ.get("ADMIN_FULL_NAME", "Super Administrator")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 MAX_BCRYPT_BYTES = 72  # bcrypt limit
 
 def hash_password(password: str) -> str:
-    """Truncate and hash password safely for bcrypt."""
-    truncated = password.encode("utf-8")[:MAX_BCRYPT_BYTES]
-    truncated_str = truncated.decode("utf-8", errors="ignore")
-    return pwd_context.hash(truncated_str)
+    """Hash password using pbkdf2_sha256 (matches backend)."""
+    return pwd_context.hash(password)
 
 def default_for_column(column_type: str):
     """Return a sensible default value based on column type."""
