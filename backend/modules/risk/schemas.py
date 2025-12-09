@@ -41,7 +41,8 @@ class PartnerRiskAssessmentRequest(BaseModel):
     partner_id: UUID = Field(description="Partner UUID")
     partner_type: str = Field(description="BUYER or SELLER")
     
-    @validator('partner_type')
+    @field_validator('partner_type')
+    @classmethod
     def validate_partner_type(cls, v):
         if v not in ["BUYER", "SELLER", "TRADER"]:
             raise ValueError("partner_type must be BUYER, SELLER, or TRADER")
@@ -144,7 +145,8 @@ class CircularTradingCheckRequest(BaseModel):
     transaction_type: str = Field(description="BUY or SELL")
     transaction_date: Optional[datetime] = Field(None, description="Trade date (defaults to today)")
     
-    @validator('transaction_type')
+    @field_validator('transaction_type')
+    @classmethod
     def validate_transaction_type(cls, v):
         if v not in ["BUY", "SELL"]:
             raise ValueError("transaction_type must be BUY or SELL")
@@ -187,7 +189,8 @@ class RoleRestrictionCheckRequest(BaseModel):
     partner_id: UUID = Field(description="Partner UUID")
     transaction_type: str = Field(description="BUY or SELL")
     
-    @validator('transaction_type')
+    @field_validator('transaction_type')
+    @classmethod
     def validate_transaction_type(cls, v):
         if v not in ["BUY", "SELL"]:
             raise ValueError("transaction_type must be BUY or SELL")
