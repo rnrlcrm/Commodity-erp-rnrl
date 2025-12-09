@@ -28,8 +28,9 @@ async def create_admin_user():
                 id, email, password_hash, full_name,
                 is_active, user_type,
                 organization_id, business_partner_id,
+                two_fa_enabled,
                 created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, true, 'SUPER_ADMIN', NULL, NULL, NOW(), NOW())
+            ) VALUES ($1, $2, $3, $4, true, 'SUPER_ADMIN', NULL, NULL, false, NOW(), NOW())
         """, user_id, 'admin@rnrl.com', hashed_password, 'Super Administrator')
 
         print("✅ Super Admin created successfully!")
