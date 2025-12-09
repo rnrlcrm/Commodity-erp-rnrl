@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from core.auth.capabilities.definitions import CAPABILITY_METADATA, Capabilities
+from backend.core.auth.capabilities.definitions import CAPABILITY_METADATA, Capabilities
 
 DATABASE_URL = "postgresql+asyncpg://cotton_user:commodity_password@localhost:5432/cotton_erp"
 
