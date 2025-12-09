@@ -22,10 +22,48 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
+
+  const validateForm = (): boolean => {
+    const errors: { email?: string; password?: string } = {};
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!emailRegex.test(email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    // Password validation - matches backend policy
+    if (!password) {
+      errors.password = 'Password is required';
+    } else if (password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
+    } else if (!/[A-Z]/.test(password)) {
+      errors.password = 'Password must contain at least one uppercase letter';
+    } else if (!/[a-z]/.test(password)) {
+      errors.password = 'Password must contain at least one lowercase letter';
+    } else if (!/\d/.test(password)) {
+      errors.password = 'Password must contain at least one number';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     clearError();
+    setValidationErrors({});
+
+    // Client-side validation
+    if (!validateForm()) {
+      return;
+    }
 
     try {
       await login({ email, password });
@@ -85,14 +123,21 @@ export function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setValidationErrors(prev => ({ ...prev, email: undefined }));
+                  }}
                   autoComplete="email"
-                  className="block w-full pl-10 pr-3 py-3 border border-saturn-200 rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:ring-saturn-500 focus:border-transparent transition-all duration-150"
+                  className={`block w-full pl-10 pr-3 py-3 border ${
+                    validationErrors.email ? 'border-mars-500 focus:ring-mars-500' : 'border-saturn-200 focus:ring-saturn-500'
+                  } rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-150`}
                   placeholder="your@email.com"
                   disabled={isLoading}
                 />
               </div>
+              {validationErrors.email && (
+                <p className="mt-1 text-sm text-mars-600">{validationErrors.email}</p>
+              )}
             </div>
 
             {/* Password field */}
@@ -108,10 +153,14 @@ export function LoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setValidationErrors(prev => ({ ...prev, password: undefined }));
+                  }}
                   autoComplete="current-password"
-                  className="block w-full pl-10 pr-12 py-3 border border-saturn-200 rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:ring-saturn-500 focus:border-transparent transition-all duration-150"
+                  className={`block w-full pl-10 pr-12 py-3 border ${
+                    validationErrors.password ? 'border-mars-500 focus:ring-mars-500' : 'border-saturn-200 focus:ring-saturn-500'
+                  } rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-150`}
                   placeholder="••••••••"
                   disabled={isLoading}
                 />
@@ -128,6 +177,9 @@ export function LoginPage() {
                   )}
                 </button>
               </div>
+              {validationErrors.password && (
+                <p className="mt-1 text-sm text-mars-600">{validationErrors.password}</p>
+              )}
             </div>
 
             {/* Remember me & Forgot password */}

@@ -39,7 +39,7 @@ def create_superadmin():
     # Admin credentials
     admin_data = {
         "email": "admin@rnrl.com",
-        "password": "Admin@123456",
+        "password": "Admin@123",
         "full_name": "Super Administrator"
     }
     
@@ -59,13 +59,13 @@ def create_superadmin():
         if response.status_code in [200, 201]:
             print("✅ Super Admin created successfully!")
             print("\n📧 Email:    admin@rnrl.com")
-            print("🔑 Password: Admin@123456")
+            print("🔑 Password: Admin@123")
             print("\n🌐 Login at: https://frontend-service-565186585906.us-central1.run.app/")
             
         elif "already exists" in response.text.lower():
             print("\nℹ️  Super Admin already exists!")
             print("📧 Email:    admin@rnrl.com")
-            print("🔑 Password: Admin@123456")
+            print("🔑 Password: Admin@123")
             print("\n🌐 Login at: https://frontend-service-565186585906.us-central1.run.app/")
             
         else:
