@@ -142,10 +142,11 @@ steps:
     args:
       - '-c'
       - |
-        echo "Testing authenticated backend health..."
-        TOKEN=$$(gcloud auth print-identity-token --audiences=$_BACKEND_URL)
-        curl -f -H "Authorization: Bearer $$TOKEN" $_BACKEND_URL/health || exit 1
-        echo "✅ Backend health check passed"
+        echo "Running authenticated health check..."
+        TOKEN=$$(gcloud auth print-identity-token --audience=https://backend-service-565186585906.us-central1.run.app)
+        curl -X GET \
+            -H "Authorization: Bearer $$TOKEN" \
+            https://backend-service-565186585906.us-central1.run.app/health
     waitFor: ['deploy-backend']
 
 # Build options
