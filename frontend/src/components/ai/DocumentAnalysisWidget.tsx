@@ -52,14 +52,6 @@ export default function DocumentAnalysisWidget({ onClose }: DocumentAnalysisWidg
 
       if (!response.data) {
         throw new Error('Analysis failed');
-      const response = await apiClient.post('/ai/analyze', {
-        document_text: documentText,
-        document_type: documentType,
-        analysis_type: analysisType,
-      });
-
-      if (!response.data) {
-        throw new Error('Analysis failed');
       }
 
       setResult(response.data);
