@@ -95,7 +95,7 @@ steps:
       - '--memory=4Gi'
       - '--timeout=300'
       - '--concurrency=80'
-      - '--port=8000'
+      - '--port=8080'
       - '--vpc-connector=cotton-erp-connector'
       - '--set-cloudsql-instances=commodity-plafform-sandbox:us-central1:cotton-erp-db'
       - '--set-env-vars=ENVIRONMENT=sandbox,LOG_LEVEL=INFO,GCP_PROJECT_ID=$PROJECT_ID'
@@ -130,7 +130,7 @@ steps:
   # ============================================================================
   # STEP 7: Health Check
   # ============================================================================
-  - name: 'gcr.io/cloud-builders/curl'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'health-check'
     entrypoint: 'sh'
     args:
