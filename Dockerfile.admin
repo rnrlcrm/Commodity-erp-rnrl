@@ -2,8 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install build tools for compiling bcrypt
+RUN apt-get update && apt-get install -y build-essential python3-dev && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
-RUN pip install --no-cache-dir asyncpg bcrypt
+RUN pip install --upgrade pip
+RUN pip install bcrypt passlib asyncpg
 
 # Copy the admin creation script
 COPY create_admin_direct.py /app/
