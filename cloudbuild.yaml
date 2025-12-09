@@ -17,7 +17,6 @@ steps:
     id: 'build-backend'
     args:
       - 'build'
-      - '--no-cache'
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/backend:$SHORT_SHA'
       - '-t'
