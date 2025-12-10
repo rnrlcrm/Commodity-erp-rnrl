@@ -83,12 +83,12 @@ async def list_capabilities(
     summary="Get User Capabilities",
     description="Get all capabilities for a specific user (direct + role-based)"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_USERS)
 async def get_user_capabilities(
     user_id: UUID,
     capability_service: CapabilityService = Depends(get_capability_service),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_USERS)),
 ):
     """
     Get complete capability set for a user.
@@ -140,13 +140,13 @@ async def get_user_capabilities(
     summary="Grant Capability to User",
     description="Grant a specific capability directly to a user"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_USERS)
 async def grant_capability_to_user(
     user_id: UUID,
     request: GrantCapabilityToUserRequest,
     capability_service: CapabilityService = Depends(get_capability_service),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_USERS)),
 ):
     """
     Grant a capability directly to a user.
@@ -183,13 +183,13 @@ async def grant_capability_to_user(
     summary="Revoke Capability from User",
     description="Revoke a capability that was directly granted to a user"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_USERS)
 async def revoke_capability_from_user(
     user_id: UUID,
     request: RevokeCapabilityFromUserRequest,
     capability_service: CapabilityService = Depends(get_capability_service),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_USERS)),
 ):
     """
     Revoke a capability from a user.
@@ -213,12 +213,12 @@ async def revoke_capability_from_user(
     summary="Check User Capability",
     description="Check if a user has a specific capability"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_USERS)
 async def check_user_capability(
     user_id: UUID,
     request: CapabilityCheckRequest,
     capability_service: CapabilityService = Depends(get_capability_service),
     current_user: User = Depends(get_current_user),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_USERS)),
 ):
     """
     Check if user has a specific capability.
@@ -301,13 +301,13 @@ async def get_my_capabilities(
     summary="Grant Capability to Role",
     description="Grant a capability to a role (all users with this role inherit it)"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_ROLES)
 async def grant_capability_to_role(
     role_id: UUID,
     request: GrantCapabilityToRoleRequest,
     capability_service: CapabilityService = Depends(get_capability_service),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_ROLES)),
 ):
     """
     Grant a capability to a role.
@@ -344,13 +344,13 @@ async def grant_capability_to_role(
     summary="Revoke Capability from Role",
     description="Revoke a capability from a role (users with this role lose this capability)"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_ROLES)
 async def revoke_capability_from_role(
     role_id: UUID,
     capability_code: str,
     capability_service: CapabilityService = Depends(get_capability_service),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_ROLES)),
 ):
     """
     Revoke a capability from a role.
@@ -372,11 +372,11 @@ async def revoke_capability_from_role(
     summary="Get Role Capabilities",
     description="Get all capabilities assigned to a specific role"
 )
-@RequireCapability(Capabilities.ADMIN_MANAGE_ROLES)
 async def get_role_capabilities(
     role_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _check: None = Depends(RequireCapability(Capabilities.ADMIN_MANAGE_ROLES)),
 ):
     """
     Get all capabilities for a role.
