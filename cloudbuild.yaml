@@ -5,6 +5,9 @@
 # Builds: Backend + Frontend Docker images
 # Deploys: Cloud Run services
 
+substitutions:
+  _BACKEND_URL: https://backend-service-565186585906.us-central1.run.app
+
 steps:
   # ============================================================================
   # STEP 1: Build Backend Docker Image
@@ -52,7 +55,7 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:latest'
       - '--build-arg'
-      - 'VITE_API_BASE_URL=https://backend-service-565186585906.us-central1.run.app'
+      - 'VITE_API_BASE_URL=${_BACKEND_URL}'
       - '-f'
       - 'infra/docker/frontend/Dockerfile.prod'
       - 'frontend'
@@ -97,7 +100,6 @@ steps:
       - '--concurrency=80'
       - '--port=8080'
       - '--vpc-connector=cotton-erp-connector'
-      - '--set-cloudsql-instances=commodity-plafform-sandbox:us-central1:cotton-erp-db'
       - '--set-env-vars=ENV=dev,LOG_LEVEL=INFO,GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets=DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,JWT_SECRET=jwt-secret:latest,OPENAI_API_KEY=openai-key:latest,HF_TOKEN=huggingface-token:latest'
       - '--service-account=backend-runtime@$PROJECT_ID.iam.gserviceaccount.com'
@@ -139,10 +141,10 @@ steps:
       - '-c'
       - |
         echo "Running authenticated health check..."
-        TOKEN=$$(gcloud auth print-identity-token --audience=https://backend-service-565186585906.us-central1.run.app)
+        TOKEN=$$(gcloud auth print-identity-token --audience=${_BACKEND_URL})
         curl -X GET \
             -H "Authorization: Bearer $$TOKEN" \
-            https://backend-service-565186585906.us-central1.run.app/health
+            ${_BACKEND_URL}/health
     waitFor: ['deploy-backend']
 
 # Build options
