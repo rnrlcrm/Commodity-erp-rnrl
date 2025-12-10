@@ -17,6 +17,12 @@ class AppSettings(BaseSettings):
     ALLOWED_ORIGINS: str = "https://frontend-service-565186585906.us-central1.run.app,http://localhost:3000,http://localhost:5173"
     REDIS_URL: str = "redis://localhost:6379/0"
     
+    # Cookie/Session settings for Cloud Run
+    COOKIE_SECURE: bool = True
+    COOKIE_SAMESITE: str = "None"
+    COOKIE_DOMAIN: str = ".run.app"
+    SECRET_KEY: str = "change-me-in-production"
+    
     # Default organization for new signups (multi-commodity support)
     DEFAULT_ORGANIZATION_NAME: str = "Default Trading Co"
     
