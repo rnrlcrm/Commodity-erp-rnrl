@@ -39,13 +39,17 @@ export const useAuthStore = create<AuthStore>()(
 
       // Login action
       login: async (credentials: LoginRequest) => {
+        console.log('[DEBUG] Login started with credentials:', { email: credentials.email, passwordLength: credentials.password?.length });
         set({ isLoading: true, error: null });
 
         try {
+          console.log('[DEBUG] Calling authService.login...');
           const response = await authService.login(credentials);
+          console.log('[DEBUG] Login response received:', response);
 
           // Check if 2FA is required
           if ('two_fa_required' in response && response.two_fa_required) {
+            console.log('[DEBUG] 2FA required');
             set({
               isLoading: false,
               error: response.message,
@@ -55,23 +59,29 @@ export const useAuthStore = create<AuthStore>()(
 
           // Type guard - we know it's LoginResponse now
           const loginResponse = response as { access_token: string; refresh_token: string };
+          console.log('[DEBUG] Tokens received, storing...');
 
           // Store tokens
           authService.storeTokens(loginResponse.access_token, loginResponse.refresh_token);
 
           // Fetch user details
+          console.log('[DEBUG] Fetching current user...');
           const user = await authService.getCurrentUser();
+          console.log('[DEBUG] User fetched:', user);
           authService.storeUser(user);
 
           // Fetch user capabilities and merge
           try {
+            console.log('[DEBUG] Fetching capabilities...');
             const capabilitiesData = await capabilitiesService.getMyCapabilities();
             user.capabilities = capabilitiesData.capabilities || [];
+            console.log('[DEBUG] Capabilities loaded:', user.capabilities?.length);
           } catch (capError) {
             console.warn('Failed to load capabilities, using empty array:', capError);
             user.capabilities = [];
           }
 
+          console.log('[DEBUG] Login successful, updating state');
           set({
             user,
             accessToken: loginResponse.access_token,
@@ -81,11 +91,18 @@ export const useAuthStore = create<AuthStore>()(
             error: null,
           });
         } catch (error: any) {
+          console.error('[DEBUG] Login error caught:', error);
+          console.error('[DEBUG] Error response:', error.response);
+          console.error('[DEBUG] Error data:', error.response?.data);
+          console.error('[DEBUG] Error status:', error.response?.status);
+          
           const authError: AuthError = {
             message: error.response?.data?.detail || 'Login failed',
             code: error.response?.status?.toString(),
             details: error.response?.data?.errors,
           };
+
+          console.error('[DEBUG] AuthError created:', authError);
 
           set({
             user: null,

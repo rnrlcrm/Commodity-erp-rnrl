@@ -24,10 +24,18 @@ class AuthService {
    * POST /api/v1/settings/auth/login
    */
   async login(credentials: LoginRequest): Promise<LoginResponse | LoginWith2FAResponse> {
+    console.log('[DEBUG authService] Login endpoint:', API_ENDPOINTS.AUTH.LOGIN);
+    console.log('[DEBUG authService] Full URL:', `${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}${API_ENDPOINTS.AUTH.LOGIN}`);
+    console.log('[DEBUG authService] Credentials:', { email: credentials.email, passwordLength: credentials.password?.length });
+    
     const response = await apiClient.post<LoginResponse | LoginWith2FAResponse>(
       API_ENDPOINTS.AUTH.LOGIN,
       credentials
     );
+    
+    console.log('[DEBUG authService] Response status:', response.status);
+    console.log('[DEBUG authService] Response data:', response.data);
+    
     return response.data;
   }
 
