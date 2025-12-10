@@ -22,7 +22,7 @@ async def get_redis() -> AsyncGenerator[redis.Redis, None]:
     - OTP storage
     """
     redis_client = redis.from_url(
-        f"redis://{getattr(settings, 'REDIS_HOST', 'localhost')}:{getattr(settings, 'REDIS_PORT', 6379)}",
+        settings.REDIS_URL,
         encoding="utf-8",
         decode_responses=True
     )
