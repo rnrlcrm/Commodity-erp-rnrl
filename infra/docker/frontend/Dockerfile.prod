@@ -6,10 +6,6 @@
 # ============================================================================
 FROM node:18-alpine AS builder
 
-# Accept build argument
-ARG VITE_API_BASE_URL=http://localhost:8000
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-
 WORKDIR /build
 
 # Copy package files
@@ -18,17 +14,20 @@ COPY package.json package-lock.json ./
 # Install ALL dependencies (including devDependencies for build)
 RUN npm ci --prefer-offline --no-audit || npm install
 
-# Set production after install
-ENV NODE_ENV=production
-
 # Copy source code
 COPY . .
+
+# Accept build argument AFTER copying files but BEFORE build
+ARG VITE_API_BASE_URL=http://localhost:8000
 
 # Debug: Print the environment variable being used
 RUN echo "Building with VITE_API_BASE_URL: $VITE_API_BASE_URL"
 
-# Build production bundle
-RUN npm run build
+# Set production mode
+ENV NODE_ENV=production
+
+# Build production bundle with env var
+RUN VITE_API_BASE_URL=$VITE_API_BASE_URL npm run build
 
 # ============================================================================
 # Stage 2: Serve with Nginx
