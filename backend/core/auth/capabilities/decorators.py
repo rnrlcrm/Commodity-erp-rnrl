@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.auth.capabilities.service import CapabilityService, get_capability_service
+from backend.core.auth.deps import get_current_user
 from backend.db.async_session import get_db
 
 
@@ -42,7 +43,7 @@ class RequireCapability:
     
     async def __call__(
         self,
-        current_user: dict = Depends(lambda: {}),  # Will be replaced with actual get_current_user
+        current_user = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
     ) -> None:
         """
@@ -52,6 +53,7 @@ class RequireCapability:
         - PUBLIC_ACCESS: Allows unauthenticated access
         - AUTH_LOGIN: Allows unauthenticated access (it's the login endpoint!)
         - AUTH_CREATE_ACCOUNT: Allows unauthenticated access (for signup)
+        - SUPER_ADMIN: Has ALL capabilities automatically
         
         Raises:
             HTTPException: 403 Forbidden if user lacks capability
@@ -74,13 +76,18 @@ class RequireCapability:
             # Public endpoint - no authentication required
             return
         
-        if not current_user or "id" not in current_user:
+        if not current_user or (isinstance(current_user, dict) and "id" not in current_user):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated",
             )
         
-        user_id = current_user["id"]
+        # SUPER_ADMIN bypass - has all capabilities
+        user_type = current_user.get("user_type") if isinstance(current_user, dict) else getattr(current_user, "user_type", None)
+        if user_type == "SUPER_ADMIN":
+            return  # SUPER_ADMIN has ALL capabilities
+        
+        user_id = current_user["id"] if isinstance(current_user, dict) else current_user.id
         capability_service = CapabilityService(db)
         
         for capability in self.capabilities:
