@@ -14,7 +14,7 @@ class AppSettings(BaseSettings):
     ACCESS_TOKEN_EXPIRES_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRES_DAYS: int = 7
     PASSWORD_SCHEME: str = "bcrypt"  # bcrypt|pbkdf2_sha256
-    ALLOWED_ORIGINS: str = "*"  # comma-separated for CORS
+    ALLOWED_ORIGINS: str = "https://frontend-service-565186585906.us-central1.run.app,http://localhost:3000,http://localhost:5173"
     REDIS_URL: str = "redis://localhost:6379/0"
     
     # Default organization for new signups (multi-commodity support)
