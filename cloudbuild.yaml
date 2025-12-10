@@ -51,7 +51,7 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:latest'
       - '--build-arg'
-      - 'VITE_API_URL=https://backend-service-565186585906.us-central1.run.app'
+      - 'VITE_API_BASE_URL=https://backend-service-565186585906.us-central1.run.app'
       - '-f'
       - 'infra/docker/frontend/Dockerfile.prod'
       - 'frontend'
