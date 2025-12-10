@@ -46,6 +46,7 @@ steps:
     id: 'build-frontend-image'
     args:
       - 'build'
+      - '--no-cache'
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/cotton-erp/frontend:$SHORT_SHA'
       - '-t'
