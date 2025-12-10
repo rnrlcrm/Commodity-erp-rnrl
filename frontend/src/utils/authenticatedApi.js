@@ -7,7 +7,7 @@
  * For local development, use the local dev script to get tokens.
  */
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://backend-service-565186585906.us-central1.run.app';
+const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || 'https://backend-service-565186585906.us-central1.run.app';
 const METADATA_SERVER_URL = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity';
 
 /**
