@@ -42,8 +42,9 @@ router.include_router(locations_router)
 
 async def get_redis() -> AsyncGenerator[redis.Redis, None]:
     """Get Redis client for OTP storage"""
+    from backend.core.settings.config import settings
     redis_client = redis.from_url(
-        "redis://localhost:6379",
+        settings.REDIS_URL,
         encoding="utf-8",
         decode_responses=False
     )
