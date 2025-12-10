@@ -154,11 +154,21 @@ def create_app() -> FastAPI:
 	app.add_middleware(AuthMiddleware)
 	app.add_middleware(DataIsolationMiddleware)
 	app.add_middleware(SecureHeadersMiddleware)
-	# CORS
-	origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+	# CORS - Must specify exact origins when using credentials
+	origins_str = settings.ALLOWED_ORIGINS
+	if origins_str == "*":
+		# Default origins for production
+		origins = [
+			"https://frontend-service-565186585906.us-central1.run.app",
+			"http://localhost:3000",
+			"http://localhost:5173",
+		]
+	else:
+		origins = [o.strip() for o in origins_str.split(",") if o.strip()]
+	
 	app.add_middleware(
 		CORSMiddleware,
-		allow_origins=["*"] if origins == ["*"] else origins,
+		allow_origins=origins,
 		allow_credentials=True,
 		allow_methods=["*"],
 		allow_headers=["Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key"],
