@@ -59,11 +59,6 @@ apiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 // Response interceptor - handle errors and token refresh
 apiClient.interceptors.response.use(
