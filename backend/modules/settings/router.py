@@ -9,6 +9,7 @@ from backend.core.audit import audit_log
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.db.async_session import get_db
+from backend.app.dependencies import get_redis
 from backend.app.middleware.rate_limit import limiter
 from backend.core.security.account_lockout import AccountLockoutService
 from backend.modules.settings.schemas.settings_schemas import (
@@ -38,20 +39,6 @@ router = APIRouter()
 router.include_router(organization_router)
 router.include_router(commodities_router)
 router.include_router(locations_router)
-
-
-async def get_redis() -> AsyncGenerator[redis.Redis, None]:
-    """Get Redis client for OTP storage"""
-    from backend.core.settings.config import settings
-    redis_client = redis.from_url(
-        settings.REDIS_URL,
-        encoding="utf-8",
-        decode_responses=False
-    )
-    try:
-        yield redis_client
-    finally:
-        await redis_client.aclose()
 
 
 @router.get("/health", tags=["health"])  # lightweight placeholder
