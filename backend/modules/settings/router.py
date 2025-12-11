@@ -64,10 +64,9 @@ async def signup(
     payload: SignupRequest,
     request: Request = None,
     db: AsyncSession = Depends(get_db),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
-    _check: None = Depends(RequireCapability(Capabilities.AUTH_CREATE_ACCOUNT))
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
 ) -> UserOut:
-    """Generic signup - password policy NOT enforced here. Use /auth/signup-internal for INTERNAL users. Requires AUTH_CREATE_ACCOUNT capability. Supports idempotency."""
+    """Generic signup - password policy NOT enforced here. Use /auth/signup-internal for INTERNAL users. PUBLIC endpoint. Supports idempotency."""
     svc = AuthService(db)
     try:
         user = await svc.signup(payload.email, payload.password, payload.full_name)
@@ -90,10 +89,9 @@ async def signup_internal(
     payload: InternalUserSignupRequest,
     request: Request = None,
     db: AsyncSession = Depends(get_db),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
-    _check: None = Depends(RequireCapability(Capabilities.AUTH_CREATE_ACCOUNT))
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
 ) -> UserOut:
-    """Signup for INTERNAL users with enforced password policy. Requires AUTH_CREATE_ACCOUNT capability. Supports idempotency."""
+    """Signup for INTERNAL users with enforced password policy. PUBLIC endpoint. Supports idempotency."""
     svc = AuthService(db)
     try:
         user = await svc.signup(payload.email, payload.password, payload.full_name)
@@ -117,10 +115,9 @@ async def login(
     request: Request = None,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
-    _check: None = Depends(RequireCapability(Capabilities.AUTH_LOGIN))
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
 ) -> TokenResponse | LoginWith2FAResponse:
-    """Login for INTERNAL users with password. EXTERNAL users must use OTP. Requires AUTH_LOGIN capability. Supports idempotency."""
+    """Login for INTERNAL users with password. EXTERNAL users must use OTP. PUBLIC endpoint. Supports idempotency."""
     # Initialize account lockout service
     lockout_service = AccountLockoutService(redis_client)
     
