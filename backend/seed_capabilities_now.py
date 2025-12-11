@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from backend.core.auth.capabilities.definitions import CAPABILITY_METADATA, Capabilities
 
-DATABASE_URL = "postgresql+asyncpg://cotton_user:commodity_password@localhost:5432/cotton_erp"
+DATABASE_URL = "postgresql+asyncpg://commodity_user:commodity_password@localhost:5432/commodity_erp"
 
 
 async def seed_capabilities():

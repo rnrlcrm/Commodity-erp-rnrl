@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.core.auth.capabilities.service import CapabilityService, get_capability_service
+from backend.core.auth.dependencies import get_current_user
 from backend.db.async_session import get_db
 
 
@@ -42,7 +43,7 @@ class RequireCapability:
     
     async def __call__(
         self,
-        current_user: dict = Depends(lambda: {}),  # Will be replaced with actual get_current_user
+        current_user: dict = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
     ) -> None:
         """
