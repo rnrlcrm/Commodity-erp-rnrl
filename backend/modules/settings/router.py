@@ -9,6 +9,7 @@ from backend.core.audit import audit_log
 from backend.core.auth.capabilities.decorators import RequireCapability
 from backend.core.auth.capabilities.definitions import Capabilities
 from backend.db.async_session import get_db
+from backend.app.dependencies import get_redis
 from backend.app.middleware.rate_limit import limiter
 from backend.core.security.account_lockout import AccountLockoutService
 from backend.modules.settings.schemas.settings_schemas import (
@@ -40,20 +41,6 @@ router.include_router(commodities_router)
 router.include_router(locations_router)
 
 
-async def get_redis() -> AsyncGenerator[redis.Redis, None]:
-    """Get Redis client for OTP storage"""
-    from backend.core.settings.config import settings
-    redis_client = redis.from_url(
-        settings.REDIS_URL,
-        encoding="utf-8",
-        decode_responses=False
-    )
-    try:
-        yield redis_client
-    finally:
-        await redis_client.aclose()
-
-
 @router.get("/health", tags=["health"])  # lightweight placeholder
 def health() -> dict:
     return {"status": "ok"}
@@ -64,10 +51,9 @@ async def signup(
     payload: SignupRequest,
     request: Request = None,
     db: AsyncSession = Depends(get_db),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
-    _check: None = Depends(RequireCapability(Capabilities.AUTH_CREATE_ACCOUNT))
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
 ) -> UserOut:
-    """Generic signup - password policy NOT enforced here. Use /auth/signup-internal for INTERNAL users. Requires AUTH_CREATE_ACCOUNT capability. Supports idempotency."""
+    """Generic signup - password policy NOT enforced here. Use /auth/signup-internal for INTERNAL users. PUBLIC endpoint. Supports idempotency."""
     svc = AuthService(db)
     try:
         user = await svc.signup(payload.email, payload.password, payload.full_name)
@@ -90,10 +76,9 @@ async def signup_internal(
     payload: InternalUserSignupRequest,
     request: Request = None,
     db: AsyncSession = Depends(get_db),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
-    _check: None = Depends(RequireCapability(Capabilities.AUTH_CREATE_ACCOUNT))
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
 ) -> UserOut:
-    """Signup for INTERNAL users with enforced password policy. Requires AUTH_CREATE_ACCOUNT capability. Supports idempotency."""
+    """Signup for INTERNAL users with enforced password policy. PUBLIC endpoint. Supports idempotency."""
     svc = AuthService(db)
     try:
         user = await svc.signup(payload.email, payload.password, payload.full_name)
@@ -117,10 +102,9 @@ async def login(
     request: Request = None,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
-    _check: None = Depends(RequireCapability(Capabilities.AUTH_LOGIN))
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
 ) -> TokenResponse | LoginWith2FAResponse:
-    """Login for INTERNAL users with password. EXTERNAL users must use OTP. Requires AUTH_LOGIN capability. Supports idempotency."""
+    """Login for INTERNAL users with password. EXTERNAL users must use OTP. PUBLIC endpoint. Supports idempotency."""
     # Initialize account lockout service
     lockout_service = AccountLockoutService(redis_client)
     
