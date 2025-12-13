@@ -78,9 +78,7 @@ frontend/src/
 ├── store/authStore.ts                   ✅ Capabilities in Zustand store
 ├── hooks/useCapabilities.tsx            ✅ 8 hooks + 3 components
 ├── types/capability.ts                  ✅ TypeScript definitions
-└── pages/backoffice/
-    ├── CapabilitiesManagementPage.tsx   ✅ Admin UI
-    └── UserCapabilitiesPage.tsx         ✅ User management UI
+└── pages/2040/                          ✅ Holographic module scenes (supersede legacy backoffice pages)
 ```
 
 **React Hooks Available:**

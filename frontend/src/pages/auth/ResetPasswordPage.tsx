@@ -5,8 +5,10 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/2040/Button';
 import { authService } from '@/services/api/authService';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
+import { CompanyLogo } from '@/components/common/CompanyLogo';
 import {
   KeyIcon,
   CheckCircleIcon,
@@ -106,9 +108,7 @@ export function ResetPasswordPage() {
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-sun-400 via-saturn-500 to-mars-500 shadow-2xl shadow-saturn-500/40 mb-4">
-            <span className="text-white font-heading font-bold text-3xl">RN</span>
-          </div>
+          <CompanyLogo size="md" className="mx-auto mb-4 drop-shadow-[0_0_28px_rgba(59,130,246,0.35)]" />
           <h1 className="text-4xl font-heading font-bold text-pearl-50 mb-2">
             Create New Password
           </h1>
@@ -145,18 +145,21 @@ export function ResetPasswordPage() {
                   className="block w-full pl-10 pr-12 py-3 border border-pearl-200/30 rounded-xl bg-pearl-50/10 text-pearl-50 placeholder-pearl-400 focus:outline-none focus:ring-2 focus:ring-saturn-500 focus:border-transparent transition-all"
                   placeholder="Enter new password"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  sheen={false}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 px-3 flex items-center bg-transparent text-pearl-400 hover:text-pearl-200 border-none rounded-none shadow-none"
                   tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-pearl-400 hover:text-pearl-200" />
+                    <EyeSlashIcon className="h-5 w-5" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-pearl-400 hover:text-pearl-200" />
+                    <EyeIcon className="h-5 w-5" />
                   )}
-                </button>
+                </Button>
               </div>
 
               {newPassword && (
@@ -186,13 +189,13 @@ export function ResetPasswordPage() {
               </div>
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading || !token}
-              className="w-full py-3 px-4 bg-gradient-to-r from-saturn-600 to-saturn-700 hover:from-saturn-700 hover:to-saturn-800 text-white font-heading font-semibold rounded-xl shadow-lg shadow-saturn-500/30 hover:shadow-xl hover:shadow-saturn-500/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-saturn-500 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              className="w-full"
             >
               {isLoading ? 'Resetting...' : 'Reset Password'}
-            </button>
+            </Button>
           </form>
 
           <div className="mt-6 text-center">

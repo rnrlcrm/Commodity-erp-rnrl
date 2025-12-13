@@ -1,244 +1,191 @@
 /**
- * Login Page - Internal Backoffice Auth
+ * Login Page - 2040 Holographic Design
  * Email/Password authentication for internal users
  */
 
 import { useState, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { EnvelopeIcon, LockClosedIcon, ExclamationCircleIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  EnvelopeIcon, 
-  LockClosedIcon,
-  ExclamationCircleIcon,
-  EyeIcon,
-  EyeSlashIcon,
-} from '@heroicons/react/24/outline';
+import { GeometricBackground } from '@/components/2040/GeometricBackground';
+import { HolographicBackground } from '@/components/2040/HolographicBackground';
+import { Button } from '@/components/2040';
+import { CompanyLogo } from '@/components/common/CompanyLogo';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading, error, clearError } = useAuth();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<{
-    email?: string;
-    password?: string;
-  }>({});
+  const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string }>({});
 
   const validateForm = (): boolean => {
     const errors: { email?: string; password?: string } = {};
-
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!emailRegex.test(email)) {
-      errors.email = 'Please enter a valid email address';
-    }
-
-    // Password validation - matches backend policy
-    if (!password) {
-      errors.password = 'Password is required';
-    } else if (password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
-    } else if (!/[A-Z]/.test(password)) {
-      errors.password = 'Password must contain at least one uppercase letter';
-    } else if (!/[a-z]/.test(password)) {
-      errors.password = 'Password must contain at least one lowercase letter';
-    } else if (!/\d/.test(password)) {
-      errors.password = 'Password must contain at least one number';
-    }
-
+    if (!email.trim()) errors.email = 'Email is required';
+    else if (!emailRegex.test(email)) errors.email = 'Please enter a valid email address';
+    if (!password) errors.password = 'Password is required';
+    else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     clearError();
-    setValidationErrors({});
-
-    // Client-side validation
-    if (!validateForm()) {
-      return;
-    }
-
+    if (!validateForm()) return;
     try {
       await login({ email, password });
-      navigate('/backoffice');
-    } catch (error) {
-      // Error is already set in store
-      console.error('Login failed:', error);
+      navigate('/2040/trade-desk');
+    } catch (err) {
+      console.error('Login failed', err);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pearl-50 via-saturn-50/30 to-sun-50/20 flex items-center justify-center p-4 font-body">
-      {/* Background decoration */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-sun-200/20 to-transparent rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-saturn-200/20 to-transparent rounded-full blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden bg-space-950 text-pearl-50">
+      <GeometricBackground />
+      <HolographicBackground />
+
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-32 right-1/4 h-72 w-72 rounded-full bg-saturn-500/20 blur-3xl" />
+        <div className="absolute bottom-[-10rem] left-1/3 h-96 w-96 rounded-full bg-sun-500/10 blur-[120px]" />
       </div>
 
-      {/* Login card */}
-      <div className="relative w-full max-w-md">
-        {/* Logo and header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-sun-400 via-saturn-500 to-mars-500 shadow-xl shadow-saturn-500/30 mb-4">
-            <span className="text-white font-heading font-bold text-2xl">RN</span>
-          </div>
-          <h1 className="text-3xl font-heading font-bold text-saturn-900 mb-2">
-            RNRL Backoffice
-          </h1>
-          <p className="text-saturn-600 font-medium">
-            Sign in to your account
-          </p>
-        </div>
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col items-center justify-center px-6 py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-12 text-center"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="mx-auto mb-6"
+          >
+            <CompanyLogo
+              size="lg"
+              className="mx-auto drop-shadow-[0_0_35px_rgba(59,130,246,0.35)]"
+            />
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.45 }}
+            className="text-3xl font-heading font-semibold tracking-wide text-pearl-50"
+          >
+            2040 Holographic Access System
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45, duration: 0.45 }}
+            className="mt-3 text-sm text-pearl-300"
+          >
+            Sign in to manage global cotton trade operations, insights, and automations.
+          </motion.p>
+        </motion.div>
 
-        {/* Login form */}
-        <div className="glass-neo border border-saturn-200/50 rounded-2xl shadow-2xl shadow-saturn-500/10 p-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 18 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.4 }}
+          className="w-full max-w-lg rounded-3xl border border-pearl-500/20 bg-space-900/70 p-8 shadow-[0_20px_60px_rgba(8,15,40,0.55)] backdrop-blur-xl"
+        >
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error message */}
             {error && (
-              <div className="p-4 bg-mars-50 border border-mars-200 rounded-xl flex items-start gap-3 animate-fadeIn">
-                <ExclamationCircleIcon className="w-5 h-5 text-mars-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-mars-900">{error}</p>
-                </div>
+              <div className="flex items-start gap-3 rounded-xl border border-mars-400/40 bg-mars-500/15 px-4 py-3 text-sm text-mars-200">
+                <ExclamationCircleIcon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Email field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-saturn-900 mb-2">
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium text-pearl-100">
                 Email Address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <EnvelopeIcon className="h-5 w-5 text-saturn-400" />
-                </div>
+                <EnvelopeIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-saturn-400" />
                 <input
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setValidationErrors(prev => ({ ...prev, email: undefined }));
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setValidationErrors((prev) => ({ ...prev, email: undefined }));
                   }}
                   autoComplete="email"
-                  className={`block w-full pl-10 pr-3 py-3 border ${
-                    validationErrors.email ? 'border-mars-500 focus:ring-mars-500' : 'border-saturn-200 focus:ring-saturn-500'
-                  } rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-150`}
-                  placeholder="your@email.com"
+                  className={`block w-full rounded-2xl border bg-pearl-500/10 py-3 pl-12 pr-4 text-pearl-50 backdrop-blur focus:outline-none focus:ring-2 focus:ring-saturn-400/70 ${
+                    validationErrors.email ? 'border-mars-500 focus:ring-mars-400/70' : 'border-pearl-500/20'
+                  }`}
+                  placeholder="admin@rnrl.com"
                   disabled={isLoading}
                 />
               </div>
-              {validationErrors.email && (
-                <p className="mt-1 text-sm text-mars-600">{validationErrors.email}</p>
-              )}
+              {validationErrors.email && <p className="text-xs text-mars-300">{validationErrors.email}</p>}
             </div>
 
-            {/* Password field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-saturn-900 mb-2">
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium text-pearl-100">
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-saturn-400" />
-                </div>
+                <LockClosedIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-saturn-400" />
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setValidationErrors(prev => ({ ...prev, password: undefined }));
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setValidationErrors((prev) => ({ ...prev, password: undefined }));
                   }}
                   autoComplete="current-password"
-                  className={`block w-full pl-10 pr-12 py-3 border ${
-                    validationErrors.password ? 'border-mars-500 focus:ring-mars-500' : 'border-saturn-200 focus:ring-saturn-500'
-                  } rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-150`}
+                  className={`block w-full rounded-2xl border bg-pearl-500/10 py-3 pl-12 pr-12 text-pearl-50 backdrop-blur focus:outline-none focus:ring-2 focus:ring-saturn-400/70 ${
+                    validationErrors.password ? 'border-mars-500 focus:ring-mars-400/70' : 'border-pearl-500/20'
+                  }`}
                   placeholder="••••••••"
                   disabled={isLoading}
                 />
-                <button
+                <Button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  tabIndex={-1}
+                  variant="secondary"
+                  sheen={false}
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 bg-transparent text-saturn-300 hover:text-pearl-100 border-none rounded-none shadow-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-saturn-400 hover:text-saturn-600 transition-colors" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-saturn-400 hover:text-saturn-600 transition-colors" />
-                  )}
-                </button>
+                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                </Button>
               </div>
-              {validationErrors.password && (
-                <p className="mt-1 text-sm text-mars-600">{validationErrors.password}</p>
-              )}
+              {validationErrors.password && <p className="text-xs text-mars-300">{validationErrors.password}</p>}
             </div>
 
-            {/* Remember me & Forgot password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
+            <div className="flex items-center justify-between text-sm">
+              <label htmlFor="remember-me" className="flex items-center gap-2 text-pearl-300">
                 <input
                   id="remember-me"
                   type="checkbox"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 text-saturn-600 focus:ring-saturn-500 border-saturn-300 rounded"
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                  className="h-4 w-4 rounded border-pearl-500/30 bg-pearl-500/10 text-saturn-500 focus:ring-saturn-500"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-saturn-700">
-                  Remember me
-                </label>
-              </div>
-
-              <Link
-                to="/forgot-password"
-                className="text-sm font-medium text-saturn-600 hover:text-saturn-900 transition-colors"
-              >
+                Remember me
+              </label>
+              <Link to="/forgot-password" className="font-medium text-saturn-300 transition hover:text-saturn-200">
                 Forgot password?
               </Link>
             </div>
 
-            {/* Submit button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-saturn-600 to-saturn-700 hover:from-saturn-700 hover:to-saturn-800 text-white font-heading font-semibold rounded-xl shadow-lg shadow-saturn-500/30 hover:shadow-xl hover:shadow-saturn-500/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-saturn-500 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Signing in...
-                </span>
-              ) : (
-                'Sign in'
-              )}
-            </button>
+            <Button type="submit" className="w-full py-3 text-base font-semibold" disabled={isLoading}>
+              {isLoading ? 'Signing in…' : 'Enter the Backoffice'}
+            </Button>
           </form>
-
-          {/* Footer */}
-          <div className="mt-6 pt-6 border-t border-saturn-200/40">
-            <p className="text-center text-xs text-saturn-500">
-              RNRL Cotton ERP • 2040 Vision • Secure Access
-            </p>
-          </div>
-        </div>
-
-        {/* System info */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-saturn-400 font-mono">
-            Environment: {import.meta.env.MODE} | v2.0.40
-          </p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

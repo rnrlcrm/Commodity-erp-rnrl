@@ -3,14 +3,16 @@
  * User profile information and security settings
  */
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/services/api/authService';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
+import { Button } from '@/components/2040/Button';
+import { HoloPanel } from '@/components/2040/HoloPanel';
+import { VolumetricBadge } from '@/components/2040/VolumetricTable';
+import SettingsSceneLayout from './components/SettingsSceneLayout';
 import {
-  KeyIcon,
-  DevicePhoneMobileIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
   EyeIcon,
@@ -19,9 +21,7 @@ import {
 
 export function ProfilePage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'sessions'>('profile');
 
-  // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,13 +30,36 @@ export function ProfilePage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [mfaStatus, setMfaStatus] = useState<'loading' | 'enabled' | 'disabled' | 'unavailable'>('loading');
 
-  const handlePasswordChange = async (e: FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    let active = true;
+
+    const loadMfaStatus = async () => {
+      try {
+        const response = await authService.get2FAStatus();
+        if (active) {
+          setMfaStatus(response.enabled ? 'enabled' : 'disabled');
+        }
+      } catch (error) {
+        if (active) {
+          setMfaStatus('unavailable');
+        }
+      }
+    };
+
+    void loadMfaStatus();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handlePasswordChange = async (event: FormEvent) => {
+    event.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(false);
 
-    // Validation
     if (newPassword.length < 8) {
       setPasswordError('New password must be at least 8 characters');
       return;
@@ -60,151 +83,135 @@ export function ProfilePage() {
       setNewPassword('');
       setConfirmPassword('');
 
-      // Clear success message after 5 seconds
       setTimeout(() => setPasswordSuccess(false), 5000);
-    } catch (err: any) {
-      setPasswordError(err.response?.data?.detail || 'Failed to change password');
+    } catch (error: any) {
+      setPasswordError(error.response?.data?.detail || 'Failed to change password');
     } finally {
       setIsChangingPassword(false);
     }
   };
 
+  const initials = user?.full_name?.substring(0, 2).toUpperCase() || 'U';
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-heading font-bold text-saturn-900">Profile & Settings</h1>
-        <p className="text-saturn-600 mt-2">
-          Manage your account information and security settings
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b border-saturn-200">
-        <div className="flex gap-1">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`px-4 py-3 font-medium text-sm transition-colors ${
-              activeTab === 'profile'
-                ? 'text-saturn-900 border-b-2 border-saturn-600'
-                : 'text-saturn-600 hover:text-saturn-900'
-            }`}
+    <SettingsSceneLayout
+      title="Account Settings"
+      subtitle="Control identity, credentials, and platform security"
+      actions={
+        <>
+          <Link to="/2040/settings/sessions" className="inline-block">
+            <Button variant="secondary" sheen={false}>
+              Manage Sessions
+            </Button>
+          </Link>
+          <Link to="/2040/settings/2fa" className="inline-block">
+            <Button>Configure 2FA</Button>
+          </Link>
+        </>
+      }
+    >
+      <div className="space-y-8">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <HoloPanel
+            theme="space"
+            elevated
+            className="flex flex-col items-center gap-4 border border-white/5 text-center"
           >
-            Profile
-          </button>
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`px-4 py-3 font-medium text-sm transition-colors ${
-              activeTab === 'security'
-                ? 'text-saturn-900 border-b-2 border-saturn-600'
-                : 'text-saturn-600 hover:text-saturn-900'
-            }`}
-          >
-            Security
-          </button>
-          <button
-            onClick={() => setActiveTab('sessions')}
-            className={`px-4 py-3 font-medium text-sm transition-colors ${
-              activeTab === 'sessions'
-                ? 'text-saturn-900 border-b-2 border-saturn-600'
-                : 'text-saturn-600 hover:text-saturn-900'
-            }`}
-          >
-            Active Sessions
-          </button>
-        </div>
-      </div>
-
-      {/* Profile Tab */}
-      {activeTab === 'profile' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* User avatar */}
-          <div className="glass-neo border border-saturn-200/50 rounded-2xl p-6 text-center">
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-sun-400 via-saturn-500 to-mars-500 shadow-xl shadow-saturn-500/30 mb-4">
-              <span className="text-white font-heading font-bold text-3xl">
-                {user?.full_name?.substring(0, 2).toUpperCase() || 'U'}
-              </span>
+            <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-sun-400 via-saturn-500 to-mars-500 text-3xl font-heading text-white shadow-holo">
+              {initials}
             </div>
-            <h3 className="font-heading font-bold text-saturn-900 text-lg">{user?.full_name}</h3>
-            <p className="text-sm text-saturn-600 mt-1">{user?.role || user?.user_type}</p>
+            <div className="space-y-1">
+              <h3 className="text-xl font-heading text-pearl-50">{user?.full_name || 'Unidentified User'}</h3>
+              <p className="text-sm text-pearl-300/80">{user?.role || user?.user_type || 'Role unknown'}</p>
+            </div>
+            <VolumetricBadge status={user?.is_active ? 'active' : 'failed'}>
+              {user?.is_active ? 'Active Account' : 'Inactive Account'}
+            </VolumetricBadge>
+          </HoloPanel>
+
+          <HoloPanel theme="space" className="lg:col-span-2 space-y-5 border border-white/5">
+            <div className="grid gap-5 md:grid-cols-2">
+              {[{
+                label: 'Email Address',
+                value: user?.email,
+              },
+              {
+                label: 'User Type',
+                value: user?.user_type,
+              },
+              {
+                label: 'Account ID',
+                value: user?.id,
+                monospaced: true,
+              },
+              {
+                label: 'Organization ID',
+                value: user?.organization_id,
+                monospaced: true,
+              }].map(({ label, value, monospaced }) => (
+                <div key={label}>
+                  <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">{label}</p>
+                  <p
+                    className={`mt-2 text-lg text-pearl-50 ${
+                      monospaced ? 'font-mono text-base tracking-[0.2em]' : ''
+                    }`}
+                  >
+                    {value || '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">Account Created</p>
+                  <p className="mt-2 text-sm text-pearl-200/90">
+                    {user?.created_at
+                      ? new Date(user.created_at).toLocaleString()
+                      : 'Not recorded'}
+                  </p>
+                </div>
+              <div>
+                <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">MFA Status</p>
+                <p className="mt-2 text-sm text-pearl-200/90">
+                  {mfaStatus === 'loading'
+                    ? 'Checking…'
+                    : mfaStatus === 'enabled'
+                    ? 'Enabled'
+                    : mfaStatus === 'disabled'
+                    ? 'Disabled'
+                    : 'Unavailable'}
+                </p>
+              </div>
+            </div>
+          </HoloPanel>
+        </div>
+
+        <HoloPanel theme="space" className="space-y-6 border border-white/5">
+          <div className="space-y-2">
+            <h3 className="text-xl font-heading text-pearl-50">Credential Rotation</h3>
+            <p className="text-sm text-pearl-300/80">
+              Update your secret phrase regularly to maintain compliance with security policy.
+            </p>
           </div>
 
-          {/* User details */}
-          <div className="md:col-span-2 glass-neo border border-saturn-200/50 rounded-2xl p-6 space-y-4">
-            <h3 className="font-heading font-bold text-saturn-900 text-lg mb-4">Account Information</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-saturn-700 mb-1">Full Name</label>
-              <p className="text-saturn-900">{user?.full_name || '-'}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-saturn-700 mb-1">Email</label>
-              <p className="text-saturn-900">{user?.email || '-'}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-saturn-700 mb-1">User Type</label>
-              <p className="text-saturn-900">{user?.user_type || '-'}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-saturn-700 mb-1">User ID</label>
-              <p className="text-saturn-500 font-mono text-sm">{user?.id || '-'}</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-saturn-700 mb-1">Account Status</label>
-              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-                user?.is_active 
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-mars-100 text-mars-700'
-              }`}>
-                {user?.is_active ? (
-                  <>
-                    <CheckCircleIcon className="w-4 h-4" />
-                    Active
-                  </>
-                ) : (
-                  <>
-                    <ExclamationCircleIcon className="w-4 h-4" />
-                    Inactive
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Security Tab */}
-      {activeTab === 'security' && (
-        <div className="glass-neo border border-saturn-200/50 rounded-2xl p-6">
-          <h3 className="font-heading font-bold text-saturn-900 text-lg mb-6 flex items-center gap-2">
-            <KeyIcon className="w-6 h-6" />
-            Change Password
-          </h3>
-
-          {/* Success message */}
           {passwordSuccess && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 animate-fadeIn">
-              <CheckCircleIcon className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm font-medium text-emerald-900">Password changed successfully!</p>
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+              <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />
+              <span>Password changed successfully.</span>
             </div>
           )}
 
-          {/* Error message */}
           {passwordError && (
-            <div className="mb-6 p-4 bg-mars-50 border border-mars-200 rounded-xl flex items-start gap-3 animate-fadeIn">
-              <ExclamationCircleIcon className="w-5 h-5 text-mars-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm font-medium text-mars-900">{passwordError}</p>
+            <div className="flex items-start gap-3 rounded-xl border border-mars-500/30 bg-mars-500/10 px-4 py-3 text-sm text-mars-200">
+              <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0" />
+              <span>{passwordError}</span>
             </div>
           )}
 
-          <form onSubmit={handlePasswordChange} className="max-w-md space-y-5">
-            {/* Current password */}
-            <div>
-              <label htmlFor="current-password" className="block text-sm font-medium text-saturn-900 mb-2">
+          <form onSubmit={handlePasswordChange} className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="current-password" className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">
                 Current Password
               </label>
               <div className="relative">
@@ -212,29 +219,24 @@ export function ProfilePage() {
                   id="current-password"
                   type={showCurrentPassword ? 'text' : 'password'}
                   value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
                   required
-                  className="block w-full px-4 py-3 pr-12 border border-saturn-200 rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:ring-saturn-500 focus:border-transparent transition-all"
-                  placeholder="Enter current password"
+                  className="w-full rounded-xl border border-white/10 bg-space-900/60 px-4 py-3 pr-12 text-pearl-100 placeholder-pearl-500 focus:border-saturn-400/60 focus:outline-none"
+                  placeholder="••••••••"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  tabIndex={-1}
+                  onClick={() => setShowCurrentPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-3 flex items-center text-saturn-200/70 hover:text-pearl-100"
+                  aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
                 >
-                  {showCurrentPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-saturn-400 hover:text-saturn-600" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-saturn-400 hover:text-saturn-600" />
-                  )}
+                  {showCurrentPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
-            {/* New password */}
-            <div>
-              <label htmlFor="new-password" className="block text-sm font-medium text-saturn-900 mb-2">
+            <div className="space-y-2">
+              <label htmlFor="new-password" className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">
                 New Password
               </label>
               <div className="relative">
@@ -242,27 +244,21 @@ export function ProfilePage() {
                   id="new-password"
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(event) => setNewPassword(event.target.value)}
                   required
                   minLength={8}
-                  className="block w-full px-4 py-3 pr-12 border border-saturn-200 rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:ring-saturn-500 focus:border-transparent transition-all"
-                  placeholder="Enter new password"
+                  className="w-full rounded-xl border border-white/10 bg-space-900/60 px-4 py-3 pr-12 text-pearl-100 placeholder-pearl-500 focus:border-saturn-400/60 focus:outline-none"
+                  placeholder="At least 8 characters"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  tabIndex={-1}
+                  onClick={() => setShowNewPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-3 flex items-center text-saturn-200/70 hover:text-pearl-100"
+                  aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
                 >
-                  {showNewPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-saturn-400 hover:text-saturn-600" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-saturn-400 hover:text-saturn-600" />
-                  )}
+                  {showNewPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
-              
-              {/* Password strength meter */}
               {newPassword && (
                 <div className="mt-3">
                   <PasswordStrengthMeter password={newPassword} />
@@ -270,61 +266,29 @@ export function ProfilePage() {
               )}
             </div>
 
-            {/* Confirm password */}
-            <div>
-              <label htmlFor="confirm-password" className="block text-sm font-medium text-saturn-900 mb-2">
+            <div className="space-y-2">
+              <label htmlFor="confirm-password" className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">
                 Confirm New Password
               </label>
               <input
                 id="confirm-password"
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(event) => setConfirmPassword(event.target.value)}
                 required
-                className="block w-full px-4 py-3 border border-saturn-200 rounded-xl bg-white/50 text-saturn-900 placeholder-saturn-400 focus:outline-none focus:ring-2 focus:ring-saturn-500 focus:border-transparent transition-all"
-                placeholder="Confirm new password"
+                className="w-full rounded-xl border border-white/10 bg-space-900/60 px-4 py-3 text-pearl-100 placeholder-pearl-500 focus:border-saturn-400/60 focus:outline-none"
+                placeholder="Repeat new password"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isChangingPassword}
-              className="w-full py-3 px-4 bg-gradient-to-r from-saturn-600 to-saturn-700 hover:from-saturn-700 hover:to-saturn-800 text-white font-heading font-semibold rounded-xl shadow-lg shadow-saturn-500/30 hover:shadow-xl hover:shadow-saturn-500/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-saturn-500 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-            >
-              {isChangingPassword ? 'Changing Password...' : 'Change Password'}
-            </button>
+            <div className="flex items-end">
+              <Button type="submit" disabled={isChangingPassword} className="w-full">
+                {isChangingPassword ? 'Changing…' : 'Change Password'}
+              </Button>
+            </div>
           </form>
-        </div>
-      )}
-
-      {/* Sessions Tab */}
-      {activeTab === 'sessions' && (
-        <div className="glass-neo border border-saturn-200/50 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-heading font-bold text-saturn-900 text-lg flex items-center gap-2">
-              <DevicePhoneMobileIcon className="w-6 h-6" />
-              Active Sessions
-            </h3>
-            <Link
-              to="/backoffice/settings/sessions"
-              className="text-sm font-medium text-saturn-600 hover:text-saturn-900 transition-colors"
-            >
-              View All Sessions →
-            </Link>
-          </div>
-          <p className="text-saturn-600 mb-4">
-            Manage your active login sessions across all devices from the sessions page.
-          </p>
-          
-          <Link
-            to="/backoffice/settings/2fa"
-            className="inline-flex items-center gap-2 text-sm font-medium text-saturn-600 hover:text-saturn-900 transition-colors"
-          >
-            <KeyIcon className="w-4 h-4" />
-            Configure Two-Factor Authentication →
-          </Link>
-        </div>
-      )}
-    </div>
+        </HoloPanel>
+      </div>
+    </SettingsSceneLayout>
   );
 }

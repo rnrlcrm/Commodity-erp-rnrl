@@ -3,8 +3,13 @@
  * Enable/disable 2FA with QR code and verification
  */
 
-import { useState, useEffect } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { authService } from '@/services/api/authService';
+import { Button } from '@/components/2040/Button';
+import { HoloPanel } from '@/components/2040/HoloPanel';
+import { VolumetricBadge } from '@/components/2040/VolumetricTable';
+import SettingsSceneLayout from './components/SettingsSceneLayout';
 import {
   ShieldCheckIcon,
   CheckCircleIcon,
@@ -21,14 +26,12 @@ export function TwoFactorPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [step, setStep] = useState<'status' | 'setup' | 'verify'>('status');
 
-  // Check 2FA status on mount
   useEffect(() => {
-    check2FAStatus();
+    void check2FAStatus();
   }, []);
 
   const check2FAStatus = async () => {
     try {
-      // Assuming backend has endpoint GET /auth/2fa/status
       const response = await authService.get2FAStatus();
       setIsEnabled(response.enabled);
     } catch (err) {
@@ -41,7 +44,6 @@ export function TwoFactorPage() {
     setIsLoading(true);
 
     try {
-      // Generate QR code - POST /auth/2fa/setup
       const response = await authService.setup2FA();
       setQrCode(response.qr_code);
       setSecret(response.secret);
@@ -53,21 +55,20 @@ export function TwoFactorPage() {
     }
   };
 
-  const handleVerifyAndEnable = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyAndEnable = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
-      // Verify code and enable - POST /auth/2fa/verify
       await authService.verify2FA(verificationCode);
-      setSuccess('Two-factor authentication enabled successfully!');
+      setSuccess('Two-factor authentication enabled successfully.');
       setIsEnabled(true);
       setStep('status');
       setVerificationCode('');
       setQrCode(null);
       setSecret(null);
-      
+
       setTimeout(() => setSuccess(null), 5000);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Invalid verification code');
@@ -77,7 +78,7 @@ export function TwoFactorPage() {
   };
 
   const handleDisable2FA = async () => {
-    if (!confirm('Are you sure you want to disable two-factor authentication? This will make your account less secure.')) {
+    if (!confirm('Disable two-factor authentication? Your account will be less secure.')) {
       return;
     }
 
@@ -85,11 +86,10 @@ export function TwoFactorPage() {
     setIsLoading(true);
 
     try {
-      // Disable 2FA - DELETE /auth/2fa
       await authService.disable2FA();
-      setSuccess('Two-factor authentication disabled');
+      setSuccess('Two-factor authentication disabled.');
       setIsEnabled(false);
-      
+
       setTimeout(() => setSuccess(null), 5000);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to disable 2FA');
@@ -106,189 +106,162 @@ export function TwoFactorPage() {
     setError(null);
   };
 
-  return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-heading font-bold text-saturn-900">Two-Factor Authentication</h1>
-        <p className="text-saturn-600 mt-2">
-          Add an extra layer of security to your account
-        </p>
-      </div>
-
-      {/* Success/Error messages */}
-      {success && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 animate-fadeIn">
-          <CheckCircleIcon className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm font-medium text-emerald-900">{success}</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 bg-mars-50 border border-mars-200 rounded-xl flex items-start gap-3 animate-fadeIn">
-          <ExclamationCircleIcon className="w-5 h-5 text-mars-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm font-medium text-mars-900">{error}</p>
-        </div>
-      )}
-
-      {/* Status View */}
-      {step === 'status' && (
-        <div className="glass-neo border border-saturn-200/50 rounded-2xl p-6">
-          <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              isEnabled 
-                ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/30'
-                : 'bg-gradient-to-br from-saturn-400 to-saturn-600 shadow-lg shadow-saturn-500/30'
-            }`}>
-              <ShieldCheckIcon className="w-7 h-7 text-white" />
-            </div>
-
-            <div className="flex-1">
-              <h3 className="font-heading font-bold text-saturn-900 text-lg mb-1">
-                {isEnabled ? '2FA Enabled' : '2FA Not Enabled'}
-              </h3>
-              <p className="text-saturn-600 text-sm mb-4">
-                {isEnabled
-                  ? 'Your account is protected with two-factor authentication. You need your authenticator app to log in.'
-                  : 'Add an extra layer of security by requiring a verification code from your mobile device in addition to your password.'}
-              </p>
-
-              {isEnabled ? (
-                <button
-                  onClick={handleDisable2FA}
-                  disabled={isLoading}
-                  className="py-2 px-4 bg-mars-100 hover:bg-mars-200 text-mars-700 font-heading font-semibold rounded-xl transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                >
-                  {isLoading ? 'Disabling...' : 'Disable 2FA'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleEnable2FA}
-                  disabled={isLoading}
-                  className="py-2 px-4 bg-gradient-to-r from-saturn-600 to-saturn-700 hover:from-saturn-700 hover:to-saturn-800 text-white font-heading font-semibold rounded-xl shadow-lg shadow-saturn-500/30 hover:shadow-xl hover:shadow-saturn-500/40 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                >
-                  {isLoading ? 'Setting up...' : 'Enable 2FA'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Setup View - Show QR Code */}
-      {step === 'setup' && qrCode && (
-        <div className="glass-neo border border-saturn-200/50 rounded-2xl p-6 space-y-6">
-          <div className="text-center">
-            <h3 className="font-heading font-bold text-saturn-900 text-xl mb-2">
-              Scan QR Code
-            </h3>
-            <p className="text-saturn-600">
-              Use an authenticator app like Google Authenticator or Authy to scan this QR code
+  const renderStep = () => {
+    if (step === 'setup' && qrCode) {
+      return (
+        <HoloPanel theme="space" className="space-y-6 border border-white/5">
+          <div className="text-center space-y-2">
+            <h3 className="text-xl font-heading text-pearl-50">Scan Verification Glyph</h3>
+            <p className="text-sm text-pearl-300/80">
+              Use an authenticator like Google Authenticator or Authy to register this credential.
             </p>
           </div>
 
-          {/* QR Code */}
           <div className="flex justify-center">
-            <div className="bg-white p-6 rounded-2xl border-2 border-saturn-200 shadow-lg">
-              <img 
-                src={qrCode} 
-                alt="2FA QR Code" 
-                className="w-64 h-64"
-              />
+            <div className="rounded-3xl border border-white/30 bg-pearl-50 p-6 shadow-holo">
+              <img src={qrCode} alt="2FA QR Code" className="h-64 w-64" />
             </div>
           </div>
 
-          {/* Manual entry code */}
           {secret && (
-            <div className="bg-saturn-50 border border-saturn-200 rounded-xl p-4">
-              <p className="text-xs font-medium text-saturn-700 mb-2">
-                Or enter this code manually:
+            <div className="rounded-2xl border border-white/10 bg-space-900/60 p-4">
+              <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">
+                Manual Entry Code
               </p>
-              <code className="block font-mono text-sm text-saturn-900 bg-white px-3 py-2 rounded-lg border border-saturn-200">
-                {secret}
-              </code>
+              <p className="mt-2 font-mono text-base tracking-[0.3em] text-pearl-100">{secret}</p>
             </div>
           )}
 
-          {/* Next step button */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleCancel}
-              className="flex-1 py-3 px-4 bg-saturn-100 hover:bg-saturn-200 text-saturn-700 font-heading font-semibold rounded-xl transition-all duration-150 active:scale-[0.98]"
-            >
+          <div className="flex flex-col gap-3 md:flex-row">
+            <Button type="button" variant="secondary" sheen={false} className="flex-1" onClick={handleCancel}>
               Cancel
-            </button>
-            <button
-              onClick={() => setStep('verify')}
-              className="flex-1 py-3 px-4 bg-gradient-to-r from-saturn-600 to-saturn-700 hover:from-saturn-700 hover:to-saturn-800 text-white font-heading font-semibold rounded-xl shadow-lg shadow-saturn-500/30 hover:shadow-xl hover:shadow-saturn-500/40 transition-all duration-150 active:scale-[0.98]"
-            >
+            </Button>
+            <Button type="button" className="flex-1" onClick={() => setStep('verify')}>
               Next: Verify Code
-            </button>
+            </Button>
           </div>
-        </div>
-      )}
+        </HoloPanel>
+      );
+    }
 
-      {/* Verify View */}
-      {step === 'verify' && (
-        <div className="glass-neo border border-saturn-200/50 rounded-2xl p-6">
-          <div className="text-center mb-6">
-            <h3 className="font-heading font-bold text-saturn-900 text-xl mb-2">
-              Verify Setup
-            </h3>
-            <p className="text-saturn-600">
-              Enter the 6-digit code from your authenticator app
-            </p>
+    if (step === 'verify') {
+      return (
+        <HoloPanel theme="space" className="space-y-6 border border-white/5">
+          <div className="text-center space-y-2">
+            <h3 className="text-xl font-heading text-pearl-50">Confirm Activation</h3>
+            <p className="text-sm text-pearl-300/80">Enter the 6-digit token generated by your authenticator.</p>
           </div>
 
-          <form onSubmit={handleVerifyAndEnable} className="max-w-sm mx-auto space-y-6">
-            <div>
-              <label htmlFor="verification-code" className="block text-sm font-medium text-saturn-900 mb-2">
-                Verification Code
-              </label>
-              <input
-                id="verification-code"
-                type="text"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, ''))}
-                maxLength={6}
-                required
-                className="block w-full px-4 py-3 border border-saturn-200 rounded-xl bg-white/50 text-saturn-900 text-center text-2xl font-mono tracking-widest placeholder-saturn-400 focus:outline-none focus:ring-2 focus:ring-saturn-500 focus:border-transparent transition-all"
-                placeholder="000000"
-              />
-            </div>
+          <form onSubmit={handleVerifyAndEnable} className="mx-auto flex max-w-sm flex-col gap-4">
+            <label htmlFor="verification-code" className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">
+              Verification Code
+            </label>
+            <input
+              id="verification-code"
+              type="text"
+              value={verificationCode}
+              onChange={(event) => setVerificationCode(event.target.value.replace(/[^0-9]/g, ''))}
+              maxLength={6}
+              required
+              className="w-full rounded-2xl border border-white/10 bg-space-900/60 px-6 py-4 text-center text-2xl font-mono tracking-[0.6em] text-pearl-100 placeholder-pearl-500 focus:border-saturn-400/60 focus:outline-none"
+              placeholder="000000"
+            />
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep('setup')}
-                className="flex-1 py-3 px-4 bg-saturn-100 hover:bg-saturn-200 text-saturn-700 font-heading font-semibold rounded-xl transition-all duration-150 active:scale-[0.98]"
-              >
+            <div className="flex flex-col gap-3 md:flex-row">
+              <Button type="button" variant="secondary" sheen={false} className="flex-1" onClick={() => setStep('setup')}>
                 Back
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading || verificationCode.length !== 6}
-                className="flex-1 py-3 px-4 bg-gradient-to-r from-saturn-600 to-saturn-700 hover:from-saturn-700 hover:to-saturn-800 text-white font-heading font-semibold rounded-xl shadow-lg shadow-saturn-500/30 hover:shadow-xl hover:shadow-saturn-500/40 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-              >
-                {isLoading ? 'Verifying...' : 'Enable 2FA'}
-              </button>
+              </Button>
+              <Button type="submit" className="flex-1" disabled={isLoading || verificationCode.length !== 6}>
+                {isLoading ? 'Verifying…' : 'Enable 2FA'}
+              </Button>
             </div>
           </form>
-        </div>
-      )}
+        </HoloPanel>
+      );
+    }
 
-      {/* Info */}
-      <div className="bg-gradient-to-br from-sun-50 to-saturn-50 border border-sun-200 rounded-xl p-4">
-        <h4 className="font-heading font-bold text-saturn-900 text-sm mb-2">
-          What is Two-Factor Authentication?
-        </h4>
-        <ul className="text-xs text-saturn-700 space-y-1">
-          <li>• Adds an extra layer of security beyond just your password</li>
-          <li>• Requires a time-based code from your mobile device</li>
-          <li>• Protects your account even if your password is compromised</li>
-          <li>• Recommended for all accounts with sensitive data</li>
-        </ul>
+    return (
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-6 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div className="flex items-start gap-4">
+          <div
+            className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${
+              isEnabled
+                ? 'from-emerald-400 to-emerald-600 shadow-[0_0_35px_rgba(16,185,129,0.35)]'
+                : 'from-saturn-400 to-saturn-600 shadow-[0_0_35px_rgba(95,99,251,0.3)]'
+            }`}
+          >
+            <ShieldCheckIcon className="h-7 w-7 text-white" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-heading text-pearl-50">Two-Factor Authentication</h3>
+            <p className="text-sm text-pearl-300/80">
+              Require a rotating authenticator challenge in addition to your password for zero-trust compliance.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-start gap-3 md:items-end">
+          <VolumetricBadge status={isEnabled ? 'completed' : 'failed'}>
+            {isEnabled ? 'Enabled' : 'Disabled'}
+          </VolumetricBadge>
+          {isEnabled ? (
+            <Button type="button" variant="danger" sheen={false} onClick={handleDisable2FA} disabled={isLoading}>
+              {isLoading ? 'Disabling…' : 'Disable 2FA'}
+            </Button>
+          ) : (
+            <Button type="button" onClick={handleEnable2FA} disabled={isLoading}>
+              {isLoading ? 'Preparing…' : 'Enable 2FA'}
+            </Button>
+          )}
+        </div>
+      </HoloPanel>
+    );
+  };
+
+  return (
+    <SettingsSceneLayout
+      title="Two-Factor Authentication"
+      subtitle="Deploy multi-factor verification across every login event"
+      actions={
+        <Link to="/2040/settings/sessions" className="inline-block">
+          <Button sheen={false} variant="secondary">
+            Review Sessions
+          </Button>
+        </Link>
+      }
+    >
+      <div className="space-y-6">
+        {success && (
+          <HoloPanel theme="sun" className="flex items-start gap-3 border border-white/10 px-4 py-3 text-sm text-pearl-50">
+            <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />
+            <span>{success}</span>
+          </HoloPanel>
+        )}
+
+        {error && (
+          <HoloPanel theme="mars" className="flex items-start gap-3 border border-white/10 px-4 py-3 text-sm text-pearl-50">
+            <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0" />
+            <span>{error}</span>
+          </HoloPanel>
+        )}
+
+        {renderStep()}
+
+        <HoloPanel theme="space" className="border border-white/5">
+          <h4 className="text-sm font-heading uppercase tracking-[0.3em] text-pearl-200/80">
+            Why enable MFA?
+          </h4>
+          <ul className="mt-4 space-y-2 text-xs text-pearl-200/70">
+            <li>• Neutralises stolen password attacks by demanding a physical device.</li>
+            <li>• Generates time-bound codes every 30 seconds for tamper-proof logins.</li>
+            <li>• Aligns with SOC2 and ISO 27001 control requirements.</li>
+            <li>• Recommended for all operators managing trading or compliance workflows.</li>
+          </ul>
+        </HoloPanel>
       </div>
-    </div>
+    </SettingsSceneLayout>
   );
 }

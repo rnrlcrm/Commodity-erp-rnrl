@@ -4,8 +4,10 @@
  */
 
 import { useState, FormEvent } from 'react';
+import { Button } from '../../components/2040';
 import { Link } from 'react-router-dom';
 import { authService } from '@/services/api/authService';
+import { CompanyLogo } from '@/components/common/CompanyLogo';
 import {
   EnvelopeIcon,
   CheckCircleIcon,
@@ -74,9 +76,7 @@ export function ForgotPasswordPage() {
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-sun-400 via-saturn-500 to-mars-500 shadow-2xl shadow-saturn-500/40 mb-4">
-            <span className="text-white font-heading font-bold text-3xl">RN</span>
-          </div>
+          <CompanyLogo size="md" className="mx-auto mb-4 drop-shadow-[0_0_28px_rgba(59,130,246,0.35)]" />
           <h1 className="text-4xl font-heading font-bold text-pearl-50 mb-2">
             Reset Password
           </h1>
@@ -115,13 +115,9 @@ export function ForgotPasswordPage() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-saturn-600 to-saturn-700 hover:from-saturn-700 hover:to-saturn-800 text-white font-heading font-semibold rounded-xl shadow-lg shadow-saturn-500/30 hover:shadow-xl hover:shadow-saturn-500/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-saturn-500 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-            >
+            <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? 'Sending...' : 'Send Reset Link'}
-            </button>
+            </Button>
           </form>
 
           <div className="mt-6 text-center">

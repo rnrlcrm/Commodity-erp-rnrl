@@ -6,6 +6,7 @@
 import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { CompanyLogo } from '@/components/common/CompanyLogo';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -27,9 +28,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return (
       <div className="min-h-screen bg-pearl-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-sun-400 via-saturn-500 to-mars-500 shadow-xl shadow-saturn-500/30 mb-4 animate-pulse">
-            <span className="text-white font-heading font-bold text-2xl">RN</span>
-          </div>
+          <CompanyLogo size="sm" className="mx-auto mb-4 drop-shadow-[0_0_24px_rgba(59,130,246,0.35)] animate-pulse" />
           <p className="text-saturn-600 font-medium">Loading...</p>
         </div>
       </div>

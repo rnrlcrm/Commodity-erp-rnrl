@@ -16,10 +16,14 @@ import {
   CheckCircleIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { Button } from '@/components/2040/Button';
+import { HoloPanel } from '@/components/2040/HoloPanel';
+import { VolumetricBadge } from '@/components/2040/VolumetricTable';
 import { useToast } from '@/contexts/ToastContext';
 import { LocationModal } from '@/components/settings/LocationModal';
 import locationService from '@/services/api/locationService';
 import type { Location } from '@/types/settings';
+import SettingsSceneLayout from './components/SettingsSceneLayout';
 
 export default function LocationsPage() {
   const toast = useToast();
@@ -91,243 +95,229 @@ export default function LocationsPage() {
     }
   };
 
+  const openNewLocation = () => setLocationModal({ open: true });
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-pearl-100">Loading locations...</div>
-        </div>
-      </div>
+      <SettingsSceneLayout title="Location Settings" subtitle="Manage warehouses, branches, and other execution sites">
+        <HoloPanel theme="space" className="p-12 text-center text-pearl-200">
+          Loading locations...
+        </HoloPanel>
+      </SettingsSceneLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-        <div className="bg-mars-500/20 border border-mars-500/30 rounded-lg p-4">
-          <p className="text-mars-200">{error}</p>
-        </div>
-      </div>
+      <SettingsSceneLayout title="Location Settings" subtitle="Manage warehouses, branches, and other execution sites">
+        <HoloPanel theme="mars" className="p-6 text-pearl-100">
+          {error}
+        </HoloPanel>
+      </SettingsSceneLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-sun-400 to-saturn-400 bg-clip-text text-transparent">
-          Location Settings
-        </h1>
-        <p className="text-pearl-300 mt-2">Manage warehouses, branches, and other locations</p>
-      </div>
+    <SettingsSceneLayout
+      title="Location Settings"
+      subtitle="Manage warehouses, branches, and other locations"
+      actions={
+        <Button type="button" onClick={openNewLocation} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
+          <span>New Location</span>
+        </Button>
+      }
+    >
+      <div className="space-y-6">
+        <HoloPanel theme="space" className="space-y-6 border border-white/5">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="space-y-3">
+              <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">Location Type</p>
+              <div className="flex flex-wrap gap-2">
+                {locationTypes.map((type) => {
+                  const isActive = filterType === type.value;
+                  return (
+                    <Button
+                      key={type.value}
+                      type="button"
+                      sheen={false}
+                      variant={isActive ? 'primary' : 'secondary'}
+                      onClick={() => setFilterType(type.value)}
+                      className={`rounded-xl px-3 py-1.5 text-sm ${
+                        isActive ? 'shadow-holo' : 'bg-white/5 text-pearl-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {type.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
 
-      {/* Filters and Search */}
-      <div className="mb-6 bg-pearl-900/20 backdrop-blur-sm border border-pearl-700/30 rounded-xl p-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          {/* Type Filter */}
-          <div className="flex items-center space-x-4">
-            <label className="text-pearl-300 text-sm font-medium">Type:</label>
-            <div className="flex space-x-2">
-              {locationTypes.map((type) => (
-                <button
-                  key={type.value}
-                  onClick={() => setFilterType(type.value)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                    filterType === type.value
-                      ? 'bg-gradient-to-r from-saturn-500 to-sun-500 text-white'
-                      : 'bg-pearl-800/50 text-pearl-300 hover:bg-pearl-800'
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
+            <div className="space-y-3">
+              <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">Activation State</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: null as boolean | null, label: 'All' },
+                  { value: true, label: 'Active' },
+                  { value: false, label: 'Inactive' },
+                ].map((option) => {
+                  const isActive = filterActive === option.value;
+                  return (
+                    <Button
+                      key={String(option.value ?? 'all')}
+                      type="button"
+                      sheen={false}
+                      variant={isActive ? 'primary' : 'secondary'}
+                      onClick={() => setFilterActive(option.value)}
+                      className={`rounded-xl px-3 py-1.5 text-sm ${
+                        isActive ? 'shadow-holo' : 'bg-white/5 text-pearl-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {option.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">Search</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-saturn-200/70" />
+                  <input
+                    type="text"
+                    placeholder="Search locations"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-space-900/60 py-2.5 pl-10 pr-4 text-pearl-100 placeholder-pearl-500 transition focus:border-saturn-400/60 focus:outline-none"
+                  />
+                </div>
+                <Button type="button" onClick={openNewLocation} className="flex items-center gap-2 sm:w-auto">
+                  <PlusIcon className="h-4 w-4" />
+                  <span>Add Location</span>
+                </Button>
+              </div>
             </div>
           </div>
+        </HoloPanel>
 
-          {/* Active Filter */}
-          <div className="flex items-center space-x-4">
-            <label className="text-pearl-300 text-sm font-medium">Status:</label>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setFilterActive(null)}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                  filterActive === null
-                    ? 'bg-gradient-to-r from-saturn-500 to-sun-500 text-white'
-                    : 'bg-pearl-800/50 text-pearl-300 hover:bg-pearl-800'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilterActive(true)}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                  filterActive === true
-                    ? 'bg-gradient-to-r from-saturn-500 to-sun-500 text-white'
-                    : 'bg-pearl-800/50 text-pearl-300 hover:bg-pearl-800'
-                }`}
-              >
-                Active
-              </button>
-              <button
-                onClick={() => setFilterActive(false)}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                  filterActive === false
-                    ? 'bg-gradient-to-r from-saturn-500 to-sun-500 text-white'
-                    : 'bg-pearl-800/50 text-pearl-300 hover:bg-pearl-800'
-                }`}
-              >
-                Inactive
-              </button>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pearl-400" />
-              <input
-                type="text"
-                placeholder="Search locations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-pearl-800/50 border border-pearl-700/30 rounded-lg text-pearl-100 placeholder-pearl-500 focus:outline-none focus:ring-2 focus:ring-sun-500"
-              />
-            </div>
-            <button 
-              onClick={() => setLocationModal({ open: true })}
-              className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-            >
-              <PlusIcon className="w-4 h-4" />
-              <span>Add Location</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Locations Grid */}
-      <div className="bg-pearl-900/20 backdrop-blur-sm border border-pearl-700/30 rounded-xl p-6">
         {filteredLocations.length === 0 ? (
-          <div className="text-center py-12 text-pearl-400">
-            {searchTerm ? 'No locations found matching your search' : 'No locations added yet'}
-          </div>
+          <HoloPanel theme="space" className="py-20 text-center text-pearl-200">
+            {searchTerm ? 'No locations found matching your search' : 'No locations configured yet'}
+          </HoloPanel>
         ) : (
           <div className="grid gap-4">
             {filteredLocations.map((location) => {
               const Icon = getLocationIcon(location.location_type);
               return (
-                <div
+                <HoloPanel
                   key={location.id}
-                  className="bg-pearl-800/30 rounded-lg p-5 border border-pearl-700/30 hover:border-sun-500/30 transition-colors"
+                  theme="space"
+                  elevated
+                  className="flex flex-col gap-4 border border-white/5 lg:flex-row lg:items-start lg:justify-between"
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      {/* Header */}
-                      <div className="flex items-start space-x-3">
-                        <div className="p-2 bg-gradient-to-br from-saturn-500/20 to-sun-500/20 rounded-lg">
-                          <Icon className="w-6 h-6 text-sun-400" />
+                  <div className="flex-1 space-y-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex flex-1 items-start gap-4">
+                        <div className="rounded-2xl bg-gradient-to-br from-saturn-500/30 to-sun-500/20 p-3">
+                          <Icon className="h-6 w-6 text-sun-300" />
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <h3 className="text-pearl-100 font-semibold text-lg">{location.name}</h3>
-                            <span className="px-2 py-1 bg-saturn-500/20 text-saturn-400 text-xs rounded uppercase">
-                              {location.location_type}
-                            </span>
-                            {location.is_active ? (
-                              <span className="flex items-center space-x-1 px-2 py-1 bg-moon-500/20 text-moon-400 text-xs rounded">
-                                <CheckCircleIcon className="w-3 h-3" />
-                                <span>Active</span>
-                              </span>
-                            ) : (
-                              <span className="flex items-center space-x-1 px-2 py-1 bg-mars-500/20 text-mars-400 text-xs rounded">
-                                <XCircleIcon className="w-3 h-3" />
-                                <span>Inactive</span>
-                              </span>
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-heading text-pearl-50">{location.name}</h3>
+                            {location.location_type && (
+                              <VolumetricBadge status="active">{location.location_type}</VolumetricBadge>
                             )}
+                            <VolumetricBadge status={location.is_active ? 'active' : 'failed'}>
+                              {location.is_active ? 'Active' : 'Inactive'}
+                            </VolumetricBadge>
                           </div>
-
-                          {/* Address */}
-                          <div className="mt-2 flex items-start space-x-2">
-                            <MapPinIcon className="w-4 h-4 text-pearl-400 mt-0.5 flex-shrink-0" />
-                            <p className="text-pearl-300 text-sm">
+                          <div className="flex items-start gap-2 text-sm text-pearl-300/90">
+                            <MapPinIcon className="h-4 w-4 flex-shrink-0 text-saturn-200/70" />
+                            <span>
                               {location.address_line1}
                               {location.address_line2 && `, ${location.address_line2}`}
-                            </p>
+                            </span>
                           </div>
-
-                          {/* Details Grid */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                            {location.city && (
-                              <div>
-                                <p className="text-pearl-500 text-xs">City</p>
-                                <p className="text-pearl-300 text-sm">{location.city}</p>
-                              </div>
-                            )}
-                            {location.state && (
-                              <div>
-                                <p className="text-pearl-500 text-xs">State</p>
-                                <p className="text-pearl-300 text-sm">{location.state}</p>
-                              </div>
-                            )}
-                            {location.postal_code && (
-                              <div>
-                                <p className="text-pearl-500 text-xs">Postal Code</p>
-                                <p className="text-pearl-300 text-sm">{location.postal_code}</p>
-                              </div>
-                            )}
-                            {location.country && (
-                              <div>
-                                <p className="text-pearl-500 text-xs">Country</p>
-                                <p className="text-pearl-300 text-sm">{location.country}</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Google Place Info */}
-                          {location.google_place_id && (
-                            <div className="mt-3 flex items-center space-x-2 text-xs text-pearl-400">
-                              <GlobeAltIcon className="w-4 h-4" />
-                              <span>Verified with Google Places</span>
-                              {location.latitude && location.longitude && (
-                                <span className="text-pearl-500">
-                                  • {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => setLocationModal({ open: true, data: location })}
-                        className="p-2 hover:bg-pearl-700/30 rounded transition-colors"
-                      >
-                        <PencilIcon className="w-4 h-4 text-pearl-400" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteLocation(location.id)}
-                        className="p-2 hover:bg-mars-500/20 rounded transition-colors"
-                      >
-                        <TrashIcon className="w-4 h-4 text-mars-400" />
-                      </button>
+                    <div className="grid gap-4 text-sm text-pearl-200 sm:grid-cols-2 lg:grid-cols-4">
+                      {location.city && (
+                        <div>
+                          <p className="text-xs font-mono uppercase tracking-[0.25em] text-saturn-200/70">City</p>
+                          <p className="text-base text-pearl-50">{location.city}</p>
+                        </div>
+                      )}
+                      {location.state && (
+                        <div>
+                          <p className="text-xs font-mono uppercase tracking-[0.25em] text-saturn-200/70">State</p>
+                          <p className="text-base text-pearl-50">{location.state}</p>
+                        </div>
+                      )}
+                      {location.postal_code && (
+                        <div>
+                          <p className="text-xs font-mono uppercase tracking-[0.25em] text-saturn-200/70">Postal Code</p>
+                          <p className="text-base text-pearl-50">{location.postal_code}</p>
+                        </div>
+                      )}
+                      {location.country && (
+                        <div>
+                          <p className="text-xs font-mono uppercase tracking-[0.25em] text-saturn-200/70">Country</p>
+                          <p className="text-base text-pearl-50">{location.country}</p>
+                        </div>
+                      )}
                     </div>
+
+                    {location.google_place_id && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-saturn-200/70">
+                        <GlobeAltIcon className="h-4 w-4" />
+                        <span>Verified with Google Places</span>
+                        {location.latitude && location.longitude && (
+                          <span className="text-pearl-200">
+                            • {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
+
+                  <div className="flex items-center gap-2 self-end lg:self-start">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setLocationModal({ open: true, data: location })}
+                      className="px-3 py-2"
+                      aria-label="Edit location"
+                    >
+                      <PencilIcon className="h-4 w-4 text-pearl-100" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={() => handleDeleteLocation(location.id)}
+                      className="px-3 py-2"
+                      aria-label="Delete location"
+                    >
+                      <TrashIcon className="h-4 w-4 text-white" />
+                    </Button>
+                  </div>
+                </HoloPanel>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Location Modal */}
       <LocationModal
         isOpen={locationModal.open}
         onClose={() => setLocationModal({ open: false })}
         location={locationModal.data}
         onSuccess={loadLocations}
       />
-    </div>
+    </SettingsSceneLayout>
   );
 }

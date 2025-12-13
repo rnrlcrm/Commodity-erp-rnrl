@@ -113,8 +113,8 @@ function MyComponent() {
 ```
 
 ### Capability Management Pages
-- `frontend/src/pages/backoffice/CapabilitiesManagementPage.tsx`: Manage all capabilities
-- `frontend/src/pages/backoffice/UserCapabilitiesPage.tsx`: Manage user capabilities
+- ~~`frontend/src/pages/backoffice/CapabilitiesManagementPage.tsx`~~: Legacy module replaced by the holographic scenes in `frontend/src/pages/2040`
+- ~~`frontend/src/pages/backoffice/UserCapabilitiesPage.tsx`~~: Legacy module replaced by the holographic scenes in `frontend/src/pages/2040`
 
 ---
 
@@ -226,9 +226,7 @@ frontend/src/
 ├── store/authStore.ts                   # Zustand store with capabilities
 ├── hooks/useCapabilities.tsx            # React hooks & components
 ├── types/capability.ts                  # TypeScript types
-└── pages/backoffice/
-    ├── CapabilitiesManagementPage.tsx   # Manage capabilities
-    └── UserCapabilitiesPage.tsx         # Manage user capabilities
+└── pages/2040/                          # Holographic module scenes (supersede legacy backoffice pages)
 ```
 
 ---
