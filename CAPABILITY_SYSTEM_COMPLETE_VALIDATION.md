@@ -274,7 +274,8 @@ Located: `frontend/src/services/api/capabilitiesService.ts`
 
 ### CapabilitiesManagementPage
 
-Located: `frontend/src/pages/backoffice/CapabilitiesManagementPage.tsx`
+Located: ~~`frontend/src/pages/backoffice/CapabilitiesManagementPage.tsx`~~ (legacy UI removed)
+Current 2040 implementation: holographic scenes in `frontend/src/pages/2040`
 
 **Features:**
 - ✅ View all 91 capabilities
@@ -288,7 +289,8 @@ Located: `frontend/src/pages/backoffice/CapabilitiesManagementPage.tsx`
 
 ### UserCapabilitiesPage
 
-Located: `frontend/src/pages/backoffice/UserCapabilitiesPage.tsx`
+Located: ~~`frontend/src/pages/backoffice/UserCapabilitiesPage.tsx`~~ (legacy UI removed)
+Current 2040 implementation: holographic scenes in `frontend/src/pages/2040`
 
 **Features:**
 - ✅ List all users with capability counts

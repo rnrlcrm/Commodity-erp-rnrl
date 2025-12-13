@@ -14,6 +14,10 @@ import {
   TrashIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
+import { Button } from '@/components/2040/Button';
+import { HoloPanel } from '@/components/2040/HoloPanel';
+import { MultiLayerTabs } from '@/components/2040/MultiLayerTabs';
+import { VolumetricBadge } from '@/components/2040/VolumetricTable';
 import { useToast } from '@/contexts/ToastContext';
 import {
   CommodityModal,
@@ -23,6 +27,7 @@ import {
   PaymentTermModal,
 } from '@/components/settings/CommodityModals';
 import commodityService from '@/services/api/commodityService';
+import SettingsSceneLayout from './components/SettingsSceneLayout';
 import type {
   Commodity,
   TradeType,
@@ -115,105 +120,100 @@ export default function CommoditiesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-pearl-100">Loading commodity data...</div>
-        </div>
-      </div>
+      <SettingsSceneLayout
+        title="Commodity Settings"
+        subtitle="Manage commodities, trading types, and trading terms"
+      >
+        <HoloPanel theme="space" className="p-12 text-center text-pearl-200">
+          Loading commodity data...
+        </HoloPanel>
+      </SettingsSceneLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-        <div className="bg-mars-500/20 border border-mars-500/30 rounded-lg p-4">
-          <p className="text-mars-200">{error}</p>
-        </div>
-      </div>
+      <SettingsSceneLayout
+        title="Commodity Settings"
+        subtitle="Manage commodities, trading types, and trading terms"
+      >
+        <HoloPanel theme="mars" className="p-6 text-pearl-100">
+          {error}
+        </HoloPanel>
+      </SettingsSceneLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-sun-400 to-saturn-400 bg-clip-text text-transparent">
-          Commodity Settings
-        </h1>
-        <p className="text-pearl-300 mt-2">Manage commodities, trading types, and terms</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-6 border-b border-pearl-700/30">
-        <div className="flex space-x-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 font-medium rounded-t-lg transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-saturn-500/20 to-sun-500/20 text-sun-400 border-b-2 border-sun-400'
-                    : 'text-pearl-400 hover:text-pearl-100 hover:bg-pearl-700/10'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Icon className="w-5 h-5" />
-                  <span>{tab.label}</span>
-                </div>
-              </button>
-            );
-          })}
+    <SettingsSceneLayout
+      title="Commodity Settings"
+      subtitle="Manage commodities, trading types, and trading terms"
+    >
+      <HoloPanel theme="space" glow className="overflow-hidden p-0">
+        <div className="border-b border-white/10 px-4 py-5 md:px-6">
+          <MultiLayerTabs
+            tabs={tabs.map((tab) => {
+              const Icon = tab.icon;
+              return {
+                key: tab.id,
+                label: (
+                  <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-pearl-100">
+                    <Icon className="h-4 w-4 text-sun-300" />
+                    <span>{tab.label}</span>
+                  </div>
+                ),
+              };
+            })}
+            activeKey={activeTab}
+            onChange={(key) => setActiveTab(key as typeof activeTab)}
+          />
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="bg-pearl-900/20 backdrop-blur-sm border border-pearl-700/30 rounded-xl p-6">
-        {activeTab === 'commodities' && (
-          <CommoditiesList 
-            commodities={commodities} 
-            onAdd={() => setCommodityModal({ open: true })}
-            onEdit={(commodity) => setCommodityModal({ open: true, data: commodity })}
-            onDelete={handleDeleteCommodity}
-          />
-        )}
-        
-        {activeTab === 'trade-types' && (
-          <TradeTypesList 
-            tradeTypes={tradeTypes} 
-            onAdd={() => setTradeTypeModal({ open: true })}
-            onEdit={(type) => setTradeTypeModal({ open: true, data: type })}
-          />
-        )}
-        
-        {activeTab === 'bargain-types' && (
-          <BargainTypesList 
-            bargainTypes={bargainTypes} 
-            onAdd={() => setBargainTypeModal({ open: true })}
-            onEdit={(type) => setBargainTypeModal({ open: true, data: type })}
-          />
-        )}
-        
-        {activeTab === 'terms' && (
-          <TradingTerms
-            passingTerms={passingTerms}
-            weightmentTerms={weightmentTerms}
-            deliveryTerms={deliveryTerms}
-            paymentTerms={paymentTerms}
-            onAddPassing={() => setPassingTermModal({ open: true })}
-            onEditPassing={(term) => setPassingTermModal({ open: true, data: term })}
-            onAddWeightment={() => setWeightmentTermModal({ open: true })}
-            onEditWeightment={(term) => setWeightmentTermModal({ open: true, data: term })}
-            onAddDelivery={() => setDeliveryTermModal({ open: true })}
-            onEditDelivery={(term) => setDeliveryTermModal({ open: true, data: term })}
-            onAddPayment={() => setPaymentTermModal({ open: true })}
-            onEditPayment={(term) => setPaymentTermModal({ open: true, data: term })}
-          />
-        )}
-      </div>
+        <div className="space-y-8 px-4 py-6 md:px-6">
+          {activeTab === 'commodities' && (
+            <CommoditiesList
+              commodities={commodities}
+              onAdd={() => setCommodityModal({ open: true })}
+              onEdit={(commodity) => setCommodityModal({ open: true, data: commodity })}
+              onDelete={handleDeleteCommodity}
+            />
+          )}
 
-      {/* Modals */}
+          {activeTab === 'trade-types' && (
+            <TradeTypesList
+              tradeTypes={tradeTypes}
+              onAdd={() => setTradeTypeModal({ open: true })}
+              onEdit={(type) => setTradeTypeModal({ open: true, data: type })}
+            />
+          )}
+
+          {activeTab === 'bargain-types' && (
+            <BargainTypesList
+              bargainTypes={bargainTypes}
+              onAdd={() => setBargainTypeModal({ open: true })}
+              onEdit={(type) => setBargainTypeModal({ open: true, data: type })}
+            />
+          )}
+
+          {activeTab === 'terms' && (
+            <TradingTerms
+              passingTerms={passingTerms}
+              weightmentTerms={weightmentTerms}
+              deliveryTerms={deliveryTerms}
+              paymentTerms={paymentTerms}
+              onAddPassing={() => setPassingTermModal({ open: true })}
+              onEditPassing={(term) => setPassingTermModal({ open: true, data: term })}
+              onAddWeightment={() => setWeightmentTermModal({ open: true })}
+              onEditWeightment={(term) => setWeightmentTermModal({ open: true, data: term })}
+              onAddDelivery={() => setDeliveryTermModal({ open: true })}
+              onEditDelivery={(term) => setDeliveryTermModal({ open: true, data: term })}
+              onAddPayment={() => setPaymentTermModal({ open: true })}
+              onEditPayment={(term) => setPaymentTermModal({ open: true, data: term })}
+            />
+          )}
+        </div>
+      </HoloPanel>
+
       <CommodityModal
         isOpen={commodityModal.open}
         onClose={() => setCommodityModal({ open: false })}
@@ -259,106 +259,126 @@ export default function CommoditiesPage() {
         paymentTerm={paymentTermModal.data}
         onSuccess={loadCommodityData}
       />
-    </div>
+    </SettingsSceneLayout>
   );
 }
 
 // Component for Commodities List
-function CommoditiesList({ 
-  commodities, 
-  onAdd, 
-  onEdit, 
-  onDelete 
-}: { 
-  commodities: Commodity[]; 
+function CommoditiesList({
+  commodities,
+  onAdd,
+  onEdit,
+  onDelete,
+}: {
+  commodities: Commodity[];
   onAdd: () => void;
   onEdit: (commodity: Commodity) => void;
   onDelete: (id: string) => void;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredCommodities = commodities.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.category.toLowerCase().includes(searchTerm.toLowerCase())
+
+  const filteredCommodities = commodities.filter((commodity) =>
+    commodity.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    commodity.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const emptyStateMessage = searchTerm
+    ? 'No commodities found matching your search'
+    : 'No commodities configured yet';
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">Commodities Catalog</h2>
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pearl-400" />
+    <div className="space-y-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-4 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">Commodities Catalog</h2>
+          <p className="text-sm text-pearl-300/80">
+            Curate the tradable commodities and maintain their trading attributes
+          </p>
+        </div>
+        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
+          <div className="relative md:w-72">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-saturn-200/70" />
             <input
               type="text"
-              placeholder="Search commodities..."
+              placeholder="Search commodities"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-pearl-800/50 border border-pearl-700/30 rounded-lg text-pearl-100 placeholder-pearl-500 focus:outline-none focus:ring-2 focus:ring-sun-500"
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-space-900/60 py-2.5 pl-10 pr-4 text-pearl-100 placeholder-pearl-500 shadow-[0_0_20px_rgba(59,130,246,0.12)] transition-colors focus:border-saturn-400/60 focus:outline-none"
             />
           </div>
-          <button 
-            onClick={onAdd}
-            className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-          >
-            <PlusIcon className="w-4 h-4" />
+          <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+            <PlusIcon className="h-4 w-4" />
             <span>Add Commodity</span>
-          </button>
+          </Button>
         </div>
-      </div>
+      </HoloPanel>
 
       {filteredCommodities.length === 0 ? (
-        <div className="text-center py-12 text-pearl-400">
-          {searchTerm ? 'No commodities found matching your search' : 'No commodities added yet'}
-        </div>
+        <HoloPanel theme="space" className="py-16 text-center text-pearl-200">
+          {emptyStateMessage}
+        </HoloPanel>
       ) : (
         <div className="grid gap-4">
           {filteredCommodities.map((commodity) => (
-            <div key={commodity.id} className="bg-pearl-800/30 rounded-lg p-4 border border-pearl-700/30 hover:border-sun-500/30 transition-colors">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-pearl-100 font-medium">{commodity.name}</h3>
-                    <span className="px-2 py-1 bg-saturn-500/20 text-saturn-400 text-xs rounded">{commodity.category}</span>
-                    {!commodity.is_active && (
-                      <span className="px-2 py-1 bg-mars-500/20 text-mars-400 text-xs rounded">Inactive</span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
-                    <div>
-                      <p className="text-pearl-500 text-xs">HSN Code</p>
-                      <p className="text-pearl-300 text-sm">{commodity.hsn_code || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-pearl-500 text-xs">GST Rate</p>
-                      <p className="text-pearl-300 text-sm">{commodity.gst_rate ? `${commodity.gst_rate}%` : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-pearl-500 text-xs">Base Unit</p>
-                      <p className="text-pearl-300 text-sm">{commodity.base_unit}</p>
-                    </div>
-                    <div>
-                      <p className="text-pearl-500 text-xs">Trade Unit</p>
-                      <p className="text-pearl-300 text-sm">{commodity.trade_unit || 'N/A'}</p>
-                    </div>
-                  </div>
+            <HoloPanel
+              key={commodity.id}
+              theme="space"
+              elevated
+              className="flex flex-col gap-4 border border-white/5 lg:flex-row lg:items-start lg:justify-between"
+            >
+              <div className="flex-1 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-heading text-pearl-50">{commodity.name}</h3>
+                  <VolumetricBadge status="active">{commodity.category}</VolumetricBadge>
+                  {!commodity.is_active && <VolumetricBadge status="failed">Inactive</VolumetricBadge>}
                 </div>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => onEdit(commodity)}
-                    className="p-2 hover:bg-pearl-700/30 rounded transition-colors"
-                  >
-                    <PencilIcon className="w-4 h-4 text-pearl-400" />
-                  </button>
-                  <button 
-                    onClick={() => onDelete(commodity.id)}
-                    className="p-2 hover:bg-mars-500/20 rounded transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4 text-mars-400" />
-                  </button>
+
+                <div className="grid gap-4 text-sm text-pearl-200 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-[0.2em] text-pearl-400/70">HSN</p>
+                    <p className="text-base text-pearl-100">{commodity.hsn_code || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-[0.2em] text-pearl-400/70">GST</p>
+                    <p className="text-base text-pearl-100">
+                      {commodity.gst_rate ? `${commodity.gst_rate}%` : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-[0.2em] text-pearl-400/70">Base Unit</p>
+                    <p className="text-base text-pearl-100">{commodity.base_unit}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-[0.2em] text-pearl-400/70">Trade Unit</p>
+                    <p className="text-base text-pearl-100">{commodity.trade_unit || 'N/A'}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+
+              <div className="flex items-center gap-2 self-end lg:self-start">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onEdit(commodity)}
+                  className="px-3 py-2"
+                  aria-label="Edit commodity"
+                >
+                  <PencilIcon className="h-4 w-4 text-pearl-100" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => onDelete(commodity.id)}
+                  className="px-3 py-2"
+                  aria-label="Delete commodity"
+                >
+                  <TrashIcon className="h-4 w-4 text-white" />
+                </Button>
+              </div>
+            </HoloPanel>
           ))}
         </div>
       )}
@@ -367,95 +387,151 @@ function CommoditiesList({
 }
 
 // Component for Trade Types List
-function TradeTypesList({ 
-  tradeTypes, 
-  onAdd, 
-  onEdit 
-}: { 
-  tradeTypes: TradeType[]; 
+function TradeTypesList({
+  tradeTypes,
+  onAdd,
+  onEdit,
+}: {
+  tradeTypes: TradeType[];
   onAdd: () => void;
   onEdit: (type: TradeType) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">Trade Types</h2>
-        <button 
-          onClick={onAdd}
-          className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-4 h-4" />
+    <div className="space-y-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">Trade Archetypes</h2>
+          <p className="text-sm text-pearl-300/80">
+            Configure the primary trading behaviours supported by the platform
+          </p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add Trade Type</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tradeTypes.map((type) => (
-          <div key={type.id} className="bg-pearl-800/30 rounded-lg p-4 border border-pearl-700/30">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-pearl-100 font-medium">{type.name}</h3>
-                <p className="text-pearl-400 text-sm mt-1">{type.description}</p>
+      {tradeTypes.length === 0 ? (
+        <HoloPanel theme="space" className="py-14 text-center text-pearl-200">
+          No trade types configured yet
+        </HoloPanel>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {tradeTypes.map((type) => (
+            <HoloPanel
+              key={type.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-4 border border-white/5"
+            >
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-heading text-pearl-50">{type.name}</h3>
+                    <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/60">
+                      {type.id}
+                    </p>
+                  </div>
+                  <VolumetricBadge status={type.is_active ? 'active' : 'failed'}>
+                    {type.is_active ? 'Active' : 'Inactive'}
+                  </VolumetricBadge>
+                </div>
+
+                {type.description && (
+                  <p className="text-sm text-pearl-300/80">{type.description}</p>
+                )}
               </div>
-              <div className="flex space-x-1">
-                <button 
+
+              <div className="flex items-center justify-between text-xs text-pearl-400">
+                <span>
+                  Created{' '}
+                  <span className="font-semibold text-pearl-100">
+                    {new Date(type.created_at).toLocaleDateString()}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
                   onClick={() => onEdit(type)}
-                  className="p-1.5 hover:bg-pearl-700/30 rounded transition-colors"
+                  className="px-3 py-1.5"
+                  aria-label="Edit trade type"
                 >
-                  <PencilIcon className="w-3.5 h-3.5 text-pearl-400" />
-                </button>
+                  <PencilIcon className="h-4 w-4 text-pearl-100" />
+                </Button>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </HoloPanel>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // Component for Bargain Types List
-function BargainTypesList({ 
-  bargainTypes, 
-  onAdd, 
-  onEdit 
-}: { 
-  bargainTypes: BargainType[]; 
+function BargainTypesList({
+  bargainTypes,
+  onAdd,
+  onEdit,
+}: {
+  bargainTypes: BargainType[];
   onAdd: () => void;
   onEdit: (type: BargainType) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">Bargain Types</h2>
-        <button 
-          onClick={onAdd}
-          className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-4 h-4" />
+    <div className="space-y-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">Negotiation Playbooks</h2>
+          <p className="text-sm text-pearl-300/80">
+            Define the bargaining paradigms available to trade desks and brokers
+          </p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add Bargain Type</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {bargainTypes.map((type) => (
-          <div key={type.id} className="bg-pearl-800/30 rounded-lg p-4 border border-pearl-700/30">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-pearl-100 font-medium">{type.name}</h3>
-                <p className="text-pearl-400 text-sm mt-1">{type.description}</p>
+      {bargainTypes.length === 0 ? (
+        <HoloPanel theme="space" className="py-14 text-center text-pearl-200">
+          No bargain types configured yet
+        </HoloPanel>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {bargainTypes.map((type) => (
+            <HoloPanel
+              key={type.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-4 border border-white/5"
+            >
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-lg font-heading text-pearl-50">{type.name}</h3>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onEdit(type)}
+                    className="px-3 py-1.5"
+                    aria-label="Edit bargain type"
+                  >
+                    <PencilIcon className="h-4 w-4 text-pearl-100" />
+                  </Button>
+                </div>
+                {type.description && (
+                  <p className="text-sm text-pearl-300/80">{type.description}</p>
+                )}
               </div>
-              <div className="flex space-x-1">
-                <button 
-                  onClick={() => onEdit(type)}
-                  className="p-1.5 hover:bg-pearl-700/30 rounded transition-colors"
-                >
-                  <PencilIcon className="w-3.5 h-3.5 text-pearl-400" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </HoloPanel>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -488,172 +564,213 @@ function TradingTerms({
   onAddPayment: () => void;
   onEditPayment: (term: PaymentTerm) => void;
 }) {
-  const [activeTermTab, setActiveTermTab] = useState<'passing' | 'weightment' | 'delivery' | 'payment'>('passing');
+  const [activeTermTab, setActiveTermTab] =
+    useState<'passing' | 'weightment' | 'delivery' | 'payment'>('passing');
 
   const termTabs = [
-    { id: 'passing' as const, label: 'Passing Terms' },
-    { id: 'weightment' as const, label: 'Weightment Terms' },
-    { id: 'delivery' as const, label: 'Delivery Terms' },
-    { id: 'payment' as const, label: 'Payment Terms' },
+    {
+      id: 'passing' as const,
+      label: 'Passing Terms',
+      description: 'Define the acceptance thresholds and quality tolerances for incoming lots.',
+    },
+    {
+      id: 'weightment' as const,
+      label: 'Weightment Terms',
+      description: 'Govern the weighbridge, tare, and measurement protocols across facilities.',
+    },
+    {
+      id: 'delivery' as const,
+      label: 'Delivery Terms',
+      description: 'Detail logistics, dispatch, and receiving obligations for each trade.',
+    },
+    {
+      id: 'payment' as const,
+      label: 'Payment Terms',
+      description: 'Set credit periods, instalment structures, and settlement commitments.',
+    },
   ];
 
+  const activeMeta = termTabs.find((tab) => tab.id === activeTermTab) ?? termTabs[0];
+
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-pearl-100">Trading Terms</h2>
+    <div className="space-y-6">
+      <HoloPanel theme="space" className="space-y-4 border border-white/5">
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">Trading Terms Matrix</h2>
+          <p className="text-sm text-pearl-300/80">{activeMeta.description}</p>
+        </div>
+        <MultiLayerTabs
+          tabs={termTabs.map((tab) => ({ key: tab.id, label: tab.label }))}
+          activeKey={activeTermTab}
+          onChange={(key) => setActiveTermTab(key as typeof activeTermTab)}
+        />
+      </HoloPanel>
 
-      {/* Sub-tabs for different term types */}
-      <div className="flex space-x-2 border-b border-pearl-700/30">
-        {termTabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTermTab(tab.id)}
-            className={`px-4 py-2 font-medium rounded-t transition-all ${
-              activeTermTab === tab.id
-                ? 'bg-pearl-800/50 text-sun-400 border-b-2 border-sun-400'
-                : 'text-pearl-400 hover:text-pearl-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="pt-4">
-        {activeTermTab === 'passing' && (
-          <TermsList 
-            terms={passingTerms} 
-            type="Passing" 
-            onAdd={onAddPassing}
-            onEdit={onEditPassing}
-          />
-        )}
-        {activeTermTab === 'weightment' && (
-          <TermsList 
-            terms={weightmentTerms} 
-            type="Weightment" 
-            onAdd={onAddWeightment}
-            onEdit={onEditWeightment}
-          />
-        )}
-        {activeTermTab === 'delivery' && (
-          <TermsList 
-            terms={deliveryTerms} 
-            type="Delivery" 
-            onAdd={onAddDelivery}
-            onEdit={onEditDelivery}
-          />
-        )}
-        {activeTermTab === 'payment' && (
-          <PaymentTermsList 
-            terms={paymentTerms} 
-            onAdd={onAddPayment}
-            onEdit={onEditPayment}
-          />
-        )}
-      </div>
+      {activeTermTab === 'passing' && (
+        <TermsList terms={passingTerms} type="Passing" onAdd={onAddPassing} onEdit={onEditPassing} />
+      )}
+      {activeTermTab === 'weightment' && (
+        <TermsList
+          terms={weightmentTerms}
+          type="Weightment"
+          onAdd={onAddWeightment}
+          onEdit={onEditWeightment}
+        />
+      )}
+      {activeTermTab === 'delivery' && (
+        <TermsList terms={deliveryTerms} type="Delivery" onAdd={onAddDelivery} onEdit={onEditDelivery} />
+      )}
+      {activeTermTab === 'payment' && (
+        <PaymentTermsList terms={paymentTerms} onAdd={onAddPayment} onEdit={onEditPayment} />
+      )}
     </div>
   );
 }
 
-// Generic Terms List Component
-function TermsList({ 
-  terms, 
-  type, 
-  onAdd, 
-  onEdit 
-}: { 
-  terms: any[]; 
+function TermsList({
+  terms,
+  type,
+  onAdd,
+  onEdit,
+}: {
+  terms: any[];
   type: string;
   onAdd: () => void;
   onEdit: (term: any) => void;
 }) {
+  const emptyCopy = `No ${type.toLowerCase()} terms configured yet`;
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-pearl-200">{type} Terms</h3>
-        <button 
-          onClick={onAdd}
-          className="px-3 py-1.5 bg-gradient-to-r from-saturn-500 to-sun-500 text-white text-sm rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-3.5 h-3.5" />
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h3 className="text-lg font-heading text-pearl-50">{type} Terms</h3>
+          <p className="text-sm text-pearl-300/80">
+            Curate {type.toLowerCase()} policies that align with organisational guardrails
+          </p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add {type} Term</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {terms.map((term) => (
-          <div key={term.id} className="bg-pearl-800/30 rounded-lg p-3 border border-pearl-700/30">
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="text-pearl-100 font-medium text-sm">{term.name}</h4>
+      {terms.length === 0 ? (
+        <HoloPanel theme="space" className="py-12 text-center text-pearl-200">
+          {emptyCopy}
+        </HoloPanel>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {terms.map((term) => (
+            <HoloPanel
+              key={term.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-3 border border-white/5"
+            >
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-base font-heading text-pearl-50">{term.name}</h4>
+                    {term.reference_code && (
+                      <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/60">
+                        {term.reference_code}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onEdit(term)}
+                    className="px-3 py-1.5"
+                    aria-label={`Edit ${type.toLowerCase()} term`}
+                  >
+                    <PencilIcon className="h-4 w-4 text-pearl-100" />
+                  </Button>
+                </div>
                 {term.description && (
-                  <p className="text-pearl-400 text-xs mt-1">{term.description}</p>
+                  <p className="text-sm text-pearl-300/80">{term.description}</p>
                 )}
               </div>
-              <div className="flex space-x-1">
-                <button 
-                  onClick={() => onEdit(term)}
-                  className="p-1 hover:bg-pearl-700/30 rounded transition-colors"
-                >
-                  <PencilIcon className="w-3 h-3 text-pearl-400" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </HoloPanel>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// Payment Terms List Component (with days)
-function PaymentTermsList({ 
-  terms, 
-  onAdd, 
-  onEdit 
-}: { 
+function PaymentTermsList({
+  terms,
+  onAdd,
+  onEdit,
+}: {
   terms: PaymentTerm[];
   onAdd: () => void;
   onEdit: (term: PaymentTerm) => void;
 }) {
+  const emptyCopy = 'No payment terms configured yet';
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-pearl-200">Payment Terms</h3>
-        <button 
-          onClick={onAdd}
-          className="px-3 py-1.5 bg-gradient-to-r from-saturn-500 to-sun-500 text-white text-sm rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-3.5 h-3.5" />
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h3 className="text-lg font-heading text-pearl-50">Payment Terms</h3>
+          <p className="text-sm text-pearl-300/80">
+            Define credit exposure, cadence, and downstream settlement requirements
+          </p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add Payment Term</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {terms.map((term) => (
-          <div key={term.id} className="bg-pearl-800/30 rounded-lg p-3 border border-pearl-700/30">
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="text-pearl-100 font-medium text-sm">{term.name}</h4>
-                {term.description && (
-                  <p className="text-pearl-400 text-xs mt-1">{term.description}</p>
-                )}
-                {term.days !== null && (
-                  <p className="text-sun-400 text-xs mt-1">{term.days} days</p>
+      {terms.length === 0 ? (
+        <HoloPanel theme="space" className="py-12 text-center text-pearl-200">
+          {emptyCopy}
+        </HoloPanel>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {terms.map((term) => (
+            <HoloPanel
+              key={term.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-3 border border-white/5"
+            >
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-base font-heading text-pearl-50">{term.name}</h4>
+                    {term.description && (
+                      <p className="text-sm text-pearl-300/80">{term.description}</p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onEdit(term)}
+                    className="px-3 py-1.5"
+                    aria-label="Edit payment term"
+                  >
+                    <PencilIcon className="h-4 w-4 text-pearl-100" />
+                  </Button>
+                </div>
+                {term.days !== null && term.days !== undefined && (
+                  <VolumetricBadge status="pending">{term.days} days</VolumetricBadge>
                 )}
               </div>
-              <div className="flex space-x-1">
-                <button 
-                  onClick={() => onEdit(term)}
-                  className="p-1 hover:bg-pearl-700/30 rounded transition-colors"
-                >
-                  <PencilIcon className="w-3 h-3 text-pearl-400" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </HoloPanel>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

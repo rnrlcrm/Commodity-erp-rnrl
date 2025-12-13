@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { InactivityMonitor } from './components/auth/InactivityMonitor';
@@ -5,20 +6,37 @@ import { ToastProvider } from './contexts/ToastContext';
 import { LoginPage } from './pages/auth/LoginPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
-import { BackofficeLayout2040 } from './layouts/BackofficeLayout2040';
-import { DashboardPage } from './pages/backoffice/DashboardPage';
-import { ClearingSettlementPage } from './pages/backoffice/ClearingSettlementPage';
-import { RiskMonitoringPage } from './pages/backoffice/RiskMonitoringPage';
-import { ComplianceAuditPage } from './pages/backoffice/ComplianceAuditPage';
-import { CapabilitiesManagementPage } from './pages/backoffice/CapabilitiesManagementPage';
-import { UserCapabilitiesPage } from './pages/backoffice/UserCapabilitiesPage';
-import { AccountsFinancePage } from './pages/backoffice/AccountsFinancePage';
-import { ProfilePage } from './pages/settings/ProfilePage';
-import { SessionsPage } from './pages/settings/SessionsPage';
-import { TwoFactorPage } from './pages/settings/TwoFactorPage';
-import OrganizationPage from './pages/settings/OrganizationPage';
-import CommoditiesPage from './pages/settings/CommoditiesPage';
-import LocationsPage from './pages/settings/LocationsPage';
+
+// 2040 Holographic System
+import { Layout2040 } from './layouts/Layout2040';
+
+// 2040 Holographic Module Scenes
+import { TradeDeskScene } from './pages/2040/TradeDeskScene';
+import { PartnerManagementScene } from './pages/2040/PartnerManagementScene';
+import { DocumentIntelligenceScene } from './pages/2040/DocumentIntelligenceScene';
+
+// Lazy load remaining 2040 scenes
+const SettingsScene = React.lazy(() => import('./pages/2040/SettingsScene'));
+const UserManagementScene = React.lazy(() => import('./pages/2040/UserManagementScene'));
+const QualityScene = React.lazy(() => import('./pages/2040/QualityScene'));
+const LogisticsScene = React.lazy(() => import('./pages/2040/LogisticsScene'));
+const DeliveryScene = React.lazy(() => import('./pages/2040/DeliveryScene'));
+const AccountsScene = React.lazy(() => import('./pages/2040/AccountsScene'));
+const DisputesScene = React.lazy(() => import('./pages/2040/DisputesScene'));
+const AuditScene = React.lazy(() => import('./pages/2040/AuditScene'));
+
+const ProfileSettingsPage = React.lazy(() =>
+  import('./pages/settings/ProfilePage').then((module) => ({ default: module.ProfilePage }))
+);
+const OrganizationSettingsPage = React.lazy(() => import('./pages/settings/OrganizationPage'));
+const CommoditiesSettingsPage = React.lazy(() => import('./pages/settings/CommoditiesPage'));
+const LocationsSettingsPage = React.lazy(() => import('./pages/settings/LocationsPage'));
+const SessionsSettingsPage = React.lazy(() =>
+  import('./pages/settings/SessionsPage').then((module) => ({ default: module.SessionsPage }))
+);
+const TwoFactorSettingsPage = React.lazy(() =>
+  import('./pages/settings/TwoFactorPage').then((module) => ({ default: module.TwoFactorPage }))
+);
 
 export default function App() {
   console.log('App component rendered - 2040 Architecture with Auth!');
@@ -33,46 +51,133 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         
-        {/* Protected routes */}
-        <Route path="/" element={<Navigate to="/backoffice" replace />} />
+        {/* Protected routes - All using 2040 Holographic System */}
+        <Route path="/" element={<Navigate to="/2040/trade-desk" replace />} />
         <Route 
-          path="/backoffice" 
+          path="/2040" 
           element={
             <ProtectedRoute>
-              <BackofficeLayout2040 />
+              <Layout2040 />
             </ProtectedRoute>
           }
         >
-          <Route index element={<DashboardPage />} />
-          <Route path="trade-desk" element={<PlaceholderPage title="Trade Desk" />} />
-          <Route path="clearing" element={<ClearingSettlementPage />} />
-          <Route path="risk" element={<RiskMonitoringPage />} />
-          <Route path="audit" element={<ComplianceAuditPage />} />
-          <Route path="capabilities" element={<CapabilitiesManagementPage />} />
-          <Route path="user-capabilities" element={<UserCapabilitiesPage />} />
-          <Route path="accounts" element={<AccountsFinancePage />} />
-          <Route path="settings/profile" element={<ProfilePage />} />
-          <Route path="settings/sessions" element={<SessionsPage />} />
-          <Route path="settings/2fa" element={<TwoFactorPage />} />
-          <Route path="settings/organization" element={<OrganizationPage />} />
-          <Route path="settings/commodities" element={<CommoditiesPage />} />
-          <Route path="settings/locations" element={<LocationsPage />} />
-          <Route path="settings" element={<Navigate to="/backoffice/settings/organization" replace />} />
+          <Route index element={<Navigate to="/2040/trade-desk" replace />} />
+          
+          {/* All 2040 Holographic Modules */}
+          <Route path="trade-desk" element={<TradeDeskScene />} />
+          
+          <Route path="partners" element={<PartnerManagementScene />} />
+          
+          <Route path="documents" element={<DocumentIntelligenceScene />} />
+          
+          <Route path="quality" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <QualityScene />
+            </React.Suspense>
+          } />
+          
+          <Route path="logistics" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <LogisticsScene />
+            </React.Suspense>
+          } />
+          
+          <Route path="delivery" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <DeliveryScene />
+            </React.Suspense>
+          } />
+          
+          <Route path="disputes" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <DisputesScene />
+            </React.Suspense>
+          } />
+          
+          <Route path="audit" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <AuditScene />
+            </React.Suspense>
+          } />
+          
+          <Route path="users" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <UserManagementScene />
+            </React.Suspense>
+          } />
+          
+          <Route path="accounts" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <AccountsScene />
+            </React.Suspense>
+          } />
+          
+          <Route path="settings" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <SettingsScene />
+            </React.Suspense>
+          } />
+          <Route path="settings/profile" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <ProfileSettingsPage />
+            </React.Suspense>
+          } />
+          <Route path="settings/organization" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <OrganizationSettingsPage />
+            </React.Suspense>
+          } />
+          <Route path="settings/commodities" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <CommoditiesSettingsPage />
+            </React.Suspense>
+          } />
+          <Route path="settings/locations" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <LocationsSettingsPage />
+            </React.Suspense>
+          } />
+          <Route path="settings/sessions" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <SessionsSettingsPage />
+            </React.Suspense>
+          } />
+          <Route path="settings/2fa" element={
+            <React.Suspense fallback={<LoadingScene />}>
+              <TwoFactorSettingsPage />
+            </React.Suspense>
+          } />
+          
           <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />
         </Route>
+        
+        {/* Legacy redirects */}
+        <Route path="/backoffice/*" element={<Navigate to="/2040/trade-desk" replace />} />
       </Routes>
     </BrowserRouter>
       </ToastProvider>
   );
 }
 
-function PlaceholderPage({ title }: { title: string }) {
+function PlaceholderPage({ title }: Readonly<{ title: string }>) {
   return (
-    <div className="max-w-4xl mx-auto p-12 animate-fadeIn">
-      <div className="bg-gradient-to-br from-saturn-50 to-sun-50 border-2 border-saturn-200 rounded-2xl p-12 text-center">
-        <h1 className="text-4xl font-heading font-bold text-space-900 mb-4">{title}</h1>
-        <p className="text-saturn-600 text-lg">This module is under development</p>
-        <p className="text-saturn-500 text-sm mt-2">Part of the 2040 Vision Architecture</p>
+    <div className="min-h-screen bg-space-500 flex items-center justify-center p-6">
+      <div className="hologlass-saturn rounded-holo-lg p-12 text-center max-w-2xl">
+        <div className="text-6xl mb-6">🚧</div>
+        <h1 className="text-4xl font-heading font-bold text-pearl-50 mb-4 text-glow-saturn">{title}</h1>
+        <p className="text-pearl-300 text-lg mb-2">This holographic module is materializing</p>
+        <p className="text-pearl-400 text-sm">Part of the 2040 Vision Architecture</p>
+      </div>
+    </div>
+  );
+}
+
+function LoadingScene() {
+  return (
+    <div className="min-h-screen bg-space-500 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-saturn-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <div className="text-pearl-200 text-sm">Loading holographic interface...</div>
       </div>
     </div>
   );

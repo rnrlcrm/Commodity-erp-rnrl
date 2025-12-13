@@ -4,6 +4,10 @@
  */
 
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/2040/Button';
+import { HoloPanel } from '@/components/2040/HoloPanel';
+import { MultiLayerTabs } from '@/components/2040/MultiLayerTabs';
+import { VolumetricBadge } from '@/components/2040/VolumetricTable';
 import { 
   BuildingOfficeIcon, 
   BanknotesIcon, 
@@ -12,7 +16,6 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import organizationService from '@/services/api/organizationService';
 import { useToast } from '@/contexts/ToastContext';
@@ -29,6 +32,7 @@ import type {
   OrganizationFinancialYear,
   OrganizationDocumentSeries,
 } from '@/types/settings';
+import SettingsSceneLayout from './components/SettingsSceneLayout';
 
 export default function OrganizationPage() {
   const toast = useToast();
@@ -133,107 +137,96 @@ export default function OrganizationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-pearl-100">Loading organization data...</div>
-        </div>
-      </div>
+      <SettingsSceneLayout
+        title="Organization Settings"
+        subtitle="Manage your company information and configurations"
+      >
+        <HoloPanel theme="space" className="p-12 text-center text-pearl-200">
+          Loading organization data...
+        </HoloPanel>
+      </SettingsSceneLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-        <div className="bg-mars-500/20 border border-mars-500/30 rounded-lg p-4">
-          <p className="text-mars-200">{error}</p>
-        </div>
-      </div>
+      <SettingsSceneLayout
+        title="Organization Settings"
+        subtitle="Manage your company information and configurations"
+      >
+        <HoloPanel theme="mars" className="p-6 text-pearl-100">
+          {error}
+        </HoloPanel>
+      </SettingsSceneLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-space-900 via-space-800 to-saturn-900 p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-sun-400 to-saturn-400 bg-clip-text text-transparent">
-          Organization Settings
-        </h1>
-        <p className="text-pearl-300 mt-2">Manage your company information and configurations</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-6 border-b border-pearl-700/30">
-        <div className="flex space-x-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 font-medium rounded-t-lg transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-saturn-500/20 to-sun-500/20 text-sun-400 border-b-2 border-sun-400'
-                    : 'text-pearl-400 hover:text-pearl-100 hover:bg-pearl-700/10'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Icon className="w-5 h-5" />
-                  <span>{tab.label}</span>
-                </div>
-              </button>
-            );
-          })}
+    <SettingsSceneLayout
+      title="Organization Settings"
+      subtitle="Manage your company information and configurations"
+    >
+      <HoloPanel theme="space" glow className="overflow-hidden p-0">
+        <div className="border-b border-white/10 px-4 py-5 md:px-6">
+          <MultiLayerTabs
+            tabs={tabs.map((tab) => {
+              const Icon = tab.icon;
+              return {
+                key: tab.id,
+                label: (
+                  <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-pearl-100">
+                    <Icon className="h-4 w-4 text-sun-300" />
+                    <span>{tab.label}</span>
+                  </div>
+                ),
+              };
+            })}
+            activeKey={activeTab}
+            onChange={(key) => setActiveTab(key as typeof activeTab)}
+          />
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="bg-pearl-900/20 backdrop-blur-sm border border-pearl-700/30 rounded-xl p-6">
-        {activeTab === 'company' && organization && (
-          <CompanyDetails organization={organization} onUpdate={loadOrganizationData} />
-        )}
-        
-        {activeTab === 'gst' && (
-          <GSTManagement 
-            gstList={gstList} 
-            organizationId={organization?.id || ''}
-            onAdd={() => setGstModal({ open: true })}
-            onEdit={(gst) => setGstModal({ open: true, data: gst })}
-            onDelete={handleDeleteGST}
-          />
-        )}
-        
-        {activeTab === 'banks' && (
-          <BankAccountsManagement 
-            accounts={bankAccounts} 
-            organizationId={organization?.id || ''}
-            onAdd={() => setBankModal({ open: true })}
-            onEdit={(account) => setBankModal({ open: true, data: account })}
-            onDelete={handleDeleteBank}
-          />
-        )}
-        
-        {activeTab === 'fy' && (
-          <FinancialYearsManagement 
-            years={financialYears} 
-            organizationId={organization?.id || ''}
-            onAdd={() => setFyModal({ open: true })}
-            onEdit={(year) => setFyModal({ open: true, data: year })}
-            onDelete={handleDeleteFY}
-          />
-        )}
-        
-        {activeTab === 'docs' && (
-          <DocumentSeriesManagement 
-            series={documentSeries} 
-            organizationId={organization?.id || ''}
-            onAdd={() => setDocModal({ open: true })}
-            onEdit={(doc) => setDocModal({ open: true, data: doc })}
-            onDelete={handleDeleteDocSeries}
-          />
-        )}
-      </div>
+        <div className="space-y-8 px-4 py-6 md:px-6">
+          {activeTab === 'company' && organization && <CompanyDetails organization={organization} />}
 
-      {/* Modals */}
+          {activeTab === 'gst' && (
+            <GSTManagement
+              gstList={gstList}
+              onAdd={() => setGstModal({ open: true })}
+              onEdit={(gst) => setGstModal({ open: true, data: gst })}
+              onDelete={handleDeleteGST}
+            />
+          )}
+
+          {activeTab === 'banks' && (
+            <BankAccountsManagement
+              accounts={bankAccounts}
+              onAdd={() => setBankModal({ open: true })}
+              onEdit={(account) => setBankModal({ open: true, data: account })}
+              onDelete={handleDeleteBank}
+            />
+          )}
+
+          {activeTab === 'fy' && (
+            <FinancialYearsManagement
+              years={financialYears}
+              onAdd={() => setFyModal({ open: true })}
+              onEdit={(year) => setFyModal({ open: true, data: year })}
+              onDelete={handleDeleteFY}
+            />
+          )}
+
+          {activeTab === 'docs' && (
+            <DocumentSeriesManagement
+              series={documentSeries}
+              onAdd={() => setDocModal({ open: true })}
+              onEdit={(doc) => setDocModal({ open: true, data: doc })}
+              onDelete={handleDeleteDocSeries}
+            />
+          )}
+        </div>
+      </HoloPanel>
+
       {organization && (
         <>
           <GSTModal
@@ -266,140 +259,172 @@ export default function OrganizationPage() {
           />
         </>
       )}
-    </div>
+    </SettingsSceneLayout>
   );
 }
 
 // Component for Company Details tab
-function CompanyDetails({ organization }: { organization: Organization; onUpdate?: () => void }) {
+function CompanyDetails({ organization }: Readonly<{ organization: Organization }>) {
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">Company Information</h2>
-        <button className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2">
-          <PencilIcon className="w-4 h-4" />
-          <span>Edit Details</span>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
         <div>
-          <label className="text-pearl-400 text-sm">Company Name</label>
-          <p className="text-pearl-100 font-medium mt-1">{organization.name}</p>
-        </div>
-        <div>
-          <label className="text-pearl-400 text-sm">Legal Name</label>
-          <p className="text-pearl-100 font-medium mt-1">{organization.legal_name || 'N/A'}</p>
-        </div>
-        <div>
-          <label className="text-pearl-400 text-sm">PAN</label>
-          <p className="text-pearl-100 font-medium mt-1">{organization.PAN || 'N/A'}</p>
-        </div>
-        <div>
-          <label className="text-pearl-400 text-sm">CIN</label>
-          <p className="text-pearl-100 font-medium mt-1">{organization.CIN || 'N/A'}</p>
-        </div>
-        <div>
-          <label className="text-pearl-400 text-sm">Contact Email</label>
-          <p className="text-pearl-100 font-medium mt-1">{organization.contact_email || 'N/A'}</p>
-        </div>
-        <div>
-          <label className="text-pearl-400 text-sm">Contact Phone</label>
-          <p className="text-pearl-100 font-medium mt-1">{organization.contact_phone || 'N/A'}</p>
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-pearl-400 text-sm">Address</label>
-          <p className="text-pearl-100 font-medium mt-1">
-            {organization.address_line1 || 'N/A'}
-            {organization.address_line2 && <>, {organization.address_line2}</>}
-            {organization.city && <>, {organization.city}</>}
-            {organization.state && <>, {organization.state}</>}
-            {organization.pincode && <> - {organization.pincode}</>}
+          <h2 className="text-xl font-heading text-pearl-50">Company Information</h2>
+          <p className="text-sm text-pearl-300/80">
+            Centralise statutory identity, contact coordinates, and compliance capabilities
           </p>
         </div>
-      </div>
+        <Button type="button" className="flex items-center gap-2">
+          <PencilIcon className="h-4 w-4" />
+          <span>Edit Details</span>
+        </Button>
+      </HoloPanel>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-pearl-700/30">
-        <div className="flex items-center space-x-2">
-          <div className={`w-3 h-3 rounded-full ${organization.einvoice_required ? 'bg-emerald-500' : 'bg-pearl-600'}`}></div>
-          <span className="text-pearl-300 text-sm">E-Invoice Required</span>
+      <HoloPanel theme="space" className="space-y-6 border border-white/5">
+        <div className="grid gap-6 md:grid-cols-2">
+          {[{
+            label: 'Company Name',
+            value: organization.name,
+          },
+          {
+            label: 'Legal Name',
+            value: organization.legal_name,
+          },
+          {
+            label: 'PAN',
+            value: organization.PAN,
+          },
+          {
+            label: 'CIN',
+            value: organization.CIN,
+          },
+          {
+            label: 'Contact Email',
+            value: organization.contact_email,
+          },
+          {
+            label: 'Contact Phone',
+            value: organization.contact_phone,
+          }].map((field) => (
+            <div key={field.label}>
+              <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">{field.label}</p>
+              <p className="mt-2 text-lg text-pearl-50">{field.value || 'N/A'}</p>
+            </div>
+          ))}
+
+          <div className="md:col-span-2">
+            <p className="text-xs font-mono uppercase tracking-[0.3em] text-saturn-200/70">Registered Address</p>
+            <p className="mt-2 text-lg text-pearl-50">
+              {organization.address_line1 || 'N/A'}
+              {organization.address_line2 && `, ${organization.address_line2}`}
+              {organization.city && `, ${organization.city}`}
+              {organization.state && `, ${organization.state}`}
+              {organization.pincode && ` - ${organization.pincode}`}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className={`w-3 h-3 rounded-full ${organization.fx_enabled ? 'bg-emerald-500' : 'bg-pearl-600'}`}></div>
-          <span className="text-pearl-300 text-sm">FX Enabled</span>
+
+        <div className="grid gap-4 border-t border-white/10 pt-6 sm:grid-cols-2 lg:grid-cols-4">
+          {[{
+            label: 'E-Invoice Required',
+            active: organization.einvoice_required,
+          },
+          {
+            label: 'FX Enabled',
+            active: organization.fx_enabled,
+          },
+          {
+            label: 'Auto Invoice',
+            active: organization.auto_invoice,
+          },
+          {
+            label: 'Auto Contract Number',
+            active: organization.auto_contract_number,
+          }].map((toggle) => (
+            <div key={toggle.label} className="flex items-center gap-3">
+              <VolumetricBadge status={toggle.active ? 'active' : 'failed'}>
+                {toggle.active ? 'Enabled' : 'Disabled'}
+              </VolumetricBadge>
+              <span className="text-sm text-pearl-300/90">{toggle.label}</span>
+            </div>
+          ))}
         </div>
-        <div className="flex items-center space-x-2">
-          <div className={`w-3 h-3 rounded-full ${organization.auto_invoice ? 'bg-emerald-500' : 'bg-pearl-600'}`}></div>
-          <span className="text-pearl-300 text-sm">Auto Invoice</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className={`w-3 h-3 rounded-full ${organization.auto_contract_number ? 'bg-emerald-500' : 'bg-pearl-600'}`}></div>
-          <span className="text-pearl-300 text-sm">Auto Contract Number</span>
-        </div>
-      </div>
+      </HoloPanel>
     </div>
   );
 }
 
 // Component for GST Management tab
-function GSTManagement({ gstList, onAdd, onEdit, onDelete }: {
+function GSTManagement({ gstList, onAdd, onEdit, onDelete }: Readonly<{
   gstList: OrganizationGST[];
-  organizationId?: string;
   onAdd: () => void;
   onEdit: (gst: OrganizationGST) => void;
   onDelete: (id: string) => void;
-}) {
+}>) {
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">GST Details</h2>
-        <button 
-          onClick={onAdd}
-          className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-4 h-4" />
+    <div className="space-y-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">GST Details</h2>
+          <p className="text-sm text-pearl-300/80">Track registered GSTINs, billing addresses, and filing status</p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add GST</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
       {gstList.length === 0 ? (
-        <div className="text-center py-12 text-pearl-400">
+        <HoloPanel theme="space" className="py-14 text-center text-pearl-200">
           No GST details added yet
-        </div>
+        </HoloPanel>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           {gstList.map((gst) => (
-            <div key={gst.id} className="bg-pearl-800/30 rounded-lg p-4 border border-pearl-700/30">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-pearl-100 font-medium">{gst.gstin}</h3>
-                    {gst.is_primary && (
-                      <span className="px-2 py-1 bg-sun-500/20 text-sun-400 text-xs rounded">Primary</span>
-                    )}
-                    {!gst.is_active && (
-                      <span className="px-2 py-1 bg-mars-500/20 text-mars-400 text-xs rounded">Inactive</span>
-                    )}
-                  </div>
-                  <p className="text-pearl-400 text-sm mt-1">{gst.legal_name}</p>
-                  <p className="text-pearl-500 text-sm mt-1">{gst.address} - {gst.state}</p>
+            <HoloPanel
+              key={gst.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-4 border border-white/5"
+            >
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-heading text-pearl-50">{gst.gstin}</h3>
+                  {gst.is_primary && <VolumetricBadge status="pending">Primary</VolumetricBadge>}
+                  <VolumetricBadge status={gst.is_active ? 'active' : 'failed'}>
+                    {gst.is_active ? 'Active' : 'Inactive'}
+                  </VolumetricBadge>
                 </div>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => onEdit(gst)}
-                    className="p-2 hover:bg-pearl-700/30 rounded transition-colors"
-                  >
-                    <PencilIcon className="w-4 h-4 text-pearl-400" />
-                  </button>
-                  <button 
-                    onClick={() => onDelete(gst.id)}
-                    className="p-2 hover:bg-mars-500/20 rounded transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4 text-mars-400" />
-                  </button>
-                </div>
+                <p className="text-sm text-pearl-300/80">{gst.legal_name}</p>
+                <p className="text-sm text-pearl-200">{gst.address} • {gst.state}</p>
               </div>
-            </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onEdit(gst)}
+                  className="px-3 py-2"
+                  aria-label="Edit GST"
+                >
+                  <PencilIcon className="h-4 w-4 text-pearl-100" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => onDelete(gst.id)}
+                  className="px-3 py-2"
+                  aria-label="Delete GST"
+                >
+                  <TrashIcon className="h-4 w-4 text-white" />
+                </Button>
+              </div>
+            </HoloPanel>
           ))}
         </div>
       )}
@@ -408,65 +433,79 @@ function GSTManagement({ gstList, onAdd, onEdit, onDelete }: {
 }
 
 // Component for Bank Accounts Management tab
-function BankAccountsManagement({ accounts, onAdd, onEdit, onDelete }: {
+function BankAccountsManagement({ accounts, onAdd, onEdit, onDelete }: Readonly<{
   accounts: OrganizationBankAccount[];
-  organizationId?: string;
   onAdd: () => void;
   onEdit: (account: OrganizationBankAccount) => void;
   onDelete: (id: string) => void;
-}) {
+}>) {
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">Bank Accounts</h2>
-        <button 
-          onClick={onAdd}
-          className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-4 h-4" />
+    <div className="space-y-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">Bank Accounts</h2>
+          <p className="text-sm text-pearl-300/80">
+            Maintain verified banking rails for payouts, invoicing, and settlements
+          </p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add Account</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
       {accounts.length === 0 ? (
-        <div className="text-center py-12 text-pearl-400">
+        <HoloPanel theme="space" className="py-14 text-center text-pearl-200">
           No bank accounts added yet
-        </div>
+        </HoloPanel>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           {accounts.map((account) => (
-            <div key={account.id} className="bg-pearl-800/30 rounded-lg p-4 border border-pearl-700/30">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-pearl-100 font-medium">{account.bank_name}</h3>
-                    {account.is_primary && (
-                      <span className="px-2 py-1 bg-sun-500/20 text-sun-400 text-xs rounded">Primary</span>
-                    )}
-                  </div>
-                  <p className="text-pearl-400 text-sm mt-1">
-                    {account.account_holder_name} • {account.account_number}
-                  </p>
-                  <p className="text-pearl-500 text-sm mt-1">
-                    IFSC: {account.ifsc_code} • {account.branch_name}
-                  </p>
+            <HoloPanel
+              key={account.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-4 border border-white/5"
+            >
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-heading text-pearl-50">{account.bank_name}</h3>
+                  {account.is_primary && (
+                    <VolumetricBadge status="pending">Primary</VolumetricBadge>
+                  )}
                 </div>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => onEdit(account)}
-                    className="p-2 hover:bg-pearl-700/30 rounded transition-colors"
-                  >
-                    <PencilIcon className="w-4 h-4 text-pearl-400" />
-                  </button>
-                  <button 
-                    onClick={() => onDelete(account.id)}
-                    className="p-2 hover:bg-mars-500/20 rounded transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4 text-mars-400" />
-                  </button>
+                <div className="text-sm text-pearl-300/80">
+                  <p>{account.account_holder_name}</p>
+                  <p className="font-mono text-pearl-200">{account.account_number}</p>
+                </div>
+                <div className="text-xs uppercase tracking-[0.25em] text-saturn-200/70">
+                  IFSC {account.ifsc_code} • {account.branch_name}
                 </div>
               </div>
-            </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onEdit(account)}
+                  className="px-3 py-2"
+                  aria-label="Edit bank account"
+                >
+                  <PencilIcon className="h-4 w-4 text-pearl-100" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => onDelete(account.id)}
+                  className="px-3 py-2"
+                  aria-label="Delete bank account"
+                >
+                  <TrashIcon className="h-4 w-4 text-white" />
+                </Button>
+              </div>
+            </HoloPanel>
           ))}
         </div>
       )}
@@ -475,65 +514,75 @@ function BankAccountsManagement({ accounts, onAdd, onEdit, onDelete }: {
 }
 
 // Component for Financial Years Management tab
-function FinancialYearsManagement({ years, onAdd, onEdit, onDelete }: {
+function FinancialYearsManagement({ years, onAdd, onEdit, onDelete }: Readonly<{
   years: OrganizationFinancialYear[];
-  organizationId?: string;
   onAdd: () => void;
   onEdit: (year: OrganizationFinancialYear) => void;
   onDelete: (id: string) => void;
-}) {
+}>) {
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">Financial Years</h2>
-        <button 
-          onClick={onAdd}
-          className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-4 h-4" />
+    <div className="space-y-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">Financial Years</h2>
+          <p className="text-sm text-pearl-300/80">
+            Configure fiscal periods for reporting, statutory filings, and close processes
+          </p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add Financial Year</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
       {years.length === 0 ? (
-        <div className="text-center py-12 text-pearl-400">
+        <HoloPanel theme="space" className="py-14 text-center text-pearl-200">
           No financial years configured yet
-        </div>
+        </HoloPanel>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           {years.map((fy) => (
-            <div key={fy.id} className="bg-pearl-800/30 rounded-lg p-4 border border-pearl-700/30">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-pearl-100 font-medium">{fy.year_name}</h3>
-                    {fy.is_current && (
-                      <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded flex items-center space-x-1">
-                        <CheckCircleIcon className="w-3 h-3" />
-                        <span>Current</span>
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-pearl-400 text-sm mt-1">
-                    {new Date(fy.start_date).toLocaleDateString()} - {new Date(fy.end_date).toLocaleDateString()}
-                  </p>
+            <HoloPanel
+              key={fy.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-4 border border-white/5"
+            >
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-heading text-pearl-50">{fy.year_name}</h3>
+                  {fy.is_current && (
+                    <VolumetricBadge status="completed">Current</VolumetricBadge>
+                  )}
                 </div>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => onEdit(fy)}
-                    className="p-2 hover:bg-pearl-700/30 rounded transition-colors"
-                  >
-                    <PencilIcon className="w-4 h-4 text-pearl-400" />
-                  </button>
-                  <button 
-                    onClick={() => onDelete(fy.id)}
-                    className="p-2 hover:bg-mars-500/20 rounded transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4 text-mars-400" />
-                  </button>
-                </div>
+                <p className="text-sm text-pearl-300/80">
+                  {new Date(fy.start_date).toLocaleDateString()} – {new Date(fy.end_date).toLocaleDateString()}
+                </p>
               </div>
-            </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onEdit(fy)}
+                  className="px-3 py-2"
+                  aria-label="Edit financial year"
+                >
+                  <PencilIcon className="h-4 w-4 text-pearl-100" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => onDelete(fy.id)}
+                  className="px-3 py-2"
+                  aria-label="Delete financial year"
+                >
+                  <TrashIcon className="h-4 w-4 text-white" />
+                </Button>
+              </div>
+            </HoloPanel>
           ))}
         </div>
       )}
@@ -542,60 +591,77 @@ function FinancialYearsManagement({ years, onAdd, onEdit, onDelete }: {
 }
 
 // Component for Document Series Management tab
-function DocumentSeriesManagement({ series, onAdd, onEdit, onDelete }: {
+function DocumentSeriesManagement({ series, onAdd, onEdit, onDelete }: Readonly<{
   series: OrganizationDocumentSeries[];
-  organizationId?: string;
   onAdd: () => void;
   onEdit: (doc: OrganizationDocumentSeries) => void;
   onDelete: (id: string) => void;
-}) {
+}>) {
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-pearl-100">Document Series</h2>
-        <button 
-          onClick={onAdd}
-          className="px-4 py-2 bg-gradient-to-r from-saturn-500 to-sun-500 text-white rounded-lg hover:from-saturn-600 hover:to-sun-600 transition-all flex items-center space-x-2"
-        >
-          <PlusIcon className="w-4 h-4" />
+    <div className="space-y-6">
+      <HoloPanel
+        theme="space"
+        className="flex flex-col gap-3 border border-white/5 md:flex-row md:items-center md:justify-between"
+      >
+        <div>
+          <h2 className="text-xl font-heading text-pearl-50">Document Series</h2>
+          <p className="text-sm text-pearl-300/80">
+            Control numbering sequences for invoices, delivery challans, and trade contracts
+          </p>
+        </div>
+        <Button type="button" onClick={onAdd} className="flex items-center gap-2">
+          <PlusIcon className="h-4 w-4" />
           <span>Add Series</span>
-        </button>
-      </div>
+        </Button>
+      </HoloPanel>
 
       {series.length === 0 ? (
-        <div className="text-center py-12 text-pearl-400">
+        <HoloPanel theme="space" className="py-14 text-center text-pearl-200">
           No document series configured yet
-        </div>
+        </HoloPanel>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           {series.map((doc) => (
-            <div key={doc.id} className="bg-pearl-800/30 rounded-lg p-4 border border-pearl-700/30">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className="text-pearl-100 font-medium">{doc.document_type}</h3>
-                  <p className="text-pearl-400 text-sm mt-1">
-                    Format: {doc.prefix}{String(doc.current_number).padStart(doc.padding_length, '0')}{doc.suffix || ''}
-                  </p>
-                  <p className="text-pearl-500 text-sm mt-1">
-                    Current Number: {doc.current_number} • Padding: {doc.padding_length} digits
-                  </p>
+            <HoloPanel
+              key={doc.id}
+              theme="space"
+              elevated
+              className="flex h-full flex-col gap-4 border border-white/5"
+            >
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-heading text-pearl-50">{doc.document_type}</h3>
                 </div>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => onEdit(doc)}
-                    className="p-2 hover:bg-pearl-700/30 rounded transition-colors"
-                  >
-                    <PencilIcon className="w-4 h-4 text-pearl-400" />
-                  </button>
-                  <button 
-                    onClick={() => onDelete(doc.id)}
-                    className="p-2 hover:bg-mars-500/20 rounded transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4 text-mars-400" />
-                  </button>
+                <p className="text-sm text-pearl-300/80">
+                  Format {doc.prefix}
+                  {String(doc.current_number).padStart(doc.padding_length, '0')}
+                  {doc.suffix || ''}
+                </p>
+                <div className="text-xs uppercase tracking-[0.25em] text-saturn-200/70">
+                  Current {doc.current_number} • Padding {doc.padding_length} digits
                 </div>
               </div>
-            </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onEdit(doc)}
+                  className="px-3 py-2"
+                  aria-label="Edit document series"
+                >
+                  <PencilIcon className="h-4 w-4 text-pearl-100" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => onDelete(doc.id)}
+                  className="px-3 py-2"
+                  aria-label="Delete document series"
+                >
+                  <TrashIcon className="h-4 w-4 text-white" />
+                </Button>
+              </div>
+            </HoloPanel>
           ))}
         </div>
       )}
