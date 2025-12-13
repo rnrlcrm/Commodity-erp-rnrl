@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   DESIGN TOKENS (GLOBAL)
+========================= */
+:root {
+  /* Saturn */
+  --color-saturn-100: #e0f2fe;
+  --color-saturn-200: #bae6fd;
+  --color-saturn-300: #60a5fa;
+  --color-saturn-400: #3b82f6;
+  --color-saturn-500: #2563eb;
+
+  /* Sun */
+  --color-sun-200: #fef3c7;
+  --color-sun-300: #fcd34d;
+  --color-sun-400: #fbbf24;
+  --color-sun-500: #f59e0b;
+
+  /* Mars */
+  --color-mars-300: #fca5a5;
+  --color-mars-400: #f87171;
+  --color-mars-500: #ef4444;
+  --color-mars-700: #b91c1c;
+
+  /* Pearl */
+  --color-pearl-50: #f8fafc;
+  --color-pearl-100: #f1f5f9;
+  --color-pearl-200: #e2e8f0;
+  --color-pearl-300: #cbd5e1;
+  --color-pearl-500: #64748b;
+
+  /* Space */
+  --color-space-600: #1e293b;
+  --color-space-700: #0f172a;
+  --color-space-800: #0a0f1e;
+  --color-space-900: #050a14;
+
+  /* Signals */
+  --color-buy-light: #86efac;
+  --color-sell-light: #fca5a5;
+
+  /* Effects */
+  --backdrop-blur-glass: blur(20px);
+  --depth-scale: 1;
+
+  /* Spacing */
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+
+  /* Radius */
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+
+  /* Typography */
+  --font-family-heading: "Inter", system-ui, sans-serif;
+  --font-family-body: "Inter", system-ui, sans-serif;
+  --font-family-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* =========================
+   BASE STYLES
+========================= */
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-space-900 via-space-800 to-space-900 text-pearl-100 antialiased min-h-screen;
+    font-family: var(--font-family-body);
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-family-heading);
+  }
+}
+
+/* =========================
+   ANIMATIONS (GLOBAL)
+========================= */
+@keyframes holo-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.3);
+  }
+}
+
+/* =========================
+   ACCESSIBILITY
+========================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================
+   UTILITIES
+========================= */
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
