@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { GeometricBackground } from '@/components/2040/GeometricBackground';
 import { HolographicBackground } from '@/components/2040/HolographicBackground';
 import { Button } from '@/components/2040';
+import LiquidButton from '@/components/2040/LiquidButton';
 import { CompanyLogo } from '@/components/common/CompanyLogo';
 
 export function LoginPage() {
@@ -181,9 +182,13 @@ export function LoginPage() {
               </Link>
             </div>
 
-            <Button type="submit" className="w-full py-3 text-base font-semibold" disabled={isLoading}>
-              {isLoading ? 'Signing in…' : 'Enter the Backoffice'}
-            </Button>
+            <div onClick={(e) => { if (!isLoading) (e.currentTarget.closest('form') as HTMLFormElement)?.requestSubmit(); }}>
+              <LiquidButton
+                label={isLoading ? 'Signing in…' : 'Enter the Backoffice'}
+                className="w-full"
+                disabled={isLoading}
+              />
+            </div>
           </form>
         </motion.div>
       </div>
