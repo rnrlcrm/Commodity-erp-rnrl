@@ -1,5 +1,5 @@
 import { AppProviders } from './app/providers/AppProviders';
-import { HoloShell } from './scenes/HoloShell';
+import { HoloShell } from './BackofficeScene/HoloShell';
 
 export function App() {
   return (
